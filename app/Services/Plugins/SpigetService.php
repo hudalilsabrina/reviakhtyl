@@ -1,0 +1,81 @@
+<?php
+
+namespace App\Services\Plugins;
+
+use Illuminate\Support\Facades\Http;
+
+class SpigetService implements PluginProviderInterface
+{
+    public const PROVIDER = 'spiget';
+
+    private const API = 'https://api.spiget.org/v2';
+
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset): array
+    {
+        $response = Http::acceptJson()->timeout(15)->get(self::API.'/search/resources/'.urlencode($query), [
+            'size' => $limit,
+            'page' => intdiv($offset, max($limit, 1)) + 1,
+            'sort' => '-downloads',
+            'fields' => 'id,name,tag,icon,downloads,author',
+        ]);
+
+        if ($response->failed() || ! is_array($response->json())) {
+            return ['hits' => [], 'total' => 0];
+        }
+
+        $total = (int) ($response->header('x-total-count')[0] ?? 0);
+
+        return [
+            'hits' => collect($response->json())->map(fn ($hit) => [
+                'id' => (string) $hit['id'],
+                'slug' => (string) $hit['id'],
+                'title' => $hit['name'],
+                'description' => $hit['tag'] ?? '',
+                'author' => isset($hit['author']['id']) ? (string) $hit['author']['id'] : '',
+                'icon_url' => isset($hit['icon']['url']) ? 'https://www.spigotmc.org/'.$hit['icon']['url'] : null,
+                'downloads' => $hit['downloads'] ?? 0,
+            ])->all(),
+            // Spiget omits the header for single-page results.
+            'total' => $total ?: count($response->json()) + $offset,
+        ];
+    }
+
+    public function resolveVersion(string $projectId, array $loaders, ?string $gameVersion): ?array
+    {
+        $response = Http::acceptJson()->timeout(15)
+            ->get(self::API.'/resources/'.$projectId.'/versions/latest');
+
+        if ($response->failed()) {
+            return null;
+        }
+
+        $version = $response->json();
+
+        return [
+            'id' => (string) $version['id'],
+            'version_number' => $version['name'],
+            'file_name' => $this->slug($version['name']).'.jar',
+            'download_url' => self::API.'/resources/'.$projectId.'/versions/'.$version['id'].'/download',
+            'game_versions' => [],
+            'loaders' => ['spigot'],
+        ];
+    }
+
+    public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array
+    {
+        $version = $this->resolveVersion($projectId, $loaders, $gameVersion);
+
+        if (! $version || $version['id'] === $currentVersionId) {
+            return null;
+        }
+
+        return $version;
+    }
+
+    private function slug(string $name): string
+    {
+        $slug = preg_replace('/[^A-Za-z0-9._-]+/', '-', $name);
+
+        return trim($slug, '-') ?: 'plugin';
+    }
+}
