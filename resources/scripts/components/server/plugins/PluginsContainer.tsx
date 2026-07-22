@@ -31,13 +31,16 @@ const cardCss = css`
 
 const badgeCss = {
     provider: css`
-        ${tw`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-gray-700/70 text-gray-300`}
+        ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-gray-700/70 text-gray-300`}
+        font-size: 10px;
     `,
     disabled: css`
-        ${tw`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-yellow-600/30 text-yellow-200`}
+        ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-yellow-600/30 text-yellow-200`}
+        font-size: 10px;
     `,
     installed: css`
-        ${tw`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-success/20 text-success`}
+        ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-success/20 text-success`}
+        font-size: 10px;
     `,
 };
 
