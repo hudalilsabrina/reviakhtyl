@@ -97,6 +97,8 @@ class Permission extends Model
 
     public const ACTION_SUBDOMAIN_MANAGE = 'subdomain.manage';
 
+    public const ACTION_PLUGIN_MANAGE = 'plugin.manage';
+
     /**
      * Should timestamps be used on this model.
      */
@@ -243,6 +245,13 @@ class Permission extends Model
             'description' => 'Permissions that control a user\'s access to the Cloudflare subdomain for this server.',
             'keys' => [
                 'manage' => 'Allows a user to create, change, or remove the Cloudflare subdomain for this server.',
+            ],
+        ],
+
+        'plugin' => [
+            'description' => 'Permissions that control a user\'s access to the plugin installer for this server.',
+            'keys' => [
+                'manage' => 'Allows a user to search, install, update, and remove Minecraft plugins on this server.',
             ],
         ],
     ];
