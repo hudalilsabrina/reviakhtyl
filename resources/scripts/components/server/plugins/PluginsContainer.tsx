@@ -115,10 +115,15 @@ const PluginsContainer = () => {
     };
 
     useEffect(() => {
-        if (tab === 'browse') {
-            setHits([]);
-            doSearch(0);
+        if (tab !== 'browse') return;
+        // Spiget has no relevance ranking; fall back to downloads.
+        const effectiveSort = provider === 'spiget' && sort === 'relevance' ? 'downloads' : sort;
+        if (effectiveSort !== sort) {
+            setSort(effectiveSort);
+            return;
         }
+        setHits([]);
+        doSearch(0);
     }, [tab, provider, sort]);
 
     // Debounced live search while typing.
@@ -360,7 +365,7 @@ const PluginsContainer = () => {
                             onChange={(e) => setSort(e.target.value as PluginSort)}
                             css={tw`w-32 flex-shrink-0`}
                         >
-                            <option value={'relevance'}>{t('sort_relevance')}</option>
+                            {provider !== 'spiget' && <option value={'relevance'}>{t('sort_relevance')}</option>}
                             <option value={'downloads'}>{t('sort_downloads')}</option>
                             <option value={'updated'}>{t('sort_updated')}</option>
                         </Select>
