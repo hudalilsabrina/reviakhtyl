@@ -10,6 +10,7 @@ use App\Models\Permission;
 use App\Models\Server;
 use App\Models\ServerCategory;
 use App\Models\Subuser;
+use App\Services\Servers\CloudflareSubdomainService;
 use App\Services\Servers\StartupCommandService;
 use Illuminate\Container\Container;
 use League\Fractal\Resource\Collection;
@@ -35,6 +36,15 @@ class ServerTransformer extends BaseClientTransformer
     {
         /** @var StartupCommandService $service */
         $service = Container::getInstance()->make(StartupCommandService::class);
+
+        /** @var CloudflareSubdomainService $subdomainService */
+        $subdomainService = Container::getInstance()->make(CloudflareSubdomainService::class);
+
+        $eggFeatures = $server->egg->inherit_features ?? [];
+
+        if ($subdomainService->isEnabledFor($server) && ! in_array('subdomain', $eggFeatures, true)) {
+            $eggFeatures[] = 'subdomain';
+        }
 
         $user = $this->request->user();
 
@@ -69,7 +79,7 @@ class ServerTransformer extends BaseClientTransformer
             ],
             'invocation' => $service->handle($server, ! $user->can(Permission::ACTION_STARTUP_READ, $server)),
             'docker_image' => $server->image,
-            'egg_features' => $server->egg->inherit_features,
+            'egg_features' => $eggFeatures,
             'feature_limits' => [
                 'databases' => $server->database_limit,
                 'allocations' => $server->allocation_limit,

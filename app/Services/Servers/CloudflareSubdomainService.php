@@ -28,7 +28,23 @@ class CloudflareSubdomainService
     public function isEnabledFor(Server $server): bool
     {
         return $this->domains()->isNotEmpty()
-            && in_array('subdomain', $server->egg->features ?? [], true);
+            && in_array($server->egg_id, $this->enabledEggIds(), true);
+    }
+
+    /**
+     * Egg IDs allowed to use subdomains, from settings.
+     *
+     * @return array<int, int>
+     */
+    public function enabledEggIds(): array
+    {
+        $value = $this->settings->get('settings::panel:cloudflare:egg_ids', null);
+
+        if (empty($value)) {
+            return [];
+        }
+
+        return array_map('intval', json_decode($value, true) ?: []);
     }
 
     /**

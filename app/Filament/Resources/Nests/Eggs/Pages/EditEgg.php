@@ -26,13 +26,6 @@ class EditEgg extends EditRecord
         $this->redirectNestId = $egg->nest_id;
     }
 
-    protected function mutateFormDataBeforeSave(array $data): array
-    {
-        $data['features'] = CreateEgg::mergeSubdomainFeature($data['features'] ?? [], $this->data['feature_subdomain'] ?? false);
-
-        return $data;
-    }
-
     protected function getHeaderActions(): array
     {
         return [
