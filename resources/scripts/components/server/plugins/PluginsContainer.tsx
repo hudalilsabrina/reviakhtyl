@@ -265,9 +265,10 @@ const PluginsContainer = () => {
                             <option value={'hangar'}>Hangar</option>
                             <option value={'spiget'}>SpigotMC</option>
                         </Select>
-                        <div css={tw`relative flex-1`}>
+                        <div css={tw`relative flex-1 flex items-center`}>
                             <FaMagnifyingGlass
-                                css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none`}
+                                css={tw`absolute left-3 text-gray-500 text-sm pointer-events-none`}
+                                style={{ top: '50%', transform: 'translateY(-50%)' }}
                             />
                             <input
                                 value={query}
