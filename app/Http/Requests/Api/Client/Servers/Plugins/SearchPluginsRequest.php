@@ -19,6 +19,7 @@ class SearchPluginsRequest extends ClientApiRequest
             'query' => ['sometimes', 'nullable', 'string', 'max:128'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'offset' => ['sometimes', 'integer', 'min:0'],
+            'sort' => ['sometimes', 'nullable', 'string', 'in:relevance,downloads,updated'],
         ];
     }
 }

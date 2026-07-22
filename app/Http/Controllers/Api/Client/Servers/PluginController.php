@@ -44,6 +44,7 @@ class PluginController extends ClientApiController
             $this->manager->gameVersion($server),
             $request->integer('limit', 20),
             $request->integer('offset', 0),
+            $request->input('sort', 'relevance') ?? 'relevance',
         );
 
         $installed = $server->plugins

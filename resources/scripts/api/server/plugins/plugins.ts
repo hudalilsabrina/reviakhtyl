@@ -49,14 +49,17 @@ export const getServerPlugins = async (
     };
 };
 
+export type PluginSort = 'relevance' | 'downloads' | 'updated';
+
 export const searchPlugins = async (
     uuid: string,
     provider: PluginProvider,
     query: string,
-    offset = 0
+    offset = 0,
+    sort: PluginSort = 'relevance'
 ): Promise<{ hits: PluginHit[]; total: number }> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/plugins/search`, {
-        params: { provider, query, offset },
+        params: { provider, query, offset, sort },
     });
 
     return {

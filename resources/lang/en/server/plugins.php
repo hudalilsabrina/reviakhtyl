@@ -25,4 +25,7 @@ return [
     'version' => 'Version :version',
     'versions' => 'Versions',
     'pick_version' => 'Pick a version to install. Only versions compatible with your server are shown.',
+    'sort_relevance' => 'Relevance',
+    'sort_downloads' => 'Downloads',
+    'sort_updated' => 'Recently updated',
 ];

@@ -21,6 +21,7 @@ import {
     installPlugin,
     PluginHit,
     PluginProvider,
+    PluginSort,
     PluginVersion,
     searchPlugins,
     ServerPlugin,
@@ -76,6 +77,7 @@ const PluginsContainer = () => {
     const [loaders, setLoaders] = useState<string[]>([]);
 
     const [provider, setProvider] = useState<PluginProvider>('modrinth');
+    const [sort, setSort] = useState<PluginSort>('relevance');
     const [query, setQuery] = useState('');
     const [hits, setHits] = useState<PluginHit[]>([]);
     const [total, setTotal] = useState(0);
@@ -102,7 +104,7 @@ const PluginsContainer = () => {
     const doSearch = (offset = 0, term = query) => {
         const id = ++searchId.current;
         setSearching(true);
-        searchPlugins(uuid, provider, term, offset)
+        searchPlugins(uuid, provider, term, offset, sort)
             .then((data) => {
                 if (id !== searchId.current) return;
                 setHits(offset === 0 ? data.hits : (prev) => [...prev, ...data.hits]);
@@ -117,7 +119,7 @@ const PluginsContainer = () => {
             setHits([]);
             doSearch(0);
         }
-    }, [tab, provider]);
+    }, [tab, provider, sort]);
 
     // Debounced live search while typing.
     useEffect(() => {
@@ -353,6 +355,15 @@ const PluginsContainer = () => {
                                 css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
                             />
                         </div>
+                        <Select
+                            value={sort}
+                            onChange={(e) => setSort(e.target.value as PluginSort)}
+                            css={tw`w-32 flex-shrink-0`}
+                        >
+                            <option value={'relevance'}>{t('sort_relevance')}</option>
+                            <option value={'downloads'}>{t('sort_downloads')}</option>
+                            <option value={'updated'}>{t('sort_updated')}</option>
+                        </Select>
                         <Button type={'submit'} disabled={searching}>
                             {searching ? <Spinner size={'small'} /> : t('search')}
                         </Button>

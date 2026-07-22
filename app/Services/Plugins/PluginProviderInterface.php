@@ -7,8 +7,9 @@ interface PluginProviderInterface
     /**
      * Search projects. Returns ['hits' => array, 'total' => int].
      * Each hit: id, slug, title, description, author, icon_url, downloads.
+     * $sort is one of: relevance, downloads, updated.
      */
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset): array;
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array;
 
     /**
      * Latest version compatible with the given loaders/game version.

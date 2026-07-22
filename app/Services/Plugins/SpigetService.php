@@ -10,12 +10,17 @@ class SpigetService implements PluginProviderInterface
 
     private const API = 'https://api.spiget.org/v2';
 
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset): array
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
+        $spigetSort = match ($sort) {
+            'updated' => '-updateDate',
+            default => '-downloads',
+        };
+
         $response = Http::acceptJson()->timeout(15)->get(self::API.'/search/resources/'.urlencode($query), [
             'size' => $limit,
             'page' => intdiv($offset, max($limit, 1)) + 1,
-            'sort' => '-downloads',
+            'sort' => $spigetSort,
             'fields' => 'id,name,tag,icon,downloads,author',
         ]);
 
