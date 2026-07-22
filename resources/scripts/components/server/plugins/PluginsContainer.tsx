@@ -132,6 +132,7 @@ const PluginsContainer = () => {
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
     const [versionsFor, setVersionsFor] = useState<PluginHit | null>(null);
     const [versions, setVersions] = useState<PluginVersion[] | null>(null);
+    const [installedRow, setInstalledRow] = useState<string | null>(null);
     const [dependencies, setDependencies] = useState<Record<string, Omit<PluginDependency, 'required'>>>({});
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
@@ -185,12 +186,12 @@ const PluginsContainer = () => {
         }
         installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId)
             .then((plugin) => {
+                if (versionId) setInstalledRow(versionId);
                 setInstalling({ title: hit.title, step: 3, version: plugin.versionNumber });
                 setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
-                setVersionsFor(null);
                 addFlash({
                     type: 'success',
                     key: 'server:plugins',
@@ -225,12 +226,22 @@ const PluginsContainer = () => {
         chain
             .then(() => installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, version.id))
             .then((plugin) => {
+                setInstalledRow(version.id);
                 setInstalling({ title: hit.title, step: 3, version: plugin.versionNumber });
                 setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
-                setVersionsFor(null);
+                // Keep the version picker open; just mark everything installed now.
+                setDependencies((prev) => {
+                    const next = { ...prev };
+                    missing.forEach((d) => {
+                        const entry = next[d.projectId];
+                        if (entry) next[d.projectId] = { ...entry, installed: true };
+                    });
+
+                    return next;
+                });
                 addFlash({
                     type: 'success',
                     key: 'server:plugins',
@@ -248,6 +259,7 @@ const PluginsContainer = () => {
     const openVersions = (hit: PluginHit) => {
         setVersionsFor(hit);
         setVersions(null);
+        setInstalledRow(null);
         setDependencies({});
         getPluginVersions(uuid, provider, hit.id)
             .then((data) => {
@@ -415,19 +427,26 @@ const PluginsContainer = () => {
                                                         {version.loaders.join(', ')}
                                                     </p>
                                                 </div>
-                                                <Button.Success
-                                                    size={Button.Sizes.Small}
-                                                    disabled={!!busy}
-                                                    onClick={() => installWithDeps(versionsFor, version, missing)}
-                                                >
-                                                    {busy === `install:${versionsFor.id}` ? (
-                                                        <Spinner size={'small'} />
-                                                    ) : missing.length > 0 ? (
-                                                        t('install_with_deps', { count: missing.length })
-                                                    ) : (
-                                                        t('install')
-                                                    )}
-                                                </Button.Success>
+                                                {installedRow === version.id ? (
+                                                    <Badge $variant={'installed'}>
+                                                        <FaCheck style={{ fontSize: '9px' }} />
+                                                        <span css={tw`font-mono`}>{version.versionNumber}</span>
+                                                    </Badge>
+                                                ) : (
+                                                    <Button.Success
+                                                        size={Button.Sizes.Small}
+                                                        disabled={!!busy}
+                                                        onClick={() => installWithDeps(versionsFor, version, missing)}
+                                                    >
+                                                        {busy === `install:${versionsFor.id}` ? (
+                                                            <Spinner size={'small'} />
+                                                        ) : missing.length > 0 ? (
+                                                            t('install_with_deps', { count: missing.length })
+                                                        ) : (
+                                                            t('install')
+                                                        )}
+                                                    </Button.Success>
+                                                )}
                                             </div>
                                             {missing.length > 0 && (
                                                 <div css={tw`mt-1.5 flex flex-wrap gap-1.5`}>
