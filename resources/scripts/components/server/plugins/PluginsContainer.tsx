@@ -176,11 +176,31 @@ const PluginsContainer = () => {
         return () => clearTimeout(timer);
     }, [query]);
 
-    const doInstall = (hit: PluginHit, versionId?: string, step = 0) => {
+    // On 409 (same plugin installed from another provider) ask the user to confirm replacement.
+    const [replaceConflict, setReplaceConflict] = useState<{
+        provider: string;
+        title: string;
+        retry: () => void;
+    } | null>(null);
+
+    const handleInstallError = (error: any, retry: () => void) => {
+        const err = error?.response?.data?.errors?.[0];
+        if (error?.response?.status === 409 && err?.code === 'CrossProviderDuplicate') {
+            setInstalling(null);
+            setBusy(null);
+            setReplaceConflict({ provider: err.meta.provider, title: err.meta.title, retry });
+
+            return true;
+        }
+
+        return false;
+    };
+
+    const doInstall = (hit: PluginHit, versionId?: string, step = 0, replace = false) => {
         setBusy(`install:${hit.id}`);
         setInstalling({ title: hit.title, step: versionId ? Math.max(step, 1) : step });
         clearFlashes('server:plugins');
-        installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId)
+        installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId, hit.slug, replace)
             .then((plugin) => {
                 if (versionId) setInstalledRow(versionId);
                 setInstalling({ title: hit.title, step: 3, version: plugin.versionNumber });
@@ -196,8 +216,10 @@ const PluginsContainer = () => {
                 setTimeout(() => setInstalling(null), 1600);
             })
             .catch((error) => {
-                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
-                setInstalling(null);
+                if (!handleInstallError(error, () => doInstall(hit, versionId, step, true))) {
+                    addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                    setInstalling(null);
+                }
             })
             .finally(() => setBusy(null));
     };
@@ -277,7 +299,7 @@ const PluginsContainer = () => {
             .finally(() => setBusy(null));
     };
 
-    const installWithDeps = (hit: PluginHit, version: PluginVersion, missing: MissingDep[]) => {
+    const installWithDeps = (hit: PluginHit, version: PluginVersion, missing: MissingDep[], replace = false) => {
         // Install only missing REQUIRED dependencies, then the plugin itself.
         const toInstall = missing.filter((d) => d.required);
         // ponytail: optional deps are shown as chips but never auto-installed.
@@ -295,7 +317,7 @@ const PluginsContainer = () => {
         setInstalling({ title: hit.title, step: 1 });
         clearFlashes('server:plugins');
         chain
-            .then(() => installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, version.id))
+            .then(() => installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, version.id, hit.slug, replace))
             .then((plugin) => {
                 setInstalledRow(version.id);
                 setInstalling({ title: hit.title, step: 3, version: plugin.versionNumber });
@@ -321,8 +343,10 @@ const PluginsContainer = () => {
                 setTimeout(() => setInstalling(null), 1600);
             })
             .catch((error) => {
-                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
-                setInstalling(null);
+                if (!handleInstallError(error, () => installWithDeps(hit, version, missing, true))) {
+                    addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                    setInstalling(null);
+                }
             })
             .finally(() => setBusy(null));
     };
@@ -464,6 +488,20 @@ const PluginsContainer = () => {
                 onModalDismissed={() => setConfirmRemove(null)}
             >
                 {confirmRemove && t('confirm_remove', { plugin: confirmRemove.title })}
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                visible={!!replaceConflict}
+                title={t('replace_title')}
+                buttonText={t('replace_confirm')}
+                onConfirmed={() => {
+                    replaceConflict?.retry();
+                    setReplaceConflict(null);
+                }}
+                onModalDismissed={() => setReplaceConflict(null)}
+            >
+                {replaceConflict &&
+                    t('replace_body', { title: replaceConflict.title, provider: replaceConflict.provider })}
             </ConfirmationModal>
 
             <Modal visible={!!versionsFor} onDismissed={() => setVersionsFor(null)} size={'lg'}>

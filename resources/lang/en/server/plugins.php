@@ -42,4 +42,7 @@ return [
     'dep_required' => 'required · auto-install',
     'dep_optional' => 'optional · click to install',
     'dep_install_optional' => 'Install this optional dependency',
+    'replace_title' => 'Replace plugin?',
+    'replace_body' => '":title" is already installed from :provider. Installing this copy will replace the existing jar. Continue?',
+    'replace_confirm' => 'Replace',
 ];
