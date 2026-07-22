@@ -110,6 +110,39 @@ class ModrinthService implements PluginProviderInterface
             'download_url' => $file['url'],
             'game_versions' => $version['game_versions'] ?? [],
             'loaders' => $version['loaders'] ?? [],
+            'dependencies' => collect($version['dependencies'] ?? [])
+                ->filter(fn ($d) => in_array($d['dependency_type'] ?? '', ['required', 'optional']) && ($d['project_id'] ?? null))
+                ->map(fn ($d) => [
+                    'project_id' => $d['project_id'],
+                    'required' => $d['dependency_type'] === 'required',
+                ])
+                ->values()
+                ->all(),
         ];
+    }
+
+    /**
+     * Project titles for the given ids, keyed by id.
+     */
+    public function projects(array $ids): array
+    {
+        if (! $ids) {
+            return [];
+        }
+
+        $response = Http::acceptJson()->timeout(15)
+            ->get(self::API.'/projects', ['ids' => json_encode(array_values($ids))]);
+
+        if ($response->failed()) {
+            return [];
+        }
+
+        return collect($response->json())
+            ->mapWithKeys(fn ($p) => [$p['id'] => [
+                'id' => $p['id'],
+                'title' => $p['title'],
+                'icon_url' => $p['icon_url'] ?? null,
+            ]])
+            ->all();
     }
 }

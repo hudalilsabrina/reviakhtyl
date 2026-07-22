@@ -92,12 +92,43 @@ class HangarService implements PluginProviderInterface
                     'download_url' => $download['downloadUrl'],
                     'game_versions' => collect($v['platformDependencies'] ?? [])->flatten(1)->all(),
                     'loaders' => $v['platforms'] ?? [],
+                    'dependencies' => collect($v['pluginDependencies'] ?? [])
+                        ->flatten(1)
+                        ->filter(fn ($d) => ($d['projectId'] ?? null) !== null)
+                        ->map(fn ($d) => [
+                            'project_id' => $d['name'],
+                            'required' => (bool) ($d['required'] ?? false),
+                        ])
+                        ->unique('project_id')
+                        ->values()
+                        ->all(),
                 ];
             })
             ->filter()
             ->take($limit)
             ->values()
             ->all();
+    }
+
+    /**
+     * Hangar resolves projects by slug ("owner/slug"); ids are slugs here.
+     */
+    public function projects(array $ids): array
+    {
+        $result = [];
+        foreach ($ids as $slug) {
+            $response = Http::acceptJson()->timeout(15)->get(self::API.'/projects/'.$slug);
+            if ($response->ok()) {
+                $ns = $response->json('namespace', []);
+                $result[$slug] = [
+                    'id' => ($ns['owner'] ?? '').'/'.($ns['slug'] ?? $slug),
+                    'title' => $response->json('name', $slug),
+                    'icon_url' => $response->json('avatarUrl'),
+                ];
+            }
+        }
+
+        return $result;
     }
 
     public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array

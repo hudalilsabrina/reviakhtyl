@@ -24,7 +24,14 @@ interface PluginProviderInterface
 
     /**
      * List versions compatible with the given loaders/game version, newest first.
-     * Same shape as resolveVersion() items.
+     * Same shape as resolveVersion() items, plus a 'dependencies' key:
+     * [['project_id' => string, 'required' => bool], ...] (may be empty).
      */
     public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array;
+
+    /**
+     * Project display data for the given ids, keyed by id: ['title' => ..., 'icon_url' => ...].
+     * Unknown ids are omitted.
+     */
+    public function projects(array $ids): array;
 }
