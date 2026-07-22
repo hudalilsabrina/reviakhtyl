@@ -19,6 +19,7 @@ import {
     getPluginVersions,
     getServerPlugins,
     installPlugin,
+    PluginDependency,
     PluginHit,
     PluginProvider,
     PluginSort,
@@ -129,6 +130,7 @@ const PluginsContainer = () => {
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
     const [versionsFor, setVersionsFor] = useState<PluginHit | null>(null);
     const [versions, setVersions] = useState<PluginVersion[] | null>(null);
+    const [dependencies, setDependencies] = useState<Record<string, Omit<PluginDependency, 'required'>>>({});
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
 
@@ -196,11 +198,50 @@ const PluginsContainer = () => {
             .finally(() => setBusy(null));
     };
 
+    type MissingDep = { projectId: string; required: boolean; info?: Omit<PluginDependency, 'required'> };
+
+    const installWithDeps = (hit: PluginHit, version: PluginVersion, missing: MissingDep[]) => {
+        // Install missing dependencies sequentially, then the plugin itself.
+        const chain = missing.reduce<Promise<void>>(
+            (prev, dep) =>
+                prev.then(() =>
+                    installPlugin(uuid, provider, dep.info!.id, dep.info!.title, dep.info!.iconUrl).then((p) => {
+                        setPlugins((existing) => [...existing.filter((x) => x.id !== p.id), p]);
+                    })
+                ),
+            Promise.resolve()
+        );
+
+        setBusy(`install:${hit.id}`);
+        setInstalling({ title: hit.title, step: 1 });
+        clearFlashes('server:plugins');
+        chain
+            .then(() => installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, version.id))
+            .then((plugin) => {
+                setInstalling({ title: hit.title, step: 3 });
+                setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
+                setHits((prev) =>
+                    prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
+                );
+                setVersionsFor(null);
+                setTimeout(() => setInstalling(null), 900);
+            })
+            .catch((error) => {
+                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setInstalling(null);
+            })
+            .finally(() => setBusy(null));
+    };
+
     const openVersions = (hit: PluginHit) => {
         setVersionsFor(hit);
         setVersions(null);
+        setDependencies({});
         getPluginVersions(uuid, provider, hit.id)
-            .then(setVersions)
+            .then((data) => {
+                setVersions(data.versions);
+                setDependencies(data.dependencies);
+            })
             .catch((error) => {
                 addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
                 setVersionsFor(null);
@@ -222,7 +263,7 @@ const PluginsContainer = () => {
         clearFlashes('server:plugins');
         // Phase 1: resolve latest compatible version, then phase 2: download.
         getPluginVersions(uuid, plugin.provider, plugin.projectId)
-            .then((vs) => {
+            .then(({ versions: vs }) => {
                 if (!vs[0] || vs[0].id === plugin.versionId) {
                     addError({ key: 'server:plugins', message: t('up_to_date') ?? '' });
                     setInstalling(null);
@@ -331,31 +372,73 @@ const PluginsContainer = () => {
                             <p css={tw`text-sm text-gray-500 text-center py-6`}>{t('no_results')}</p>
                         ) : (
                             <div css={tw`overflow-y-auto max-h-96 divide-y divide-gray-800`}>
-                                {versions.map((version) => (
-                                    <div key={version.id} css={tw`flex items-center gap-2 py-2.5`}>
-                                        <div css={tw`flex-1 min-w-0`}>
-                                            <p css={tw`text-sm font-semibold text-gray-100 truncate`}>
-                                                {version.versionNumber}
-                                            </p>
-                                            <p css={tw`text-xs text-gray-500 truncate`}>
-                                                {version.gameVersions.length > 0 && version.gameVersions.join(', ')}
-                                                {version.gameVersions.length > 0 && version.loaders.length > 0 && ' · '}
-                                                {version.loaders.join(', ')}
-                                            </p>
-                                        </div>
-                                        <Button.Success
-                                            size={Button.Sizes.Small}
-                                            disabled={!!busy}
-                                            onClick={() => install(versionsFor, version.id)}
-                                        >
-                                            {busy === `install:${versionsFor.id}` ? (
-                                                <Spinner size={'small'} />
-                                            ) : (
-                                                t('install')
+                                {versions.map((version) => {
+                                    const missing = version.dependencies
+                                        .map((d) => ({ ...d, info: dependencies[d.projectId] }))
+                                        .filter((d) => d.info && !d.info.installed);
+
+                                    return (
+                                        <div key={version.id} css={tw`py-2.5`}>
+                                            <div css={tw`flex items-center gap-2`}>
+                                                <div css={tw`flex-1 min-w-0`}>
+                                                    <p css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                        {version.versionNumber}
+                                                    </p>
+                                                    <p css={tw`text-xs text-gray-500 truncate`}>
+                                                        {version.gameVersions.length > 0 &&
+                                                            version.gameVersions.join(', ')}
+                                                        {version.gameVersions.length > 0 &&
+                                                            version.loaders.length > 0 &&
+                                                            ' · '}
+                                                        {version.loaders.join(', ')}
+                                                    </p>
+                                                </div>
+                                                <Button.Success
+                                                    size={Button.Sizes.Small}
+                                                    disabled={!!busy}
+                                                    onClick={() => installWithDeps(versionsFor, version, missing)}
+                                                >
+                                                    {busy === `install:${versionsFor.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : missing.length > 0 ? (
+                                                        t('install_with_deps', { count: missing.length })
+                                                    ) : (
+                                                        t('install')
+                                                    )}
+                                                </Button.Success>
+                                            </div>
+                                            {missing.length > 0 && (
+                                                <div css={tw`mt-1.5 flex flex-wrap gap-1.5`}>
+                                                    {missing.map((d) => (
+                                                        <span
+                                                            key={d.projectId}
+                                                            css={tw`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-300`}
+                                                        >
+                                                            {d.info!.iconUrl ? (
+                                                                <img
+                                                                    src={d.info!.iconUrl}
+                                                                    alt={''}
+                                                                    css={tw`w-3.5 h-3.5 rounded-sm`}
+                                                                />
+                                                            ) : (
+                                                                <FaPuzzlePiece style={{ fontSize: '10px' }} />
+                                                            )}
+                                                            {d.info!.title}
+                                                            <span
+                                                                style={{
+                                                                    color: d.required ? '#fbbf24' : '#6b7280',
+                                                                    fontSize: '10px',
+                                                                }}
+                                                            >
+                                                                {d.required ? t('dep_required') : t('dep_optional')}
+                                                            </span>
+                                                        </span>
+                                                    ))}
+                                                </div>
                                             )}
-                                        </Button.Success>
-                                    </div>
-                                ))}
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </>

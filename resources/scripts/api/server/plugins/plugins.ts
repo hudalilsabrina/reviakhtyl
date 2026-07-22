@@ -77,30 +77,56 @@ export const searchPlugins = async (
     };
 };
 
+export interface PluginDependency {
+    id: string;
+    title: string;
+    iconUrl: string | null;
+    installed: boolean;
+    required: boolean;
+}
+
 export interface PluginVersion {
     id: string;
     versionNumber: string;
     fileName: string;
     gameVersions: string[];
     loaders: string[];
+    dependencies: { projectId: string; required: boolean }[];
 }
 
 export const getPluginVersions = async (
     uuid: string,
     provider: PluginProvider,
     projectId: string
-): Promise<PluginVersion[]> => {
+): Promise<{ versions: PluginVersion[]; dependencies: Record<string, Omit<PluginDependency, 'required'>> }> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/plugins/versions`, {
         params: { provider, project_id: projectId },
     });
 
-    return (data.versions || []).map((v: any) => ({
-        id: v.id,
-        versionNumber: v.version_number,
-        fileName: v.file_name,
-        gameVersions: v.game_versions || [],
-        loaders: v.loaders || [],
-    }));
+    const dependencies: Record<string, Omit<PluginDependency, 'required'>> = {};
+    Object.entries(data.dependencies || {}).forEach(([key, dep]: [string, any]) => {
+        dependencies[key] = {
+            id: dep.id,
+            title: dep.title,
+            iconUrl: dep.icon_url,
+            installed: dep.installed,
+        };
+    });
+
+    return {
+        versions: (data.versions || []).map((v: any) => ({
+            id: v.id,
+            versionNumber: v.version_number,
+            fileName: v.file_name,
+            gameVersions: v.game_versions || [],
+            loaders: v.loaders || [],
+            dependencies: (v.dependencies || []).map((d: any) => ({
+                projectId: d.project_id,
+                required: d.required,
+            })),
+        })),
+        dependencies,
+    };
 };
 
 export const installPlugin = async (
