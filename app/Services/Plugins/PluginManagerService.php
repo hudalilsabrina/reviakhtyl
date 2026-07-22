@@ -71,9 +71,21 @@ class PluginManagerService
     }
 
     /**
+     * Same plugin already installed from a different provider, matched by slug.
+     */
+    public function crossProviderDuplicate(Server $server, string $providerName, string $slug): ?ServerPlugin
+    {
+        $normalized = strtolower($slug);
+
+        return $server->plugins
+            ->filter(fn ($p) => $p->provider !== $providerName)
+            ->first(fn ($p) => strtolower($p->slug) === $normalized || strtolower($p->title) === $normalized);
+    }
+
+    /**
      * Install or update a provider project onto the server.
      */
-    public function install(Server $server, string $providerName, string $projectId, ?string $title = null, ?string $iconUrl = null, ?string $versionId = null): ServerPlugin
+    public function install(Server $server, string $providerName, string $projectId, ?string $title = null, ?string $iconUrl = null, ?string $versionId = null, ?string $slug = null): ServerPlugin
     {
         $provider = $this->provider($providerName);
         $existing = $server->plugins()
@@ -95,7 +107,7 @@ class PluginManagerService
         $plugin = $server->plugins()->updateOrCreate(
             ['provider' => $providerName, 'project_id' => $projectId],
             [
-                'slug' => $projectId,
+                'slug' => $slug ?? $projectId,
                 'title' => $title ?? $projectId,
                 'version_id' => $version['id'],
                 'version_number' => $version['version_number'],

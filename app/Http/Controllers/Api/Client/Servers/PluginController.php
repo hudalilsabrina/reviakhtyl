@@ -98,8 +98,31 @@ class PluginController extends ClientApiController
         ];
     }
 
-    public function store(InstallPluginRequest $request, Server $server): array
+    public function store(InstallPluginRequest $request, Server $server): array|JsonResponse
     {
+        // Same slug from another provider → ask the client to confirm replacement.
+        if (! $request->boolean('replace')) {
+            $duplicate = $this->manager->crossProviderDuplicate(
+                $server,
+                $request->input('provider'),
+                $request->input('slug') ?? $request->input('title') ?? $request->input('project_id'),
+            );
+
+            if ($duplicate) {
+                return new JsonResponse([
+                    'errors' => [[
+                        'code' => 'CrossProviderDuplicate',
+                        'status' => '409',
+                        'detail' => sprintf('"%s" is already installed from %s.', $duplicate->title, $duplicate->provider),
+                        'meta' => [
+                            'provider' => $duplicate->provider,
+                            'title' => $duplicate->title,
+                        ],
+                    ]],
+                ], 409);
+            }
+        }
+
         try {
             $plugin = $this->manager->install(
                 $server,
@@ -108,6 +131,7 @@ class PluginController extends ClientApiController
                 $request->input('title'),
                 $request->input('icon_url'),
                 $request->input('version_id'),
+                $request->input('slug'),
             );
         } catch (DisplayException $e) {
             throw $e;
