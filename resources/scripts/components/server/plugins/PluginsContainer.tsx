@@ -3,22 +3,25 @@ import tw from 'twin.macro';
 import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
-import { FaDownload, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
+import { FaDownload, FaListUl, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
 import Select from '@/reviactyl/elements/Select';
 import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
+import Modal from '@/reviactyl/elements/Modal';
 import FlashMessageRender from '@/components/FlashMessageRender';
 import { ServerContext } from '@/state/server';
 import { ApplicationStore } from '@/state';
 import { httpErrorToHuman } from '@/api/http';
 import {
     deletePlugin,
+    getPluginVersions,
     getServerPlugins,
     installPlugin,
     PluginHit,
     PluginProvider,
+    PluginVersion,
     searchPlugins,
     ServerPlugin,
     togglePlugin,
@@ -80,6 +83,8 @@ const PluginsContainer = () => {
 
     const [busy, setBusy] = useState<string | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
+    const [versionsFor, setVersionsFor] = useState<PluginHit | null>(null);
+    const [versions, setVersions] = useState<PluginVersion[] | null>(null);
     const searchId = useRef(0);
 
     useEffect(() => {
@@ -122,18 +127,30 @@ const PluginsContainer = () => {
         return () => clearTimeout(timer);
     }, [query]);
 
-    const install = (hit: PluginHit) => {
+    const install = (hit: PluginHit, versionId?: string) => {
         setBusy(`install:${hit.id}`);
         clearFlashes('server:plugins');
-        installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl)
+        installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId)
             .then((plugin) => {
                 setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
+                setVersionsFor(null);
             })
             .catch((error) => addError({ key: 'server:plugins', message: httpErrorToHuman(error) }))
             .finally(() => setBusy(null));
+    };
+
+    const openVersions = (hit: PluginHit) => {
+        setVersionsFor(hit);
+        setVersions(null);
+        getPluginVersions(uuid, provider, hit.id)
+            .then(setVersions)
+            .catch((error) => {
+                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setVersionsFor(null);
+            });
     };
 
     const mutate = (key: string, action: Promise<ServerPlugin>) => {
@@ -177,6 +194,48 @@ const PluginsContainer = () => {
             >
                 {confirmRemove && t('confirm_remove', { plugin: confirmRemove.title })}
             </ConfirmationModal>
+
+            <Modal visible={!!versionsFor} onDismissed={() => setVersionsFor(null)} size={'lg'}>
+                {versionsFor && (
+                    <>
+                        <h2 css={tw`text-2xl mb-1`}>{versionsFor.title}</h2>
+                        <p css={tw`text-sm text-gray-400 mb-6`}>{t('pick_version')}</p>
+                        {!versions ? (
+                            <Spinner centered />
+                        ) : versions.length === 0 ? (
+                            <p css={tw`text-sm text-gray-500 text-center py-6`}>{t('no_results')}</p>
+                        ) : (
+                            <div css={tw`overflow-y-auto max-h-96 divide-y divide-gray-800`}>
+                                {versions.map((version) => (
+                                    <div key={version.id} css={tw`flex items-center gap-3 py-2.5`}>
+                                        <div css={tw`flex-1 min-w-0`}>
+                                            <p css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                {version.versionNumber}
+                                            </p>
+                                            <p css={tw`text-xs text-gray-500 truncate`}>
+                                                {version.gameVersions.length > 0 && version.gameVersions.join(', ')}
+                                                {version.gameVersions.length > 0 && version.loaders.length > 0 && ' · '}
+                                                {version.loaders.join(', ')}
+                                            </p>
+                                        </div>
+                                        <Button.Success
+                                            size={Button.Sizes.Small}
+                                            disabled={!!busy}
+                                            onClick={() => install(versionsFor, version.id)}
+                                        >
+                                            {busy === `install:${versionsFor.id}` ? (
+                                                <Spinner size={'small'} />
+                                            ) : (
+                                                t('install')
+                                            )}
+                                        </Button.Success>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </Modal>
 
             <div css={tw`flex items-end justify-between border-b border-gray-700 mb-4 flex-wrap gap-2`}>
                 <div css={tw`flex`}>
@@ -335,7 +394,7 @@ const PluginsContainer = () => {
                                         >
                                             {hit.description}
                                         </p>
-                                        <div css={tw`mt-3`}>
+                                        <div css={tw`mt-3 flex gap-2`}>
                                             {!hit.installedVersion && (
                                                 <Button.Success
                                                     size={Button.Sizes.Small}
@@ -352,6 +411,15 @@ const PluginsContainer = () => {
                                                     )}
                                                 </Button.Success>
                                             )}
+                                            <Button
+                                                size={Button.Sizes.Small}
+                                                variant={Button.Variants.Secondary}
+                                                disabled={!!busy}
+                                                onClick={() => openVersions(hit)}
+                                            >
+                                                <FaListUl css={tw`inline mr-1 -mt-0.5`} />
+                                                {t('versions')}
+                                            </Button>
                                         </div>
                                     </div>
                                 </Card>
