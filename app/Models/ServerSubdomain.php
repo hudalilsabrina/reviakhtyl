@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -10,8 +11,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $subdomain
  * @property string $domain
  * @property string|null $cf_record_id
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  * @property Server $server
  */
 class ServerSubdomain extends Model

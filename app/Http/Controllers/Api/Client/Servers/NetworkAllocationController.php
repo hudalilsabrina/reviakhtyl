@@ -16,6 +16,7 @@ use App\Models\Allocation;
 use App\Models\Server;
 use App\Repositories\Eloquent\ServerRepository;
 use App\Services\Allocations\FindAssignableAllocationService;
+use App\Services\Servers\CloudflareSubdomainService;
 use App\Transformers\Api\Client\AllocationTransformer;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\JsonResponse;
@@ -82,6 +83,11 @@ class NetworkAllocationController extends ClientApiController
             ->subject($allocation)
             ->property('allocation', $allocation->toString())
             ->log();
+
+        // Keep the Cloudflare SRV record pointing at the new primary port.
+        if ($server->subdomain) {
+            app(CloudflareSubdomainService::class)->syncQuietly($server->refresh());
+        }
 
         return $this->fractal->item($allocation)
             ->transformWith($this->getTransformer(AllocationTransformer::class))
