@@ -30,7 +30,7 @@ import {
 } from '@/api/server/plugins/plugins';
 
 const Card = styled.div`
-    ${tw`bg-gray-900 border border-gray-800 rounded-ui p-4 flex gap-4 transition-colors duration-150 hover:border-gray-700`}
+    ${tw`bg-gray-900 border border-gray-800 rounded-ui p-3 sm:p-4 flex gap-3 sm:gap-4 transition-colors duration-150 hover:border-gray-700`}
 `;
 
 const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' }>`
@@ -65,10 +65,10 @@ const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' }>`
 
 const PluginIcon = ({ url }: { url: string | null }) =>
     url ? (
-        <img src={url} alt={''} css={tw`w-12 h-12 rounded-ui object-cover flex-shrink-0`} />
+        <img src={url} alt={''} css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui object-cover flex-shrink-0`} />
     ) : (
         <div
-            css={tw`w-12 h-12 rounded-ui bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0`}
+            css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0`}
         >
             <FaPuzzlePiece css={tw`text-gray-500 text-lg`} />
         </div>
@@ -208,8 +208,8 @@ const PluginsContainer = () => {
             <Modal visible={!!versionsFor} onDismissed={() => setVersionsFor(null)} size={'lg'}>
                 {versionsFor && (
                     <>
-                        <h2 css={tw`text-2xl mb-1`}>{versionsFor.title}</h2>
-                        <p css={tw`text-sm text-gray-400 mb-6`}>{t('pick_version')}</p>
+                        <h2 css={tw`text-xl sm:text-2xl mb-1 truncate`}>{versionsFor.title}</h2>
+                        <p css={tw`text-sm text-gray-400 mb-4 sm:mb-6`}>{t('pick_version')}</p>
                         {!versions ? (
                             <Spinner centered />
                         ) : versions.length === 0 ? (
@@ -217,7 +217,7 @@ const PluginsContainer = () => {
                         ) : (
                             <div css={tw`overflow-y-auto max-h-96 divide-y divide-gray-800`}>
                                 {versions.map((version) => (
-                                    <div key={version.id} css={tw`flex items-center gap-3 py-2.5`}>
+                                    <div key={version.id} css={tw`flex items-center gap-2 py-2.5`}>
                                         <div css={tw`flex-1 min-w-0`}>
                                             <p css={tw`text-sm font-semibold text-gray-100 truncate`}>
                                                 {version.versionNumber}
@@ -339,22 +339,13 @@ const PluginsContainer = () => {
             ) : (
                 <>
                     <form
-                        css={tw`flex gap-2 mb-4`}
+                        css={tw`flex flex-wrap gap-2 mb-4`}
                         onSubmit={(e) => {
                             e.preventDefault();
                             doSearch(0);
                         }}
                     >
-                        <Select
-                            value={provider}
-                            onChange={(e) => setProvider(e.target.value as PluginProvider)}
-                            css={tw`w-36 flex-shrink-0`}
-                        >
-                            <option value={'modrinth'}>Modrinth</option>
-                            <option value={'hangar'}>Hangar</option>
-                            <option value={'spiget'}>SpigotMC</option>
-                        </Select>
-                        <div css={tw`relative flex-1 flex items-center`}>
+                        <div css={tw`relative flex-1 flex items-center`} style={{ minWidth: '200px' }}>
                             <FaMagnifyingGlass
                                 css={tw`absolute left-3 text-gray-500 text-sm pointer-events-none`}
                                 style={{ top: '50%', transform: 'translateY(-50%)' }}
@@ -366,18 +357,29 @@ const PluginsContainer = () => {
                                 css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
                             />
                         </div>
-                        <Select
-                            value={sort}
-                            onChange={(e) => setSort(e.target.value as PluginSort)}
-                            css={tw`w-32 flex-shrink-0`}
-                        >
-                            <option value={'relevance'}>{t('sort_relevance')}</option>
-                            <option value={'downloads'}>{t('sort_downloads')}</option>
-                            <option value={'updated'}>{t('sort_updated')}</option>
-                        </Select>
-                        <Button type={'submit'} disabled={searching}>
-                            {searching ? <Spinner size={'small'} /> : t('search')}
-                        </Button>
+                        <div css={tw`flex gap-2 w-full sm:w-auto`}>
+                            <Select
+                                value={provider}
+                                onChange={(e) => setProvider(e.target.value as PluginProvider)}
+                                css={tw`flex-1 sm:flex-none sm:w-32`}
+                            >
+                                <option value={'modrinth'}>Modrinth</option>
+                                <option value={'hangar'}>Hangar</option>
+                                <option value={'spiget'}>SpigotMC</option>
+                            </Select>
+                            <Select
+                                value={sort}
+                                onChange={(e) => setSort(e.target.value as PluginSort)}
+                                css={tw`flex-1 sm:flex-none sm:w-32`}
+                            >
+                                <option value={'relevance'}>{t('sort_relevance')}</option>
+                                <option value={'downloads'}>{t('sort_downloads')}</option>
+                                <option value={'updated'}>{t('sort_updated')}</option>
+                            </Select>
+                            <Button type={'submit'} disabled={searching}>
+                                {searching ? <Spinner size={'small'} /> : t('search')}
+                            </Button>
+                        </div>
                     </form>
 
                     {!searching && hits.length === 0 ? (
