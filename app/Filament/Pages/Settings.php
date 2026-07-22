@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Filament\Components\ImageInput;
+use App\Models\Egg;
 use App\Notifications\MailTested;
 use App\Traits\Helpers\AvailableLanguages;
 use Filament\Actions\Action;
@@ -86,6 +87,7 @@ class Settings extends Page implements HasSchemas
         'panel:client_features:allocations:range_end',
 
         'panel:cloudflare:api_token',
+        'panel:cloudflare:egg_ids',
     ];
 
     public function getHeading(): string
@@ -135,6 +137,10 @@ class Settings extends Page implements HasSchemas
 
             if ($key === 'panel:auth:2fa_required') {
                 $value = (int) $value;
+            }
+
+            if ($key === 'panel:cloudflare:egg_ids') {
+                $value = $value ? (json_decode($value, true) ?: []) : [];
             }
 
             $formData[$key] = $value;
@@ -545,6 +551,15 @@ class Settings extends Page implements HasSchemas
                         ->revealable()
                         ->maxLength(191)
                         ->columnSpan(1),
+
+                    Select::make('panel:cloudflare:egg_ids')
+                        ->label('Enabled Eggs')
+                        ->helperText('Servers on these eggs can create subdomains.')
+                        ->multiple()
+                        ->searchable()
+                        ->options(fn () => Egg::query()->orderBy('name')->pluck('name', 'id'))
+                        ->columnSpan(1)
+                        ->native(false),
                 ]),
 
             Section::make(trans('admin/settings.advanced.creation-title'))
@@ -594,6 +609,9 @@ class Settings extends Page implements HasSchemas
         foreach ($data as $key => $value) {
             if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token'], true) && ! empty($value)) {
                 $value = $encrypter->encrypt($value);
+            }
+            if ($key === 'panel:cloudflare:egg_ids') {
+                $value = json_encode(array_map('intval', array_filter((array) $value)));
             }
             $settings->set(
                 'settings::'.$key,

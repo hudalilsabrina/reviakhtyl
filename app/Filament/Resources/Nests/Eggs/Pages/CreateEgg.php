@@ -17,24 +17,7 @@ class CreateEgg extends CreateRecord
             $data['nest_id'] = $nestId;
         }
 
-        $data['features'] = self::mergeSubdomainFeature($data['features'] ?? [], $this->data['feature_subdomain'] ?? false);
-
         return $data;
-    }
-
-    /**
-     * @param  array<int, string>|null  $features
-     * @return array<int, string>
-     */
-    public static function mergeSubdomainFeature(?array $features, bool $enabled): array
-    {
-        $features = array_values(array_filter($features ?? [], fn ($f) => $f !== 'subdomain'));
-
-        if ($enabled) {
-            $features[] = 'subdomain';
-        }
-
-        return $features;
     }
 
     protected function getRedirectUrl(): string
