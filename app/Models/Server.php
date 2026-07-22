@@ -446,6 +446,16 @@ class Server extends Model implements Identifiable
     }
 
     /**
+     * Returns the Cloudflare subdomain associated with this server.
+     *
+     * @return HasOne<ServerSubdomain, $this>
+     */
+    public function subdomain(): HasOne
+    {
+        return $this->hasOne(ServerSubdomain::class);
+    }
+
+    /**
      * Returns the associated server transfer.
      *
      * @return HasOne<ServerTransfer, $this>
