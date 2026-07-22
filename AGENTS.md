@@ -25,6 +25,12 @@ Reviactyl Panel — fork of Pterodactyl. Laravel 13 + Filament v5 admin, React 1
 - Static analysis: `./vendor/bin/phpstan analyse` (level 5, `app/` only; `app/Livewire`, `app/Repositories` excluded).
 - Missing `public/build/manifest.json` → 500 error; run `pnpm run build` once.
 
+## Feature docs
+
+Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
+
+- [`docs/subdomain/AGENTS.md`](docs/subdomain/AGENTS.md) — Cloudflare SRV-record subdomains (client API, service, admin, frontend).
+
 ## Gotchas
 
 - `composer install` triggers `filament:upgrade` via `post-autoload-dump`.
