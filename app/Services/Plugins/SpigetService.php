@@ -17,7 +17,12 @@ class SpigetService implements PluginProviderInterface
             default => '-downloads',
         };
 
-        $response = Http::acceptJson()->timeout(15)->get(self::API.'/search/resources/'.urlencode($query), [
+        // Spiget search endpoint returns nothing for empty queries; list-all supports the same params.
+        $url = trim($query) === ''
+            ? self::API.'/resources'
+            : self::API.'/search/resources/'.urlencode($query);
+
+        $response = Http::acceptJson()->timeout(15)->get($url, [
             'size' => $limit,
             'page' => intdiv($offset, max($limit, 1)) + 1,
             'sort' => $spigetSort,
