@@ -110,7 +110,9 @@ const PluginIcon = ({ url }: { url: string | null }) =>
 const PluginsContainer = () => {
     const { t } = useTranslation('server/plugins');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
-    const { addError, clearFlashes } = useStoreActions((actions: Actions<ApplicationStore>) => actions.flashes);
+    const { addError, addFlash, clearFlashes } = useStoreActions(
+        (actions: Actions<ApplicationStore>) => actions.flashes
+    );
 
     const [tab, setTab] = useState<'installed' | 'browse'>('browse');
     const [loading, setLoading] = useState(true);
@@ -126,7 +128,7 @@ const PluginsContainer = () => {
     const [searching, setSearching] = useState(false);
 
     const [busy, setBusy] = useState<string | null>(null);
-    const [installing, setInstalling] = useState<{ title: string; step: number } | null>(null);
+    const [installing, setInstalling] = useState<{ title: string; step: number; version?: string } | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
     const [versionsFor, setVersionsFor] = useState<PluginHit | null>(null);
     const [versions, setVersions] = useState<PluginVersion[] | null>(null);
@@ -183,13 +185,18 @@ const PluginsContainer = () => {
         }
         installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId)
             .then((plugin) => {
-                setInstalling({ title: hit.title, step: 3 });
+                setInstalling({ title: hit.title, step: 3, version: plugin.versionNumber });
                 setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
                 setVersionsFor(null);
-                setTimeout(() => setInstalling(null), 900);
+                addFlash({
+                    type: 'success',
+                    key: 'server:plugins',
+                    message: t('install_success', { title: plugin.title, version: plugin.versionNumber }) ?? '',
+                });
+                setTimeout(() => setInstalling(null), 1600);
             })
             .catch((error) => {
                 addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
@@ -218,13 +225,18 @@ const PluginsContainer = () => {
         chain
             .then(() => installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, version.id))
             .then((plugin) => {
-                setInstalling({ title: hit.title, step: 3 });
+                setInstalling({ title: hit.title, step: 3, version: plugin.versionNumber });
                 setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
                 setVersionsFor(null);
-                setTimeout(() => setInstalling(null), 900);
+                addFlash({
+                    type: 'success',
+                    key: 'server:plugins',
+                    message: t('install_success', { title: plugin.title, version: plugin.versionNumber }) ?? '',
+                });
+                setTimeout(() => setInstalling(null), 1600);
             })
             .catch((error) => {
                 addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
@@ -273,9 +285,14 @@ const PluginsContainer = () => {
                 setInstalling({ title: plugin.title, step: 1 });
                 updatePlugin(uuid, plugin.id)
                     .then((p) => {
-                        setInstalling({ title: plugin.title, step: 3 });
+                        setInstalling({ title: plugin.title, step: 3, version: p.versionNumber });
                         setPlugins((prev) => prev.map((x) => (x.id === p.id ? p : x)));
-                        setTimeout(() => setInstalling(null), 900);
+                        addFlash({
+                            type: 'success',
+                            key: 'server:plugins',
+                            message: t('update_success', { title: p.title, version: p.versionNumber }) ?? '',
+                        });
+                        setTimeout(() => setInstalling(null), 1600);
                     })
                     .catch((error) => {
                         addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
@@ -319,12 +336,15 @@ const PluginsContainer = () => {
                 {installing && (
                     <>
                         <h2 css={tw`text-lg sm:text-xl font-semibold mb-1 truncate`}>
-                            {t('installing_title', { title: installing.title })}
+                            {installing.step >= 3
+                                ? t('install_done', { title: installing.title })
+                                : t('installing_title', { title: installing.title })}
                         </h2>
                         <div css={tw`space-y-2.5 my-4`}>
                             {installSteps.map((label, i) => {
                                 const done = installing.step > i;
                                 const current = installing.step === i;
+                                const isLast = i === installSteps.length - 1;
                                 return (
                                     <div key={label} css={tw`flex items-center gap-2.5 text-sm`}>
                                         {done ? (
@@ -338,7 +358,9 @@ const PluginsContainer = () => {
                                             css={done || current ? tw`text-gray-200` : tw`text-gray-500`}
                                             style={done ? { color: '#9ca3af' } : undefined}
                                         >
-                                            {label}
+                                            {isLast && done && installing.version
+                                                ? t('step_finish_done', { version: installing.version })
+                                                : label}
                                         </span>
                                     </div>
                                 );
