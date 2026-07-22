@@ -33,4 +33,7 @@ return [
     'step_download' => 'Downloading to server',
     'step_finish' => 'Finishing up',
     'up_to_date' => 'Plugin is already up to date.',
+    'install_with_deps' => 'Install + :count dep|Install + :count deps',
+    'dep_required' => 'required',
+    'dep_optional' => 'optional',
 ];
