@@ -22,7 +22,9 @@ const SubdomainContainer = () => {
     const { t } = useTranslation('server/subdomain');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const getServer = ServerContext.useStoreActions((actions) => actions.server.getServer);
-    const { addError, addFlash, clearFlashes } = useStoreActions((actions: Actions<ApplicationStore>) => actions.flashes);
+    const { addError, addFlash, clearFlashes } = useStoreActions(
+        (actions: Actions<ApplicationStore>) => actions.flashes
+    );
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
