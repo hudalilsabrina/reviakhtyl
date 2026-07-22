@@ -90,6 +90,19 @@ class EggResource extends Resource
                                             ->label(trans('admin/eggs.fields.features'))
                                             ->helperText(trans('admin/eggs.helpers.features'))
                                             ->columnSpanFull(),
+                                        Forms\Components\Toggle::make('feature_subdomain')
+                                            ->label('Enable Subdomains')
+                                            ->helperText('Allow users to attach a Cloudflare subdomain (SRV record) to servers on this egg.')
+                                            ->onIcon('tabler-check')
+                                            ->offIcon('tabler-x')
+                                            ->onColor('success')
+                                            ->offColor('danger')
+                                            ->inline(false)
+                                            ->dehydrated(false)
+                                            ->afterStateHydrated(fn ($component, $record) => $component->state(
+                                                $record instanceof Egg && in_array('subdomain', $record->features ?? [], true)
+                                            ))
+                                            ->columnSpanFull(),
                                     ]),
 
                                 Section::make(trans('admin/eggs.sections.process_management.title'))
