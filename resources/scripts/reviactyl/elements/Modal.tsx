@@ -89,7 +89,7 @@ function Modal({
     const [render, setRender] = useState(visible);
 
     const isDismissable = useMemo(() => {
-        return (dismissable || true) && !(showSpinnerOverlay || false);
+        return (dismissable ?? true) && !(showSpinnerOverlay || false);
     }, [dismissable, showSpinnerOverlay]);
 
     useEffect(() => {
