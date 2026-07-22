@@ -28,4 +28,9 @@ return [
     'sort_relevance' => 'Relevance',
     'sort_downloads' => 'Downloads',
     'sort_updated' => 'Recently updated',
+    'installing_title' => 'Installing :title',
+    'step_resolve' => 'Resolving version',
+    'step_download' => 'Downloading to server',
+    'step_finish' => 'Finishing up',
+    'up_to_date' => 'Plugin is already up to date.',
 ];

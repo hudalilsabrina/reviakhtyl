@@ -3,7 +3,7 @@ import tw from 'twin.macro';
 import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
-import { FaCheck, FaDownload, FaListUl, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
+import { FaCheck, FaCircle, FaDownload, FaListUl, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
 import Select from '@/reviactyl/elements/Select';
@@ -63,6 +63,38 @@ const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' }>`
         `}
 `;
 
+const ProgressBar = styled.div`
+    height: 4px;
+    border-radius: 9999px;
+    background-color: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+
+    & > div {
+        height: 100%;
+        border-radius: 9999px;
+        background-color: #4ade80;
+        transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+`;
+
+// Timed fake-ish progress: eases toward 90%, jumps to 100% on finish.
+const useProgress = (active: boolean) => {
+    const [width, setWidth] = useState(0);
+
+    useEffect(() => {
+        if (!active) {
+            setWidth(0);
+            return;
+        }
+        setWidth(10);
+        const timer = setInterval(() => setWidth((w) => (w >= 90 ? w : w + (90 - w) * 0.08 + 1)), 400);
+
+        return () => clearInterval(timer);
+    }, [active]);
+
+    return width;
+};
+
 const PluginIcon = ({ url }: { url: string | null }) =>
     url ? (
         <img src={url} alt={''} css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui object-cover flex-shrink-0`} />
@@ -93,10 +125,12 @@ const PluginsContainer = () => {
     const [searching, setSearching] = useState(false);
 
     const [busy, setBusy] = useState<string | null>(null);
+    const [installing, setInstalling] = useState<{ title: string; step: number } | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
     const [versionsFor, setVersionsFor] = useState<PluginHit | null>(null);
     const [versions, setVersions] = useState<PluginVersion[] | null>(null);
     const searchId = useRef(0);
+    const progressWidth = useProgress(!!installing && installing.step < 3);
 
     useEffect(() => {
         clearFlashes('server:plugins');
@@ -139,16 +173,26 @@ const PluginsContainer = () => {
 
     const install = (hit: PluginHit, versionId?: string) => {
         setBusy(`install:${hit.id}`);
+        setInstalling({ title: hit.title, step: versionId ? 1 : 0 });
         clearFlashes('server:plugins');
+        // Version id already chosen via picker → resolution happened there.
+        if (versionId) {
+            setTimeout(() => setInstalling((s) => (s ? { ...s, step: 1 } : s)), 0);
+        }
         installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId)
             .then((plugin) => {
+                setInstalling({ title: hit.title, step: 3 });
                 setPlugins((prev) => [...prev.filter((p) => p.id !== plugin.id), plugin]);
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
                 setVersionsFor(null);
+                setTimeout(() => setInstalling(null), 900);
             })
-            .catch((error) => addError({ key: 'server:plugins', message: httpErrorToHuman(error) }))
+            .catch((error) => {
+                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setInstalling(null);
+            })
             .finally(() => setBusy(null));
     };
 
@@ -172,6 +216,39 @@ const PluginsContainer = () => {
             .finally(() => setBusy(null));
     };
 
+    const runUpdate = (plugin: ServerPlugin) => {
+        setBusy(`update:${plugin.id}`);
+        setInstalling({ title: plugin.title, step: 0 });
+        clearFlashes('server:plugins');
+        // Phase 1: resolve latest compatible version, then phase 2: download.
+        getPluginVersions(uuid, plugin.provider, plugin.projectId)
+            .then((vs) => {
+                if (!vs[0] || vs[0].id === plugin.versionId) {
+                    addError({ key: 'server:plugins', message: t('up_to_date') ?? '' });
+                    setInstalling(null);
+                    setBusy(null);
+                    return;
+                }
+                setInstalling({ title: plugin.title, step: 1 });
+                updatePlugin(uuid, plugin.id)
+                    .then((p) => {
+                        setInstalling({ title: plugin.title, step: 3 });
+                        setPlugins((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+                        setTimeout(() => setInstalling(null), 900);
+                    })
+                    .catch((error) => {
+                        addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                        setInstalling(null);
+                    })
+                    .finally(() => setBusy(null));
+            })
+            .catch((error) => {
+                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setInstalling(null);
+                setBusy(null);
+            });
+    };
+
     const remove = (plugin: ServerPlugin) => {
         setBusy(`delete:${plugin.id}`);
         clearFlashes('server:plugins');
@@ -191,9 +268,47 @@ const PluginsContainer = () => {
             : tw`text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800/30`}
     `;
 
+    const installSteps = [t('step_resolve'), t('step_download'), t('step_finish')];
+
     return (
         <ServerContentBlock title={t('title')}>
             <FlashMessageRender byKey={'server:plugins'} css={tw`mb-4`} />
+
+            <Modal visible={!!installing} onDismissed={() => setInstalling(null)} dismissable={false} size={'sm'}>
+                {installing && (
+                    <>
+                        <h2 css={tw`text-lg sm:text-xl font-semibold mb-1 truncate`}>
+                            {t('installing_title', { title: installing.title })}
+                        </h2>
+                        <div css={tw`space-y-2.5 my-4`}>
+                            {installSteps.map((label, i) => {
+                                const done = installing.step > i;
+                                const current = installing.step === i;
+                                return (
+                                    <div key={label} css={tw`flex items-center gap-2.5 text-sm`}>
+                                        {done ? (
+                                            <FaCheck style={{ color: '#4ade80', fontSize: '12px', flexShrink: 0 }} />
+                                        ) : current ? (
+                                            <Spinner size={'small'} />
+                                        ) : (
+                                            <FaCircle style={{ color: '#374151', fontSize: '8px', flexShrink: 0 }} />
+                                        )}
+                                        <span
+                                            css={done || current ? tw`text-gray-200` : tw`text-gray-500`}
+                                            style={done ? { color: '#9ca3af' } : undefined}
+                                        >
+                                            {label}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <ProgressBar>
+                            <div style={{ width: `${installing.step >= 3 ? 100 : progressWidth}%` }} />
+                        </ProgressBar>
+                    </>
+                )}
+            </Modal>
             <ConfirmationModal
                 visible={!!confirmRemove}
                 title={t('remove')}
@@ -296,9 +411,7 @@ const PluginsContainer = () => {
                                                 size={Button.Sizes.Small}
                                                 variant={Button.Variants.Secondary}
                                                 disabled={!!busy}
-                                                onClick={() =>
-                                                    mutate(`update:${plugin.id}`, updatePlugin(uuid, plugin.id))
-                                                }
+                                                onClick={() => runUpdate(plugin)}
                                             >
                                                 {busy === `update:${plugin.id}` ? (
                                                     <Spinner size={'small'} />
