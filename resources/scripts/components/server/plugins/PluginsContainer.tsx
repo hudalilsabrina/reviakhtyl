@@ -176,7 +176,7 @@ const PluginsContainer = () => {
         return () => clearTimeout(timer);
     }, [query]);
 
-    const install = (hit: PluginHit, versionId?: string) => {
+    const doInstall = (hit: PluginHit, versionId?: string) => {
         setBusy(`install:${hit.id}`);
         setInstalling({ title: hit.title, step: versionId ? 1 : 0 });
         clearFlashes('server:plugins');
@@ -204,6 +204,34 @@ const PluginsContainer = () => {
                 setInstalling(null);
             })
             .finally(() => setBusy(null));
+    };
+
+    // Quick install from a card: when the latest version has missing dependencies,
+    // open the version picker instead so the user sees what will be pulled in.
+    const install = (hit: PluginHit) => {
+        setBusy(`install:${hit.id}`);
+        getPluginVersions(uuid, provider, hit.id)
+            .then((data) => {
+                const latest = data.versions[0];
+                const missingDeps = (latest?.dependencies ?? []).filter((d) => {
+                    const info = data.dependencies[d.projectId];
+
+                    return info && !info.installed;
+                });
+                if (latest && missingDeps.length > 0) {
+                    setVersions(data.versions);
+                    setDependencies(data.dependencies);
+                    setInstalledRow(null);
+                    setVersionsFor(hit);
+                    setBusy(null);
+                    return;
+                }
+                doInstall(hit, latest?.id);
+            })
+            .catch((error) => {
+                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setBusy(null);
+            });
     };
 
     type MissingDep = { projectId: string; required: boolean; info?: Omit<PluginDependency, 'required'> };
