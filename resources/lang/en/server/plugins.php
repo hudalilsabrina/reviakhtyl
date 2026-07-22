@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'title' => 'Plugins',
+    'installed' => 'Installed',
+    'browse' => 'Browse',
+    'search_placeholder' => 'Search plugins...',
+    'search' => 'Search',
+    'install' => 'Install',
+    'update' => 'Update',
+    'remove' => 'Remove',
+    'enable' => 'Enable',
+    'disable' => 'Disable',
+    'installed_badge' => 'Installed',
+    'no_plugins' => 'No plugins installed yet. Browse a registry to get started.',
+    'no_results' => 'No plugins found.',
+    'confirm_remove' => 'Remove :plugin? The jar will be deleted from the plugins folder.',
+    'restart_notice' => 'Restart the server for plugin changes to take effect.',
+    'detected' => 'Detected: :version (:loader)',
+    'downloads' => ':count downloads',
+    'by' => 'by :author',
+    'load_more' => 'Load more',
+    'up_to_date' => 'Up to date',
+    'disabled_badge' => 'Disabled',
+    'version' => 'Version :version',
+];
