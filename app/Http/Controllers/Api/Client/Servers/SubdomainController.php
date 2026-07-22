@@ -30,7 +30,10 @@ class SubdomainController extends ClientApiController
 
         return [
             'enabled' => true,
-            'domain' => $this->subdomainService->domain(),
+            'domains' => $this->subdomainService->domains()
+                ->map(fn ($domain) => ['id' => $domain->id, 'domain' => $domain->domain])
+                ->values()
+                ->all(),
             'suggested' => $this->subdomainService->sanitize($server->name),
             'subdomain' => $subdomain
                 ? $this->fractal->item($subdomain)
@@ -46,7 +49,11 @@ class SubdomainController extends ClientApiController
             throw new DisplayException('Subdomains are not available for this server.');
         }
 
-        $subdomain = $this->subdomainService->store($server, $request->input('subdomain'));
+        $subdomain = $this->subdomainService->store(
+            $server,
+            $request->input('subdomain'),
+            $request->integer('domain_id')
+        );
 
         Activity::event('server:subdomain.manage')
             ->subject($subdomain)
