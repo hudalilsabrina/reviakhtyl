@@ -80,6 +80,7 @@ class ServerTransformer extends BaseClientTransformer
             'invocation' => $service->handle($server, ! $user->can(Permission::ACTION_STARTUP_READ, $server)),
             'docker_image' => $server->image,
             'egg_features' => $eggFeatures,
+            'subdomain' => $server->subdomain?->getFqdn(),
             'feature_limits' => [
                 'databases' => $server->database_limit,
                 'allocations' => $server->allocation_limit,

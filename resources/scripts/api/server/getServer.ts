@@ -52,6 +52,7 @@ export interface Server {
         threads: string;
     };
     eggFeatures: string[];
+    subdomain: string | null;
     featureLimits: {
         databases: number;
         allocations: number;
@@ -86,6 +87,7 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
     description: data.description ? (data.description.length > 0 ? data.description : null) : null,
     limits: { ...data.limits },
     eggFeatures: data.egg_features || [],
+    subdomain: data.subdomain ?? null,
     featureLimits: { ...data.feature_limits },
     isTransferring: data.is_transferring,
     variables: ((data.relationships?.variables as FractalResponseList | undefined)?.data || []).map(
