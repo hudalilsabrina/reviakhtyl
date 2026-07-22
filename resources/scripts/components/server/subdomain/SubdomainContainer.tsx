@@ -20,7 +20,7 @@ import deleteServerSubdomain from '@/api/server/subdomain/deleteServerSubdomain'
 const SubdomainContainer = () => {
     const { t } = useTranslation('server/subdomain');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
-    const { addError, addSuccess, clearFlashes } = useStoreActions((actions: Actions<ApplicationStore>) => actions.flashes);
+    const { addError, addFlash, clearFlashes } = useStoreActions((actions: Actions<ApplicationStore>) => actions.flashes);
 
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
@@ -48,7 +48,7 @@ const SubdomainContainer = () => {
             .then((subdomain) => {
                 setCurrent(subdomain);
                 setValue(subdomain.subdomain);
-                addSuccess({ key: 'server:subdomain', message: t('saved') });
+                addFlash({ type: 'success', key: 'server:subdomain', message: t('saved') });
             })
             .catch((error) => addError({ key: 'server:subdomain', message: httpErrorToHuman(error) }))
             .finally(() => setSubmitting(false));
@@ -61,7 +61,7 @@ const SubdomainContainer = () => {
             .then(() => {
                 setCurrent(null);
                 setValue('');
-                addSuccess({ key: 'server:subdomain', message: t('deleted') });
+                addFlash({ type: 'success', key: 'server:subdomain', message: t('deleted') });
             })
             .catch((error) => addError({ key: 'server:subdomain', message: httpErrorToHuman(error) }))
             .finally(() => {
