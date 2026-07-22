@@ -67,12 +67,15 @@ class SpigetService implements PluginProviderInterface
             return [];
         }
 
+        // Use the resource-level download: it redirects to cdn.spiget.org, whereas the
+        // per-version endpoint redirects to spigotmc.org which blocks agents like Wings.
+        // ponytail: always downloads the latest version; per-version files unavailable via CDN.
         return collect($response->json())
             ->map(fn ($v) => [
                 'id' => (string) $v['id'],
                 'version_number' => $v['name'],
                 'file_name' => $this->slug($v['name']).'.jar',
-                'download_url' => self::API.'/resources/'.$projectId.'/versions/'.$v['id'].'/download',
+                'download_url' => self::API.'/resources/'.$projectId.'/download',
                 'game_versions' => [],
                 'loaders' => ['spigot'],
             ])
