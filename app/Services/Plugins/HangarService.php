@@ -38,6 +38,11 @@ class HangarService implements PluginProviderInterface
 
     public function resolveVersion(string $projectId, array $loaders, ?string $gameVersion): ?array
     {
+        return $this->versions($projectId, $loaders, $gameVersion, 25)[0] ?? null;
+    }
+
+    public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array
+    {
         // Hangar platforms are PAPER/VELOCITY/WATERFALL; map loader filters loosely.
         $platforms = collect($loaders)->map(fn ($l) => match ($l) {
             'velocity' => 'VELOCITY',
@@ -46,47 +51,46 @@ class HangarService implements PluginProviderInterface
         })->unique()->values();
 
         $response = Http::acceptJson()->timeout(15)
-            ->get(self::API.'/projects/'.$projectId.'/versions', ['limit' => 25]);
+            ->get(self::API.'/projects/'.$projectId.'/versions', ['limit' => max($limit, 25)]);
 
         if ($response->failed()) {
-            return null;
+            return [];
         }
 
-        $version = collect($response->json('result', []))->first(function ($v) use ($platforms, $gameVersion) {
-            $deps = collect($v['platformDependencies'] ?? []);
-            if ($platforms->isNotEmpty() && $deps->isNotEmpty() && $deps->keys()->intersect($platforms)->isEmpty()) {
-                return false;
-            }
-            if ($gameVersion) {
-                $supported = $deps->flatten(1);
-                if ($supported->isNotEmpty() && ! $supported->contains($gameVersion)) {
+        return collect($response->json('result', []))
+            ->filter(function ($v) use ($platforms, $gameVersion) {
+                $deps = collect($v['platformDependencies'] ?? []);
+                if ($platforms->isNotEmpty() && $deps->isNotEmpty() && $deps->keys()->intersect($platforms)->isEmpty()) {
                     return false;
                 }
-            }
+                if ($gameVersion) {
+                    $supported = $deps->flatten(1);
+                    if ($supported->isNotEmpty() && ! $supported->contains($gameVersion)) {
+                        return false;
+                    }
+                }
 
-            return true;
-        });
+                return true;
+            })
+            ->map(function ($v) {
+                $download = collect($v['downloads'] ?? [])->first();
+                if (! ($download['downloadUrl'] ?? null)) {
+                    return null;
+                }
 
-        if (! $version) {
-            return null;
-        }
-
-        $download = $version['downloads'][strtoupper($version['platforms'][0] ?? 'PAPER')]['downloadUrl']
-            ?? collect($version['downloads'] ?? [])->first()['downloadUrl'] ?? null;
-
-        if (! $download) {
-            return null;
-        }
-
-        return [
-            'id' => (string) $version['id'],
-            'version_number' => $version['name'],
-            'file_name' => $version['downloads'][array_key_first($version['downloads'])]['fileInfo']['name']
-                ?? $version['name'].'.jar',
-            'download_url' => $download,
-            'game_versions' => collect($version['platformDependencies'] ?? [])->flatten(1)->all(),
-            'loaders' => $version['platforms'] ?? [],
-        ];
+                return [
+                    'id' => (string) $v['id'],
+                    'version_number' => $v['name'],
+                    'file_name' => $download['fileInfo']['name'] ?? $v['name'].'.jar',
+                    'download_url' => $download['downloadUrl'],
+                    'game_versions' => collect($v['platformDependencies'] ?? [])->flatten(1)->all(),
+                    'loaders' => $v['platforms'] ?? [],
+                ];
+            })
+            ->filter()
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array

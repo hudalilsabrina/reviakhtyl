@@ -19,6 +19,7 @@ class InstallPluginRequest extends ClientApiRequest
             'project_id' => ['required', 'string', 'max:128'],
             'title' => ['sometimes', 'nullable', 'string', 'max:191'],
             'icon_url' => ['sometimes', 'nullable', 'string', 'max:512'],
+            'version_id' => ['sometimes', 'nullable', 'string', 'max:128'],
         ];
     }
 }

@@ -57,6 +57,19 @@ class PluginController extends ClientApiController
         ];
     }
 
+    public function versions(SearchPluginsRequest $request, Server $server): array
+    {
+        $request->validate(['project_id' => ['required', 'string', 'max:128']]);
+
+        return [
+            'versions' => $this->manager->provider($request->input('provider'))->versions(
+                $request->input('project_id'),
+                $this->manager->loaders($server),
+                $this->manager->gameVersion($server),
+            ),
+        ];
+    }
+
     public function store(InstallPluginRequest $request, Server $server): array
     {
         try {
@@ -66,6 +79,7 @@ class PluginController extends ClientApiController
                 $request->input('project_id'),
                 $request->input('title'),
                 $request->input('icon_url'),
+                $request->input('version_id'),
             );
         } catch (DisplayException $e) {
             throw $e;

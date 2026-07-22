@@ -48,6 +48,12 @@ class ModrinthService implements PluginProviderInterface
 
     public function resolveVersion(string $projectId, array $loaders, ?string $gameVersion): ?array
     {
+        // API returns newest first.
+        return $this->versions($projectId, $loaders, $gameVersion, 100)[0] ?? null;
+    }
+
+    public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array
+    {
         $params = [];
         if ($loaders) {
             $params['loaders'] = json_encode($loaders);
@@ -60,14 +66,15 @@ class ModrinthService implements PluginProviderInterface
             ->get(self::API.'/project/'.$projectId.'/version', $params);
 
         if ($response->failed()) {
-            return null;
+            return [];
         }
 
-        // API returns newest first.
-        $versions = collect($response->json());
-        $version = $versions->first();
-
-        return $version ? $this->mapVersion($version) : null;
+        return collect($response->json())
+            ->map(fn ($v) => $this->mapVersion($v))
+            ->filter()
+            ->take($limit)
+            ->values()
+            ->all();
     }
 
     public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array

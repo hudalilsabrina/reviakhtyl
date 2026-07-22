@@ -73,7 +73,7 @@ class PluginManagerService
     /**
      * Install or update a provider project onto the server.
      */
-    public function install(Server $server, string $providerName, string $projectId, ?string $title = null, ?string $iconUrl = null): ServerPlugin
+    public function install(Server $server, string $providerName, string $projectId, ?string $title = null, ?string $iconUrl = null, ?string $versionId = null): ServerPlugin
     {
         $provider = $this->provider($providerName);
         $existing = $server->plugins()
@@ -81,7 +81,10 @@ class PluginManagerService
             ->where('project_id', $projectId)
             ->first();
 
-        $version = $provider->resolveVersion($projectId, $this->loaders($server), $this->gameVersion($server));
+        $version = $versionId
+            ? collect($provider->versions($projectId, $this->loaders($server), $this->gameVersion($server), 100))
+                ->firstWhere('id', $versionId)
+            : $provider->resolveVersion($projectId, $this->loaders($server), $this->gameVersion($server));
 
         if (! $version) {
             throw new DisplayException('No compatible plugin version found for this server.');

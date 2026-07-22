@@ -145,6 +145,7 @@ Route::group([
     Route::group(['prefix' => '/plugins'], function () {
         Route::get('/', [Client\Servers\PluginController::class, 'index']);
         Route::get('/search', [Client\Servers\PluginController::class, 'search']);
+        Route::get('/versions', [Client\Servers\PluginController::class, 'versions']);
         Route::middleware('throttle:api.plugins')
             ->post('/', [Client\Servers\PluginController::class, 'store']);
         Route::middleware('throttle:api.plugins')
