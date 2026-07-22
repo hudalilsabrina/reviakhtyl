@@ -142,6 +142,17 @@ Route::group([
         Route::delete('/', [Client\Servers\SubdomainController::class, 'delete']);
     });
 
+    Route::group(['prefix' => '/plugins'], function () {
+        Route::get('/', [Client\Servers\PluginController::class, 'index']);
+        Route::get('/search', [Client\Servers\PluginController::class, 'search']);
+        Route::middleware('throttle:api.plugins')
+            ->post('/', [Client\Servers\PluginController::class, 'store']);
+        Route::middleware('throttle:api.plugins')
+            ->post('/{plugin}/update', [Client\Servers\PluginController::class, 'update']);
+        Route::post('/{plugin}/toggle', [Client\Servers\PluginController::class, 'toggle']);
+        Route::delete('/{plugin}', [Client\Servers\PluginController::class, 'destroy']);
+    });
+
     Route::group(['prefix' => '/users'], function () {
         Route::get('/', [Client\Servers\SubuserController::class, 'index']);
         Route::middleware([ResourceLimit::Subuser->middleware()])
