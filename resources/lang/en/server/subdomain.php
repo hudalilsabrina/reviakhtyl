@@ -2,7 +2,7 @@
 
 return [
     'title' => 'Subdomain',
-    'description' => 'Attach a subdomain under :domain to this server. Players can connect using the subdomain without typing the port (Minecraft Java SRV record).',
+    'description' => 'Attach a subdomain to this server. Players can connect using the subdomain without typing the port (Minecraft Java SRV record).',
     'current' => 'Current address: ',
     'label' => 'Subdomain',
     'create' => 'Create Subdomain',

@@ -8,12 +8,13 @@ import Spinner from '@/reviactyl/elements/Spinner';
 import SpinnerOverlay from '@/reviactyl/elements/SpinnerOverlay';
 import Input from '@/reviactyl/elements/Input';
 import Label from '@/reviactyl/elements/Label';
+import Select from '@/reviactyl/elements/Select';
 import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
 import { ServerContext } from '@/state/server';
 import { ApplicationStore } from '@/state';
 import { httpErrorToHuman } from '@/api/http';
-import getServerSubdomain, { ServerSubdomain } from '@/api/server/subdomain/getServerSubdomain';
+import getServerSubdomain, { ServerSubdomain, SubdomainDomain } from '@/api/server/subdomain/getServerSubdomain';
 import setServerSubdomain from '@/api/server/subdomain/setServerSubdomain';
 import deleteServerSubdomain from '@/api/server/subdomain/deleteServerSubdomain';
 
@@ -25,7 +26,8 @@ const SubdomainContainer = () => {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(false);
-    const [domain, setDomain] = useState('');
+    const [domains, setDomains] = useState<SubdomainDomain[]>([]);
+    const [domainId, setDomainId] = useState<number>(0);
     const [value, setValue] = useState('');
     const [current, setCurrent] = useState<ServerSubdomain | null>(null);
 
@@ -33,9 +35,10 @@ const SubdomainContainer = () => {
         clearFlashes('server:subdomain');
         getServerSubdomain(uuid)
             .then((state) => {
-                setDomain(state.domain);
+                setDomains(state.domains);
                 setCurrent(state.subdomain);
                 setValue(state.subdomain?.subdomain ?? state.suggested);
+                setDomainId(state.subdomain?.cloudflareDomainId ?? state.domains[0]?.id ?? 0);
             })
             .catch((error) => addError({ key: 'server:subdomain', message: httpErrorToHuman(error) }))
             .finally(() => setLoading(false));
@@ -44,7 +47,7 @@ const SubdomainContainer = () => {
     const submit = () => {
         setSubmitting(true);
         clearFlashes('server:subdomain');
-        setServerSubdomain(uuid, value)
+        setServerSubdomain(uuid, value, domainId)
             .then((subdomain) => {
                 setCurrent(subdomain);
                 setValue(subdomain.subdomain);
@@ -70,6 +73,9 @@ const SubdomainContainer = () => {
             });
     };
 
+    const selectedDomain = domains.find((d) => d.id === domainId)?.domain;
+    const dirty = value.trim() !== current?.subdomain || domainId !== current?.cloudflareDomainId;
+
     return (
         <ServerContentBlock showFlashKey={'server:subdomain'} title={t('title')}>
             {loading ? (
@@ -77,7 +83,7 @@ const SubdomainContainer = () => {
             ) : (
                 <TitledGreyBox title={t('title')} css={tw`relative`}>
                     <SpinnerOverlay visible={submitting} />
-                    <p css={tw`text-sm text-gray-300 mb-4`}>{t('description', { domain })}</p>
+                    <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
 
                     {current && (
                         <p css={tw`text-sm mb-4`}>
@@ -94,7 +100,13 @@ const SubdomainContainer = () => {
                             placeholder={'my-server'}
                             maxLength={63}
                         />
-                        <span css={tw`text-gray-400 text-sm whitespace-nowrap`}>.{domain}</span>
+                        <Select value={domainId} onChange={(e) => setDomainId(Number(e.currentTarget.value))}>
+                            {domains.map((d) => (
+                                <option key={d.id} value={d.id}>
+                                    .{d.domain}
+                                </option>
+                            ))}
+                        </Select>
                     </div>
 
                     <div css={tw`mt-6 flex justify-end gap-2`}>
@@ -112,7 +124,7 @@ const SubdomainContainer = () => {
                                 <Button.Danger onClick={() => setConfirmDelete(true)}>{t('remove')}</Button.Danger>
                             </>
                         )}
-                        <Button disabled={!value.trim() || value.trim() === current?.subdomain} onClick={submit}>
+                        <Button disabled={!value.trim() || !selectedDomain || !dirty} onClick={submit}>
                             {current ? t('update') : t('create')}
                         </Button>
                     </div>
