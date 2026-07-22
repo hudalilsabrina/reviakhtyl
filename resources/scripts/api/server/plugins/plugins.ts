@@ -74,18 +74,46 @@ export const searchPlugins = async (
     };
 };
 
+export interface PluginVersion {
+    id: string;
+    versionNumber: string;
+    fileName: string;
+    gameVersions: string[];
+    loaders: string[];
+}
+
+export const getPluginVersions = async (
+    uuid: string,
+    provider: PluginProvider,
+    projectId: string
+): Promise<PluginVersion[]> => {
+    const { data } = await http.get(`/api/client/servers/${uuid}/plugins/versions`, {
+        params: { provider, project_id: projectId },
+    });
+
+    return (data.versions || []).map((v: any) => ({
+        id: v.id,
+        versionNumber: v.version_number,
+        fileName: v.file_name,
+        gameVersions: v.game_versions || [],
+        loaders: v.loaders || [],
+    }));
+};
+
 export const installPlugin = async (
     uuid: string,
     provider: PluginProvider,
     projectId: string,
     title?: string,
-    iconUrl?: string | null
+    iconUrl?: string | null,
+    versionId?: string
 ): Promise<ServerPlugin> => {
     const { data } = await http.post(`/api/client/servers/${uuid}/plugins`, {
         provider,
         project_id: projectId,
         title,
         icon_url: iconUrl,
+        version_id: versionId,
     });
 
     return rawDataToServerPlugin(data);
