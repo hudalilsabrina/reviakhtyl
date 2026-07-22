@@ -7,6 +7,7 @@ use App\Exceptions\DisplayException;
 use App\Models\Server;
 use App\Models\ServerSubdomain;
 use Illuminate\Contracts\Encryption\Encrypter;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -32,7 +33,7 @@ class CloudflareSubdomainService
 
     public function domain(): ?string
     {
-        $value = $this->settings->get('settings::panel:cloudflare:domain');
+        $value = $this->settings->get('settings::panel:cloudflare:domain', null);
 
         return $value ? strtolower(trim($value)) : null;
     }
@@ -81,6 +82,38 @@ class CloudflareSubdomainService
         );
 
         return $record;
+    }
+
+    /**
+     * Re-point an existing subdomain's SRV record at the server's current
+     * primary allocation. Used after the primary allocation changes.
+     */
+    public function sync(Server $server): void
+    {
+        $record = $server->subdomain;
+
+        if (! $record) {
+            return;
+        }
+
+        if ($record->cf_record_id) {
+            $this->deleteRecord($record->cf_record_id);
+        }
+
+        $record->forceFill([
+            'cf_record_id' => $this->createSrvRecord($record->subdomain, $record->domain, $server),
+        ])->save();
+    }
+
+    /**
+     * Best-effort variant of sync(). Never throws.
+     */
+    public function syncQuietly(Server $server): void
+    {
+        try {
+            $this->sync($server);
+        } catch (\Throwable) {
+        }
     }
 
     /**
@@ -225,7 +258,7 @@ class CloudflareSubdomainService
             ?: 'unexpected response';
     }
 
-    private function client(): \Illuminate\Http\Client\PendingRequest
+    private function client(): PendingRequest
     {
         return Http::withToken($this->apiToken())
             ->acceptJson()
@@ -234,7 +267,7 @@ class CloudflareSubdomainService
 
     private function apiToken(): ?string
     {
-        $value = $this->settings->get('settings::panel:cloudflare:api_token');
+        $value = $this->settings->get('settings::panel:cloudflare:api_token', null);
 
         if (empty($value)) {
             return null;
@@ -249,7 +282,7 @@ class CloudflareSubdomainService
 
     private function zoneId(): ?string
     {
-        $value = $this->settings->get('settings::panel:cloudflare:zone_id');
+        $value = $this->settings->get('settings::panel:cloudflare:zone_id', null);
 
         return $value ?: null;
     }

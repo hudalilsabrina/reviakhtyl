@@ -76,6 +76,14 @@ class RouteConfigServiceProvider extends ServiceProvider
             )->by($key);
         });
 
+        // Tight limit for Cloudflare subdomain writes — each call hits the
+        // Cloudflare API, so prevent hammering from a single account.
+        RateLimiter::for('api.subdomain', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinute(5)->by($key);
+        });
+
         RateLimiter::for('api.application', function (Request $request) {
             $key = optional($request->user())->uuid ?: $request->ip();
 

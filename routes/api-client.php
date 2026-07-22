@@ -137,7 +137,8 @@ Route::group([
 
     Route::group(['prefix' => '/subdomain'], function () {
         Route::get('/', [Client\Servers\SubdomainController::class, 'index']);
-        Route::post('/', [Client\Servers\SubdomainController::class, 'store']);
+        Route::middleware('throttle:api.subdomain')
+            ->post('/', [Client\Servers\SubdomainController::class, 'store']);
         Route::delete('/', [Client\Servers\SubdomainController::class, 'delete']);
     });
 
