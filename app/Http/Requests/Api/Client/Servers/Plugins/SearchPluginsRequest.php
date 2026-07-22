@@ -15,7 +15,7 @@ class SearchPluginsRequest extends ClientApiRequest
     public function rules(): array
     {
         return [
-            'provider' => ['required', 'string', 'in:modrinth,hangar,spiget'],
+            'provider' => ['sometimes', 'nullable', 'string', 'in:modrinth,hangar,spiget'],
             'query' => ['sometimes', 'nullable', 'string', 'max:128'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'offset' => ['sometimes', 'integer', 'min:0'],
