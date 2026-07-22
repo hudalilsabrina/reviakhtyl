@@ -22,6 +22,7 @@ class ServerDeletionService
         private ConnectionInterface $connection,
         private DaemonServerRepository $daemonServerRepository,
         private DatabaseManagementService $databaseManagementService,
+        private CloudflareSubdomainService $cloudflareSubdomainService,
     ) {}
 
     /**
@@ -76,6 +77,10 @@ class ServerDeletionService
                     Log::warning($exception);
                 }
             }
+
+            // Best-effort removal of the Cloudflare SRV record before the
+            // server row (and its cascade) disappears.
+            $this->cloudflareSubdomainService->destroyQuietly($server);
 
             // clear any allocation notes for the server
             $server->allocations()->update(['notes' => null]);
