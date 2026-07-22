@@ -86,6 +86,10 @@ class Settings extends Page implements HasSchemas
         'panel:client_features:allocations:enabled',
         'panel:client_features:allocations:range_start',
         'panel:client_features:allocations:range_end',
+
+        'panel:cloudflare:api_token',
+        'panel:cloudflare:zone_id',
+        'panel:cloudflare:domain',
     ];
 
     public function getHeading(): string
@@ -119,7 +123,7 @@ class Settings extends Page implements HasSchemas
                 $value = $config->get(Str::replace(':', '.', $key));
             }
 
-            if ($key === 'mail:mailers:smtp:password' && ! empty($value)) {
+            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token'], true) && ! empty($value)) {
                 try {
                     $value = $encrypter->decrypt($value);
                 } catch (\Throwable) {
@@ -572,6 +576,29 @@ class Settings extends Page implements HasSchemas
                         ->columnSpan(2),
                 ]),
 
+            Section::make('Cloudflare') // Proper noun, left untranslated.
+                ->description('Configure Cloudflare DNS to allow users to attach a subdomain (SRV record) to their server. The API token needs Zone.DNS edit permission for the zone.')
+                ->columns(3)
+                ->schema([
+                    TextInput::make('panel:cloudflare:api_token')
+                        ->label('API Token')
+                        ->password()
+                        ->revealable()
+                        ->maxLength(191)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:cloudflare:zone_id')
+                        ->label('Zone ID')
+                        ->maxLength(191)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:cloudflare:domain')
+                        ->label('Domain')
+                        ->helperText('Base domain for subdomains, e.g. example.com')
+                        ->maxLength(191)
+                        ->columnSpan(1),
+                ]),
+
             Section::make(trans('admin/settings.advanced.creation-title'))
                 ->columns(4)
                 ->schema([
@@ -621,7 +648,7 @@ class Settings extends Page implements HasSchemas
         $data = $form?->getState() ?? [];
 
         foreach ($data as $key => $value) {
-            if ($key === 'mail:mailers:smtp:password' && ! empty($value)) {
+            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token'], true) && ! empty($value)) {
                 $value = $encrypter->encrypt($value);
             }
             $settings->set(
