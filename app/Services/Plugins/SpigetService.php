@@ -42,23 +42,31 @@ class SpigetService implements PluginProviderInterface
 
     public function resolveVersion(string $projectId, array $loaders, ?string $gameVersion): ?array
     {
-        $response = Http::acceptJson()->timeout(15)
-            ->get(self::API.'/resources/'.$projectId.'/versions/latest');
+        return $this->versions($projectId, $loaders, $gameVersion, 1)[0] ?? null;
+    }
 
-        if ($response->failed()) {
-            return null;
+    public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array
+    {
+        $response = Http::acceptJson()->timeout(15)
+            ->get(self::API.'/resources/'.$projectId.'/versions', [
+                'size' => $limit,
+                'sort' => '-releaseDate',
+            ]);
+
+        if ($response->failed() || ! is_array($response->json())) {
+            return [];
         }
 
-        $version = $response->json();
-
-        return [
-            'id' => (string) $version['id'],
-            'version_number' => $version['name'],
-            'file_name' => $this->slug($version['name']).'.jar',
-            'download_url' => self::API.'/resources/'.$projectId.'/versions/'.$version['id'].'/download',
-            'game_versions' => [],
-            'loaders' => ['spigot'],
-        ];
+        return collect($response->json())
+            ->map(fn ($v) => [
+                'id' => (string) $v['id'],
+                'version_number' => $v['name'],
+                'file_name' => $this->slug($v['name']).'.jar',
+                'download_url' => self::API.'/resources/'.$projectId.'/versions/'.$v['id'].'/download',
+                'game_versions' => [],
+                'loaders' => ['spigot'],
+            ])
+            ->all();
     }
 
     public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array

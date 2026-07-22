@@ -20,4 +20,10 @@ interface PluginProviderInterface
      * Newest version newer than $currentVersionId, or null if up to date.
      */
     public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array;
+
+    /**
+     * List versions compatible with the given loaders/game version, newest first.
+     * Same shape as resolveVersion() items.
+     */
+    public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array;
 }
