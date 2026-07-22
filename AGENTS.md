@@ -30,6 +30,7 @@ Reviactyl Panel — fork of Pterodactyl. Laravel 13 + Filament v5 admin, React 1
 Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
 
 - [`docs/subdomain/AGENTS.md`](docs/subdomain/AGENTS.md) — Cloudflare SRV-record subdomains (client API, service, admin, frontend).
+- [`docs/modular-startup/AGENTS.md`](docs/modular-startup/AGENTS.md) — Egg-defined toggle-able startup command fragments (`{{STARTUP_PARTS}}` placeholder).
 
 ## Gotchas
 
