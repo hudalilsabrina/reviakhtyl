@@ -156,6 +156,26 @@ class CloudflareSubdomainService
     }
 
     /**
+     * Verify the stored/derived token for a domain works against Cloudflare.
+     *
+     * @throws DisplayException
+     */
+    public function testDomain(CloudflareDomain $domain): void
+    {
+        $token = $this->apiToken($domain);
+
+        if (empty($token)) {
+            throw new DisplayException('No API token available for this domain.');
+        }
+
+        $response = $this->client($domain)->get(self::API_BASE.'/zones/'.$domain->zone_id);
+
+        if (! $response->successful()) {
+            throw new DisplayException('Cloudflare API error: '.$this->errorMessage($response->json()));
+        }
+    }
+
+    /**
      * List zones (domains) visible to an API token.
      *
      * @return array<string, string> Map of zone ID => zone name.

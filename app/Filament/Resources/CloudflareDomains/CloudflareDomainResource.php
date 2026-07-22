@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\CloudflareDomains;
 
-use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Filament\Resources\CloudflareDomains\Pages\ListCloudflareDomains;
 use App\Models\CloudflareDomain;
 use App\Services\Servers\CloudflareSubdomainService;
@@ -171,20 +170,8 @@ class CloudflareDomainResource extends Resource
                     ->icon('tabler-plug-connected')
                     ->color('gray')
                     ->action(function (CloudflareDomain $record) {
-                        $service = app(CloudflareSubdomainService::class);
-
                         try {
-                            $token = $record->api_token
-                                ? app(Encrypter::class)->decrypt($record->api_token)
-                                : app(SettingsRepositoryInterface::class)->get('settings::panel:cloudflare:api_token', null);
-
-                            if (empty($token)) {
-                                Notification::make()->title('No API token available for this domain.')->danger()->send();
-
-                                return;
-                            }
-
-                            CloudflareSubdomainService::fetchZones($token);
+                            app(CloudflareSubdomainService::class)->testDomain($record);
 
                             Notification::make()->title('Connection OK')->success()->send();
                         } catch (\Throwable $e) {
