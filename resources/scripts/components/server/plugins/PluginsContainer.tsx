@@ -248,6 +248,35 @@ const PluginsContainer = () => {
 
     type MissingDep = { projectId: string; required: boolean; info?: Omit<PluginDependency, 'required'> };
 
+    const installDep = (dep: MissingDep) => {
+        if (!dep.info) return;
+        const key = `dep:${dep.projectId}`;
+        setBusy(key);
+        setInstalling({ title: dep.info.title, step: 0 });
+        clearFlashes('server:plugins');
+        installPlugin(uuid, provider, dep.info.id, dep.info.title, dep.info.iconUrl)
+            .then((p) => {
+                setInstalling({ title: p.title, step: 3, version: p.versionNumber });
+                setPlugins((prev) => [...prev.filter((x) => x.id !== p.id), p]);
+                setDependencies((prev) => {
+                    const entry = prev[dep.projectId];
+
+                    return entry ? { ...prev, [dep.projectId]: { ...entry, installed: true } } : prev;
+                });
+                addFlash({
+                    type: 'success',
+                    key: 'server:plugins',
+                    message: t('install_success', { title: p.title, version: p.versionNumber }) ?? '',
+                });
+                setTimeout(() => setInstalling(null), 1600);
+            })
+            .catch((error) => {
+                addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setInstalling(null);
+            })
+            .finally(() => setBusy(null));
+    };
+
     const installWithDeps = (hit: PluginHit, version: PluginVersion, missing: MissingDep[]) => {
         // Install only missing REQUIRED dependencies, then the plugin itself.
         const toInstall = missing.filter((d) => d.required);
@@ -493,31 +522,54 @@ const PluginsContainer = () => {
                                             </div>
                                             {missing.length > 0 && (
                                                 <div css={tw`mt-1.5 flex flex-wrap gap-1.5`}>
-                                                    {missing.map((d) => (
-                                                        <span
-                                                            key={d.projectId}
-                                                            css={tw`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-300`}
-                                                        >
-                                                            {d.info!.iconUrl ? (
-                                                                <img
-                                                                    src={d.info!.iconUrl}
-                                                                    alt={''}
-                                                                    css={tw`w-3.5 h-3.5 rounded-sm`}
-                                                                />
-                                                            ) : (
-                                                                <FaPuzzlePiece style={{ fontSize: '10px' }} />
-                                                            )}
-                                                            {d.info!.title}
+                                                    {missing.map((d) => {
+                                                        const chip = (
+                                                            <>
+                                                                {d.info!.iconUrl ? (
+                                                                    <img
+                                                                        src={d.info!.iconUrl}
+                                                                        alt={''}
+                                                                        css={tw`w-3.5 h-3.5 rounded-sm`}
+                                                                    />
+                                                                ) : (
+                                                                    <FaPuzzlePiece style={{ fontSize: '10px' }} />
+                                                                )}
+                                                                {d.info!.title}
+                                                                <span
+                                                                    style={{
+                                                                        color: d.required ? '#fbbf24' : '#6b7280',
+                                                                        fontSize: '10px',
+                                                                    }}
+                                                                >
+                                                                    {d.required ? t('dep_required') : t('dep_optional')}
+                                                                </span>
+                                                            </>
+                                                        );
+
+                                                        return d.required ? (
                                                             <span
-                                                                style={{
-                                                                    color: d.required ? '#fbbf24' : '#6b7280',
-                                                                    fontSize: '10px',
-                                                                }}
+                                                                key={d.projectId}
+                                                                css={tw`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-300`}
                                                             >
-                                                                {d.required ? t('dep_required') : t('dep_optional')}
+                                                                {chip}
                                                             </span>
-                                                        </span>
-                                                    ))}
+                                                        ) : (
+                                                            <button
+                                                                key={d.projectId}
+                                                                type={'button'}
+                                                                title={t('dep_install_optional') ?? ''}
+                                                                disabled={!!busy}
+                                                                onClick={() => installDep(d)}
+                                                                css={tw`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-gray-800 border border-gray-700 text-gray-300 hover:border-reviactyl hover:text-gray-100 transition-colors disabled:opacity-50`}
+                                                            >
+                                                                {busy === `dep:${d.projectId}` ? (
+                                                                    <Spinner size={'small'} />
+                                                                ) : (
+                                                                    chip
+                                                                )}
+                                                            </button>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </div>

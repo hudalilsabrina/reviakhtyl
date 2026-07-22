@@ -40,5 +40,6 @@ return [
     'install_with_deps_one' => 'Install + :count dep',
     'install_with_deps_other' => 'Install + :count deps',
     'dep_required' => 'required · auto-install',
-    'dep_optional' => 'optional · skipped',
+    'dep_optional' => 'optional · click to install',
+    'dep_install_optional' => 'Install this optional dependency',
 ];
