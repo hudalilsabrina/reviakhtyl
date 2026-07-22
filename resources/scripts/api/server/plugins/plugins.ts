@@ -135,7 +135,9 @@ export const installPlugin = async (
     projectId: string,
     title?: string,
     iconUrl?: string | null,
-    versionId?: string
+    versionId?: string,
+    slug?: string,
+    replace = false
 ): Promise<ServerPlugin> => {
     const { data } = await http.post(`/api/client/servers/${uuid}/plugins`, {
         provider,
@@ -143,6 +145,8 @@ export const installPlugin = async (
         title,
         icon_url: iconUrl,
         version_id: versionId,
+        slug,
+        replace,
     });
 
     return rawDataToServerPlugin(data);
