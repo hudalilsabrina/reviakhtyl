@@ -37,7 +37,8 @@ return [
     'install_success' => ':title :version installed successfully.',
     'update_success' => ':title updated to :version.',
     'up_to_date' => 'Plugin is already up to date.',
-    'install_with_deps' => 'Install + :count dep|Install + :count deps',
+    'install_with_deps_one' => 'Install + :count dep',
+    'install_with_deps_other' => 'Install + :count deps',
     'dep_required' => 'required',
     'dep_optional' => 'optional',
 ];
