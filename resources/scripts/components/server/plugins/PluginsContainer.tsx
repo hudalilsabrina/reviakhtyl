@@ -94,10 +94,10 @@ const PluginsContainer = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    const doSearch = (offset = 0) => {
+    const doSearch = (offset = 0, term = query) => {
         const id = ++searchId.current;
         setSearching(true);
-        searchPlugins(uuid, provider, query, offset)
+        searchPlugins(uuid, provider, term, offset)
             .then((data) => {
                 if (id !== searchId.current) return;
                 setHits(offset === 0 ? data.hits : (prev) => [...prev, ...data.hits]);
@@ -113,6 +113,14 @@ const PluginsContainer = () => {
             doSearch(0);
         }
     }, [tab, provider]);
+
+    // Debounced live search while typing.
+    useEffect(() => {
+        if (tab !== 'browse') return;
+        const timer = setTimeout(() => doSearch(0), 350);
+
+        return () => clearTimeout(timer);
+    }, [query]);
 
     const install = (hit: PluginHit) => {
         setBusy(`install:${hit.id}`);
