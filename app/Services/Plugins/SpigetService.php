@@ -78,8 +78,15 @@ class SpigetService implements PluginProviderInterface
                 'download_url' => self::API.'/resources/'.$projectId.'/download',
                 'game_versions' => [],
                 'loaders' => ['spigot'],
+                // Spiget exposes no dependency metadata.
+                'dependencies' => [],
             ])
             ->all();
+    }
+
+    public function projects(array $ids): array
+    {
+        return [];
     }
 
     public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array

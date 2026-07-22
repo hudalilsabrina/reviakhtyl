@@ -62,12 +62,39 @@ class PluginController extends ClientApiController
     {
         $request->validate(['project_id' => ['required', 'string', 'max:128']]);
 
+        $provider = $this->manager->provider($request->input('provider'));
+        $versions = $provider->versions(
+            $request->input('project_id'),
+            $this->manager->loaders($server),
+            $this->manager->gameVersion($server),
+        );
+
+        // Resolve dependency project ids to display data, marking ones already installed.
+        $depIds = collect($versions)->pluck('dependencies')->flatten(1)->pluck('project_id')->unique()->all();
+        $depProjects = $provider->projects($depIds);
+        $installed = $server->plugins
+            ->filter(fn ($p) => $p->provider === $request->input('provider'))
+            ->keyBy('project_id');
+
+        $dependencies = [];
+        foreach ($depIds as $id) {
+            if (! isset($depProjects[$id])) {
+                continue;
+            }
+            // Hangar ids are "owner/slug"; dependency metadata only carries the slug.
+            $fullId = $request->input('provider') === 'hangar'
+                ? ($depProjects[$id]['id'] ?? $id)
+                : $id;
+            $existing = $installed->first(fn ($p) => $p->project_id === $fullId || str_ends_with($p->project_id, '/'.$id));
+            $dependencies[$id] = $depProjects[$id] + [
+                'id' => $fullId,
+                'installed' => $existing !== null,
+            ];
+        }
+
         return [
-            'versions' => $this->manager->provider($request->input('provider'))->versions(
-                $request->input('project_id'),
-                $this->manager->loaders($server),
-                $this->manager->gameVersion($server),
-            ),
+            'versions' => $versions,
+            'dependencies' => $dependencies,
         ];
     }
 
