@@ -40,6 +40,7 @@ const NavItem = ({ route }: NavItemProps) => {
 
     const nestId = ServerContext.useStoreState((state) => state.server.data?.nestId);
     const eggId = ServerContext.useStoreState((state) => state.server.data?.eggId);
+    const eggFeatures = ServerContext.useStoreState((state) => state.server.data?.eggFeatures);
 
     const allowed =
         (route.nestIds && route.nestIds.includes(nestId ?? 0)) ||
@@ -49,6 +50,7 @@ const NavItem = ({ route }: NavItemProps) => {
         (!route.eggIds && !route.nestIds && !route.nestId && !route.eggId);
 
     if (!allowed) return null;
+    if (route.eggFeature && !eggFeatures?.includes(route.eggFeature)) return null;
 
     return (
         <Navigate
@@ -217,6 +219,7 @@ export default function ServerRouter() {
 
     const serverNestId = ServerContext.useStoreState((state) => state.server.data?.nestId);
     const serverEggId = ServerContext.useStoreState((state) => state.server.data?.eggId);
+    const serverEggFeatures = ServerContext.useStoreState((state) => state.server.data?.eggFeatures);
 
     const getServer = ServerContext.useStoreActions((actions) => actions.server.getServer);
     const clearServerState = ServerContext.useStoreActions((actions) => actions.clearServerState);
@@ -239,11 +242,12 @@ export default function ServerRouter() {
     const allRoutes = [...routes.server.control, ...routes.server.management, ...routes.server.administration];
 
     const routeAllowed = (route: any) =>
-        (route.nestIds && route.nestIds.includes(serverNestId ?? 0)) ||
-        (route.eggIds && route.eggIds.includes(serverEggId ?? 0)) ||
-        (route.nestId && route.nestId === serverNestId) ||
-        (route.eggId && route.eggId === serverEggId) ||
-        (!route.eggIds && !route.nestIds && !route.nestId && !route.eggId);
+        ((route.nestIds && route.nestIds.includes(serverNestId ?? 0)) ||
+            (route.eggIds && route.eggIds.includes(serverEggId ?? 0)) ||
+            (route.nestId && route.nestId === serverNestId) ||
+            (route.eggId && route.eggId === serverEggId) ||
+            (!route.eggIds && !route.nestIds && !route.nestId && !route.eggId)) &&
+        (!route.eggFeature || serverEggFeatures?.includes(route.eggFeature));
 
     const injectedRoutes = useExtensionRoutes('serverRouter', {
         eggId: serverEggId,

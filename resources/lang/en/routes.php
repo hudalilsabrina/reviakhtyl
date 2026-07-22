@@ -20,6 +20,7 @@ return [
         'files' => 'Files',
         'startup' => 'Startup',
         'network' => 'Network',
+        'subdomain' => 'Subdomain',
         'metrics' => 'Metrics',
         'databases' => 'Databases',
         'schedules' => 'Schedules',
