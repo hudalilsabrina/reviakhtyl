@@ -3,7 +3,7 @@ import tw from 'twin.macro';
 import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
-import { FaDownload, FaListUl, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
+import { FaCheck, FaDownload, FaListUl, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
 import Select from '@/reviactyl/elements/Select';
@@ -50,7 +50,10 @@ const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' }>`
     ${(props) =>
         props.$variant === 'installed' &&
         css`
-            ${tw`bg-success/20 text-success`};
+            ${tw`bg-success/20 text-success inline-flex items-center gap-1 normal-case tracking-normal rounded-full`};
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            font-size: 11px;
+            padding: 2px 8px;
         `}
 `;
 
@@ -275,8 +278,11 @@ const PluginsContainer = () => {
                                         {plugin.disabled && <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>}
                                     </div>
                                     <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>{plugin.fileName}</p>
-                                    <p css={tw`text-xs text-gray-500 mt-0.5`}>
-                                        {t('version', { version: plugin.versionNumber })}
+                                    <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
+                                        <Badge $variant={'installed'}>
+                                            <FaCheck style={{ fontSize: '9px' }} />
+                                            <span css={tw`font-mono`}>{plugin.versionNumber}</span>
+                                        </Badge>
                                     </p>
                                     <div css={tw`flex gap-2 mt-3 flex-wrap`}>
                                         {!plugin.disabled && (
@@ -382,8 +388,9 @@ const PluginsContainer = () => {
                                         <div css={tw`flex items-center gap-2 flex-wrap`}>
                                             <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
                                             {hit.installedVersion && (
-                                                <Badge $variant={'installed'}>
-                                                    {t('installed_badge')} {hit.installedVersion}
+                                                <Badge $variant={'installed'} title={t('installed_badge') ?? ''}>
+                                                    <FaCheck style={{ fontSize: '9px' }} />
+                                                    <span css={tw`font-mono`}>{hit.installedVersion}</span>
                                                 </Badge>
                                             )}
                                         </div>
