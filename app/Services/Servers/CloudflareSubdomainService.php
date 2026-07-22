@@ -162,13 +162,13 @@ class CloudflareSubdomainService
      */
     public function testDomain(CloudflareDomain $domain): void
     {
-        $token = $this->apiToken($domain);
+        $token = $this->apiToken();
 
         if (empty($token)) {
             throw new DisplayException('No API token available for this domain.');
         }
 
-        $response = $this->client($domain)->get(self::API_BASE.'/zones/'.$domain->zone_id);
+        $response = $this->client()->get(self::API_BASE.'/zones/'.$domain->zone_id);
 
         if (! $response->successful()) {
             throw new DisplayException('Cloudflare API error: '.$this->errorMessage($response->json()));
@@ -248,7 +248,7 @@ class CloudflareSubdomainService
      */
     private function listRecords(CloudflareDomain $domain, string $name): array
     {
-        $response = $this->client($domain)->get(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
+        $response = $this->client()->get(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
             'name' => $name,
         ]);
 
@@ -264,7 +264,7 @@ class CloudflareSubdomainService
         $fqdn = $subdomain.'.'.$domain->domain;
         $allocation = $server->allocation;
 
-        $response = $this->client($domain)->post(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
+        $response = $this->client()->post(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
             'type' => 'SRV',
             'name' => '_minecraft._tcp.'.$fqdn,
             'data' => [
@@ -289,7 +289,7 @@ class CloudflareSubdomainService
 
     private function deleteRecord(CloudflareDomain $domain, string $recordId): void
     {
-        $response = $this->client($domain)->delete(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records/'.$recordId);
+        $response = $this->client()->delete(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records/'.$recordId);
 
         if (! $response->successful() && $response->status() !== 404) {
             throw new DisplayException('Failed to delete DNS record: '.$this->errorMessage($response->json()));
@@ -305,20 +305,16 @@ class CloudflareSubdomainService
             ?: 'unexpected response';
     }
 
-    private function client(CloudflareDomain $domain): PendingRequest
+    private function client(): PendingRequest
     {
-        return Http::withToken($this->apiToken($domain))
+        return Http::withToken($this->apiToken())
             ->acceptJson()
             ->timeout((int) config('panel.guzzle.timeout', 15));
     }
 
-    /**
-     * Resolve the API token for a domain: per-zone token if set, else the
-     * global token from settings.
-     */
-    private function apiToken(CloudflareDomain $domain): ?string
+    private function apiToken(): ?string
     {
-        $value = $domain->api_token ?: $this->settings->get('settings::panel:cloudflare:api_token', null);
+        $value = $this->settings->get('settings::panel:cloudflare:api_token', null);
 
         if (empty($value)) {
             return null;

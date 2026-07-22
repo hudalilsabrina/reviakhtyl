@@ -10,7 +10,6 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $domain
  * @property string $zone_id
- * @property string|null $api_token
  * @property bool $is_enabled
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -21,8 +20,6 @@ class CloudflareDomain extends Model
     protected $table = 'cloudflare_domains';
 
     protected $guarded = ['id', self::CREATED_AT, self::UPDATED_AT];
-
-    protected $hidden = ['api_token'];
 
     protected $casts = [
         'is_enabled' => 'boolean',

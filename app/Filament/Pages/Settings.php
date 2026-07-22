@@ -536,11 +536,11 @@ class Settings extends Page implements HasSchemas
                 ]),
 
             Section::make('Cloudflare') // Proper noun, left untranslated.
-                ->description('Default API token used for Cloudflare DNS (Zone.DNS edit). Domains are managed under Domains; a domain can override this token with its own.')
+                ->description('API token used for Cloudflare DNS (needs Zone.DNS edit). Domains are managed under Domains.')
                 ->columns(2)
                 ->schema([
                     TextInput::make('panel:cloudflare:api_token')
-                        ->label('Default API Token')
+                        ->label('API Token')
                         ->password()
                         ->revealable()
                         ->maxLength(191)
