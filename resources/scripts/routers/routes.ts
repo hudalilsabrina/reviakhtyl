@@ -5,6 +5,7 @@ import DatabasesContainer from '@/components/server/databases/DatabasesContainer
 import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
 import UsersContainer from '@/components/server/users/UsersContainer';
 import BackupContainer from '@/components/server/backups/BackupContainer';
+import PluginsContainer from '@/components/server/plugins/PluginsContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
 import SubdomainContainer from '@/components/server/subdomain/SubdomainContainer';
@@ -28,6 +29,7 @@ import {
     FaKey,
     FaLock,
     FaPlay,
+    FaPuzzlePiece,
     FaTerminal,
     FaUser,
     FaUsers,
@@ -189,6 +191,13 @@ export default {
                 name: 'server.backups',
                 component: BackupContainer,
                 icon: FaBoxArchive,
+            },
+            {
+                route: 'plugins/*',
+                permission: 'plugin.*',
+                name: 'server.plugins',
+                component: PluginsContainer,
+                icon: FaPuzzlePiece,
             },
         ],
         administration: [
