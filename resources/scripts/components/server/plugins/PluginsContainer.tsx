@@ -31,7 +31,7 @@ const PluginsContainer = () => {
         (actions: Actions<ApplicationStore>) => actions.flashes
     );
 
-    const [tab, setTab] = useState<'installed' | 'browse'>('installed');
+    const [tab, setTab] = useState<'installed' | 'browse'>('browse');
     const [loading, setLoading] = useState(true);
     const [plugins, setPlugins] = useState<ServerPlugin[]>([]);
     const [gameVersion, setGameVersion] = useState<string | null>(null);
