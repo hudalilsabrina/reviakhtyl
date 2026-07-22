@@ -7,6 +7,7 @@ import UsersContainer from '@/components/server/users/UsersContainer';
 import BackupContainer from '@/components/server/backups/BackupContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
+import SubdomainContainer from '@/components/server/subdomain/SubdomainContainer';
 import FileManagerContainer from '@/components/server/files/FileManagerContainer';
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
@@ -23,6 +24,7 @@ import {
     FaEye,
     FaFolder,
     FaGear,
+    FaGlobe,
     FaKey,
     FaLock,
     FaPlay,
@@ -57,6 +59,7 @@ interface ServerRouteDefinition extends RouteDefinition {
     eggId?: number;
     nestIds?: number[];
     eggIds?: number[];
+    eggFeature?: string;
 }
 
 interface Routes {
@@ -142,6 +145,14 @@ export default {
                 name: 'server.network',
                 component: NetworkContainer,
                 icon: FaBoltLightning,
+            },
+            {
+                route: 'subdomain/*',
+                permission: 'subdomain.*',
+                eggFeature: 'subdomain',
+                name: 'server.subdomain',
+                component: SubdomainContainer,
+                icon: FaGlobe,
             },
             {
                 route: 'metrics/*',
