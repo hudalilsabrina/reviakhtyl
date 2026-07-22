@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import tw from 'twin.macro';
+import { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
+import { FaDownload, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
-import Input from '@/reviactyl/elements/Input';
 import Select from '@/reviactyl/elements/Select';
 import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
@@ -24,12 +25,37 @@ import {
     updatePlugin,
 } from '@/api/server/plugins/plugins';
 
+const cardCss = css`
+    ${tw`bg-gray-900 border border-gray-800 rounded-ui p-4 flex gap-4 transition-colors duration-150 hover:border-gray-700`}
+`;
+
+const badgeCss = {
+    provider: css`
+        ${tw`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-gray-700/70 text-gray-300`}
+    `,
+    disabled: css`
+        ${tw`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-yellow-600/30 text-yellow-200`}
+    `,
+    installed: css`
+        ${tw`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-success/20 text-success`}
+    `,
+};
+
+const PluginIcon = ({ url }: { url: string | null }) =>
+    url ? (
+        <img src={url} alt={''} css={tw`w-12 h-12 rounded-ui object-cover flex-shrink-0`} />
+    ) : (
+        <div
+            css={tw`w-12 h-12 rounded-ui bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0`}
+        >
+            <FaPuzzlePiece css={tw`text-gray-500 text-lg`} />
+        </div>
+    );
+
 const PluginsContainer = () => {
     const { t } = useTranslation('server/plugins');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
-    const { addError, addFlash, clearFlashes } = useStoreActions(
-        (actions: Actions<ApplicationStore>) => actions.flashes
-    );
+    const { addError, clearFlashes } = useStoreActions((actions: Actions<ApplicationStore>) => actions.flashes);
 
     const [tab, setTab] = useState<'installed' | 'browse'>('browse');
     const [loading, setLoading] = useState(true);
@@ -47,9 +73,9 @@ const PluginsContainer = () => {
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
     const searchId = useRef(0);
 
-    const refresh = () => {
+    useEffect(() => {
         clearFlashes('server:plugins');
-        return getServerPlugins(uuid)
+        getServerPlugins(uuid)
             .then((data) => {
                 setPlugins(data.plugins);
                 setGameVersion(data.gameVersion);
@@ -57,16 +83,12 @@ const PluginsContainer = () => {
             })
             .catch((error) => addError({ key: 'server:plugins', message: httpErrorToHuman(error) }))
             .finally(() => setLoading(false));
-    };
-
-    useEffect(() => {
-        refresh();
     }, []);
 
-    const doSearch = (offset = 0, nextQuery = query, nextProvider = provider) => {
+    const doSearch = (offset = 0) => {
         const id = ++searchId.current;
         setSearching(true);
-        searchPlugins(uuid, nextProvider, nextQuery, offset)
+        searchPlugins(uuid, provider, query, offset)
             .then((data) => {
                 if (id !== searchId.current) return;
                 setHits(offset === 0 ? data.hits : (prev) => [...prev, ...data.hits]);
@@ -92,7 +114,6 @@ const PluginsContainer = () => {
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
-                addFlash({ key: 'server:plugins', type: 'success', message: t('installed_badge') });
             })
             .catch((error) => addError({ key: 'server:plugins', message: httpErrorToHuman(error) }))
             .finally(() => setBusy(null));
@@ -119,6 +140,13 @@ const PluginsContainer = () => {
             });
     };
 
+    const tabButtonCss = (active: boolean) => css`
+        ${tw`px-4 py-2 text-sm font-semibold rounded-ui transition-colors duration-150 border-b-2 -mb-px rounded-b-none`}
+        ${active
+            ? tw`text-gray-100 border-reviactyl bg-gray-800/60`
+            : tw`text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800/30`}
+    `;
+
     return (
         <ServerContentBlock title={t('title')}>
             <FlashMessageRender byKey={'server:plugins'} css={tw`mb-4`} />
@@ -133,58 +161,45 @@ const PluginsContainer = () => {
                 {confirmRemove && t('confirm_remove', { plugin: confirmRemove.title })}
             </ConfirmationModal>
 
-            <div css={tw`flex items-center justify-between mb-4 flex-wrap gap-2`}>
-                <div css={tw`flex gap-2`}>
-                    <Button
-                        variant={tab !== 'installed' ? Button.Variants.Secondary : undefined}
-                        size={Button.Sizes.Small}
-                        onClick={() => setTab('installed')}
-                    >
-                        {t('installed')} ({plugins.length})
-                    </Button>
-                    <Button
-                        variant={tab !== 'browse' ? Button.Variants.Secondary : undefined}
-                        size={Button.Sizes.Small}
-                        onClick={() => setTab('browse')}
-                    >
+            <div css={tw`flex items-end justify-between border-b border-gray-700 mb-4 flex-wrap gap-2`}>
+                <div css={tw`flex`}>
+                    <button css={tabButtonCss(tab === 'browse')} onClick={() => setTab('browse')}>
                         {t('browse')}
-                    </Button>
+                    </button>
+                    <button css={tabButtonCss(tab === 'installed')} onClick={() => setTab('installed')}>
+                        {t('installed')} ({plugins.length})
+                    </button>
                 </div>
                 {gameVersion && (
-                    <p css={tw`text-xs text-neutral-400`}>
+                    <span css={tw`text-xs text-gray-400 pb-2`}>
                         {t('detected', { version: gameVersion, loader: loaders[0] ?? '' })}
-                    </p>
+                    </span>
                 )}
             </div>
-            <p css={tw`text-xs text-neutral-400 mb-4`}>{t('restart_notice')}</p>
+            <p css={tw`text-xs text-gray-500 mb-4`}>{t('restart_notice')}</p>
 
             {loading ? (
                 <Spinner centered />
             ) : tab === 'installed' ? (
                 plugins.length === 0 ? (
-                    <p css={tw`text-sm text-neutral-400 text-center py-8`}>{t('no_plugins')}</p>
+                    <div css={tw`text-center py-16 text-gray-500`}>
+                        <FaPuzzlePiece css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
+                        <p css={tw`text-sm`}>{t('no_plugins')}</p>
+                    </div>
                 ) : (
-                    <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-4`}>
+                    <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
                         {plugins.map((plugin) => (
-                            <div key={plugin.id} css={tw`bg-neutral-800/60 rounded-ui p-4 flex gap-3`}>
-                                {plugin.iconUrl ? (
-                                    <img src={plugin.iconUrl} alt={''} css={tw`w-12 h-12 rounded`} />
-                                ) : (
-                                    <div css={tw`w-12 h-12 rounded bg-neutral-700`} />
-                                )}
+                            <div key={plugin.id} css={cardCss}>
+                                <PluginIcon url={plugin.iconUrl} />
                                 <div css={tw`flex-1 min-w-0`}>
-                                    <div css={tw`flex items-center gap-2`}>
-                                        <h3 css={tw`text-sm font-semibold truncate`}>{plugin.title}</h3>
-                                        {plugin.disabled && (
-                                            <span
-                                                css={tw`text-2xs px-1.5 py-0.5 rounded bg-yellow-600/40 text-yellow-200`}
-                                            >
-                                                {t('disabled_badge')}
-                                            </span>
-                                        )}
+                                    <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                        <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{plugin.title}</h3>
+                                        <span css={badgeCss.provider}>{plugin.provider}</span>
+                                        {plugin.disabled && <span css={badgeCss.disabled}>{t('disabled_badge')}</span>}
                                     </div>
-                                    <p css={tw`text-xs text-neutral-400`}>
-                                        {plugin.provider} &middot; {t('version', { version: plugin.versionNumber })}
+                                    <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>{plugin.fileName}</p>
+                                    <p css={tw`text-xs text-gray-500 mt-0.5`}>
+                                        {t('version', { version: plugin.versionNumber })}
                                     </p>
                                     <div css={tw`flex gap-2 mt-3 flex-wrap`}>
                                         {!plugin.disabled && (
@@ -196,7 +211,11 @@ const PluginsContainer = () => {
                                                     mutate(`update:${plugin.id}`, updatePlugin(uuid, plugin.id))
                                                 }
                                             >
-                                                {t('update')}
+                                                {busy === `update:${plugin.id}` ? (
+                                                    <Spinner size={'small'} />
+                                                ) : (
+                                                    t('update')
+                                                )}
                                             </Button>
                                         )}
                                         <Button
@@ -205,7 +224,13 @@ const PluginsContainer = () => {
                                             disabled={!!busy}
                                             onClick={() => mutate(`toggle:${plugin.id}`, togglePlugin(uuid, plugin.id))}
                                         >
-                                            {plugin.disabled ? t('enable') : t('disable')}
+                                            {busy === `toggle:${plugin.id}` ? (
+                                                <Spinner size={'small'} />
+                                            ) : plugin.disabled ? (
+                                                t('enable')
+                                            ) : (
+                                                t('disable')
+                                            )}
                                         </Button>
                                         <Button.Danger
                                             size={Button.Sizes.Small}
@@ -213,6 +238,7 @@ const PluginsContainer = () => {
                                             disabled={!!busy}
                                             onClick={() => setConfirmRemove(plugin)}
                                         >
+                                            <FaTrash css={tw`inline mr-1 -mt-0.5`} />
                                             {t('remove')}
                                         </Button.Danger>
                                     </div>
@@ -233,41 +259,56 @@ const PluginsContainer = () => {
                         <Select
                             value={provider}
                             onChange={(e) => setProvider(e.target.value as PluginProvider)}
-                            css={tw`w-40`}
+                            css={tw`w-36 flex-shrink-0`}
                         >
                             <option value={'modrinth'}>Modrinth</option>
                             <option value={'hangar'}>Hangar</option>
                             <option value={'spiget'}>SpigotMC</option>
                         </Select>
-                        <Input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder={t('search_placeholder') ?? ''}
-                        />
+                        <div css={tw`relative flex-1`}>
+                            <FaMagnifyingGlass
+                                css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none`}
+                            />
+                            <input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder={t('search_placeholder') ?? ''}
+                                css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
+                            />
+                        </div>
                         <Button type={'submit'} disabled={searching}>
-                            {t('search')}
+                            {searching ? <Spinner size={'small'} /> : t('search')}
                         </Button>
                     </form>
 
                     {!searching && hits.length === 0 ? (
-                        <p css={tw`text-sm text-neutral-400 text-center py-8`}>{t('no_results')}</p>
+                        <div css={tw`text-center py-16 text-gray-500`}>
+                            <FaMagnifyingGlass css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
+                            <p css={tw`text-sm`}>{t('no_results')}</p>
+                        </div>
                     ) : (
-                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-4`}>
+                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
                             {hits.map((hit) => (
-                                <div key={hit.id} css={tw`bg-neutral-800/60 rounded-ui p-4 flex gap-3`}>
-                                    {hit.iconUrl ? (
-                                        <img src={hit.iconUrl} alt={''} css={tw`w-12 h-12 rounded`} />
-                                    ) : (
-                                        <div css={tw`w-12 h-12 rounded bg-neutral-700`} />
-                                    )}
+                                <div key={hit.id} css={cardCss}>
+                                    <PluginIcon url={hit.iconUrl} />
                                     <div css={tw`flex-1 min-w-0`}>
-                                        <h3 css={tw`text-sm font-semibold truncate`}>{hit.title}</h3>
-                                        <p css={tw`text-xs text-neutral-400`}>
-                                            {hit.author && t('by', { author: hit.author })} &middot;{' '}
-                                            {t('downloads', { count: hit.downloads })}
+                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
+                                            {hit.installedVersion && (
+                                                <span css={badgeCss.installed}>
+                                                    {t('installed_badge')} {hit.installedVersion}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
+                                            {hit.author && <span>{t('by', { author: hit.author })}</span>}
+                                            <span css={tw`inline-flex items-center gap-1`}>
+                                                <FaDownload css={tw`text-[10px]`} />
+                                                {hit.downloads.toLocaleString()}
+                                            </span>
                                         </p>
                                         <p
-                                            css={tw`text-xs text-neutral-300 mt-1 overflow-hidden`}
+                                            css={tw`text-xs text-gray-400 mt-1 overflow-hidden`}
                                             style={{
                                                 display: '-webkit-box',
                                                 WebkitLineClamp: 2,
@@ -277,18 +318,20 @@ const PluginsContainer = () => {
                                             {hit.description}
                                         </p>
                                         <div css={tw`mt-3`}>
-                                            {hit.installedVersion ? (
-                                                <span css={tw`text-xs text-green-400`}>
-                                                    {t('installed_badge')} &middot;{' '}
-                                                    {t('version', { version: hit.installedVersion })}
-                                                </span>
-                                            ) : (
+                                            {!hit.installedVersion && (
                                                 <Button.Success
                                                     size={Button.Sizes.Small}
                                                     disabled={!!busy}
                                                     onClick={() => install(hit)}
                                                 >
-                                                    {t('install')}
+                                                    {busy === `install:${hit.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        <>
+                                                            <FaDownload css={tw`inline mr-1 -mt-0.5`} />
+                                                            {t('install')}
+                                                        </>
+                                                    )}
                                                 </Button.Success>
                                             )}
                                         </div>
@@ -299,13 +342,13 @@ const PluginsContainer = () => {
                     )}
 
                     {hits.length < total && (
-                        <div css={tw`mt-4 text-center`}>
+                        <div css={tw`mt-6 text-center`}>
                             <Button
                                 variant={Button.Variants.Secondary}
                                 disabled={searching}
                                 onClick={() => doSearch(hits.length)}
                             >
-                                {t('load_more')}
+                                {searching ? <Spinner size={'small'} /> : t('load_more')}
                             </Button>
                         </div>
                     )}
