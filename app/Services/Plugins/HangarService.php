@@ -10,13 +10,20 @@ class HangarService implements PluginProviderInterface
 
     private const API = 'https://hangar.papermc.io/api/v1';
 
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset): array
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
-        $response = Http::acceptJson()->timeout(15)->get(self::API.'/projects', [
+        $hangarSort = match ($sort) {
+            'downloads' => '-downloads',
+            'updated' => '-updated',
+            default => null,
+        };
+
+        $response = Http::acceptJson()->timeout(15)->get(self::API.'/projects', array_filter([
             'q' => $query,
             'limit' => $limit,
             'offset' => $offset,
-        ]);
+            'sort' => $hangarSort,
+        ], fn ($v) => $v !== null));
 
         if ($response->failed()) {
             return ['hits' => [], 'total' => 0];

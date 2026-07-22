@@ -10,7 +10,7 @@ class ModrinthService implements PluginProviderInterface
 
     private const API = 'https://api.modrinth.com/v2';
 
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset): array
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
         $facets = [['project_type:plugin']];
         if ($gameVersion) {
@@ -20,11 +20,17 @@ class ModrinthService implements PluginProviderInterface
             $facets[] = array_map(fn ($l) => 'categories:'.$l, $loaders);
         }
 
+        $index = match ($sort) {
+            'downloads' => 'downloads',
+            'updated' => 'updated',
+            default => 'relevance',
+        };
+
         $response = Http::acceptJson()->timeout(15)->get(self::API.'/search', [
             'query' => $query,
             'limit' => $limit,
             'offset' => $offset,
-            'index' => 'relevance',
+            'index' => $index,
             'facets' => json_encode($facets),
         ]);
 
