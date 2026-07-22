@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import tw from 'twin.macro';
-import { css } from 'styled-components';
+import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
 import { FaDownload, FaMagnifyingGlass, FaPuzzlePiece, FaTrash } from 'react-icons/fa6';
@@ -25,24 +25,30 @@ import {
     updatePlugin,
 } from '@/api/server/plugins/plugins';
 
-const cardCss = css`
+const Card = styled.div`
     ${tw`bg-gray-900 border border-gray-800 rounded-ui p-4 flex gap-4 transition-colors duration-150 hover:border-gray-700`}
 `;
 
-const badgeCss = {
-    provider: css`
-        ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-gray-700/70 text-gray-300`}
-        font-size: 10px;
-    `,
-    disabled: css`
-        ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-yellow-600/30 text-yellow-200`}
-        font-size: 10px;
-    `,
-    installed: css`
-        ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded bg-success/20 text-success`}
-        font-size: 10px;
-    `,
-};
+const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' }>`
+    ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded`}
+    font-size: 10px;
+
+    ${(props) =>
+        props.$variant === 'provider' &&
+        css`
+            ${tw`bg-gray-700/70 text-gray-300`};
+        `}
+    ${(props) =>
+        props.$variant === 'disabled' &&
+        css`
+            ${tw`bg-yellow-600/30 text-yellow-200`};
+        `}
+    ${(props) =>
+        props.$variant === 'installed' &&
+        css`
+            ${tw`bg-success/20 text-success`};
+        `}
+`;
 
 const PluginIcon = ({ url }: { url: string | null }) =>
     url ? (
@@ -192,13 +198,13 @@ const PluginsContainer = () => {
                 ) : (
                     <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
                         {plugins.map((plugin) => (
-                            <div key={plugin.id} css={cardCss}>
+                            <Card key={plugin.id}>
                                 <PluginIcon url={plugin.iconUrl} />
                                 <div css={tw`flex-1 min-w-0`}>
                                     <div css={tw`flex items-center gap-2 flex-wrap`}>
                                         <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{plugin.title}</h3>
-                                        <span css={badgeCss.provider}>{plugin.provider}</span>
-                                        {plugin.disabled && <span css={badgeCss.disabled}>{t('disabled_badge')}</span>}
+                                        <Badge $variant={'provider'}>{plugin.provider}</Badge>
+                                        {plugin.disabled && <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>}
                                     </div>
                                     <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>{plugin.fileName}</p>
                                     <p css={tw`text-xs text-gray-500 mt-0.5`}>
@@ -246,7 +252,7 @@ const PluginsContainer = () => {
                                         </Button.Danger>
                                     </div>
                                 </div>
-                            </div>
+                            </Card>
                         ))}
                     </div>
                 )
@@ -293,15 +299,15 @@ const PluginsContainer = () => {
                     ) : (
                         <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
                             {hits.map((hit) => (
-                                <div key={hit.id} css={cardCss}>
+                                <Card key={hit.id}>
                                     <PluginIcon url={hit.iconUrl} />
                                     <div css={tw`flex-1 min-w-0`}>
                                         <div css={tw`flex items-center gap-2 flex-wrap`}>
                                             <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
                                             {hit.installedVersion && (
-                                                <span css={badgeCss.installed}>
+                                                <Badge $variant={'installed'}>
                                                     {t('installed_badge')} {hit.installedVersion}
-                                                </span>
+                                                </Badge>
                                             )}
                                         </div>
                                         <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
@@ -340,7 +346,7 @@ const PluginsContainer = () => {
                                             )}
                                         </div>
                                     </div>
-                                </div>
+                                </Card>
                             ))}
                         </div>
                     )}
