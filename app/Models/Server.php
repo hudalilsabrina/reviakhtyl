@@ -454,6 +454,16 @@ class Server extends Model implements Identifiable
     }
 
     /**
+     * Returns plugins installed on this server through the plugin installer.
+     *
+     * @return HasMany<ServerPlugin, $this>
+     */
+    public function plugins(): HasMany
+    {
+        return $this->hasMany(ServerPlugin::class);
+    }
+
+    /**
      * Returns the associated server transfer.
      *
      * @return HasOne<ServerTransfer, $this>
