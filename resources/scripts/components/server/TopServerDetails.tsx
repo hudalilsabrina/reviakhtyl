@@ -66,6 +66,9 @@ const TopServerDetails = () => {
     );
 
     const allocation = ServerContext.useStoreState((state) => {
+        const subdomain = state.server.data!.subdomain;
+        if (subdomain) return subdomain;
+
         const match = state.server.data!.allocations.find((allocation) => allocation.isDefault);
 
         return !match ? 'n/a' : `${match.alias || ip(match.ip)}:${match.port}`;
