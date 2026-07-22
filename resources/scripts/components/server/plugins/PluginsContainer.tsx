@@ -176,14 +176,10 @@ const PluginsContainer = () => {
         return () => clearTimeout(timer);
     }, [query]);
 
-    const doInstall = (hit: PluginHit, versionId?: string) => {
+    const doInstall = (hit: PluginHit, versionId?: string, step = 0) => {
         setBusy(`install:${hit.id}`);
-        setInstalling({ title: hit.title, step: versionId ? 1 : 0 });
+        setInstalling({ title: hit.title, step: versionId ? Math.max(step, 1) : step });
         clearFlashes('server:plugins');
-        // Version id already chosen via picker → resolution happened there.
-        if (versionId) {
-            setTimeout(() => setInstalling((s) => (s ? { ...s, step: 1 } : s)), 0);
-        }
         installPlugin(uuid, provider, hit.id, hit.title, hit.iconUrl, versionId)
             .then((plugin) => {
                 if (versionId) setInstalledRow(versionId);
@@ -206,30 +202,46 @@ const PluginsContainer = () => {
             .finally(() => setBusy(null));
     };
 
-    // Quick install from a card: when the latest version has missing dependencies,
-    // open the version picker instead so the user sees what will be pulled in.
+    // Quick install from a card: resolve the latest version, silently pull in any
+    // missing REQUIRED dependencies, then install — no picker detour.
     const install = (hit: PluginHit) => {
         setBusy(`install:${hit.id}`);
+        setInstalling({ title: hit.title, step: 0 });
+        clearFlashes('server:plugins');
         getPluginVersions(uuid, provider, hit.id)
             .then((data) => {
                 const latest = data.versions[0];
-                const missingDeps = (latest?.dependencies ?? []).filter((d) => {
-                    const info = data.dependencies[d.projectId];
+                const missing = (latest?.dependencies ?? [])
+                    .filter((d) => d.required)
+                    .filter((d) => {
+                        const info = data.dependencies[d.projectId];
 
-                    return info && !info.installed;
-                });
-                if (latest && missingDeps.length > 0) {
-                    setVersions(data.versions);
-                    setDependencies(data.dependencies);
-                    setInstalledRow(null);
-                    setVersionsFor(hit);
-                    setBusy(null);
-                    return;
-                }
-                doInstall(hit, latest?.id);
+                        return info && !info.installed;
+                    });
+                const chain = missing.reduce<Promise<void>>(
+                    (prev, dep) =>
+                        prev.then(() => {
+                            const info = data.dependencies[dep.projectId]!;
+
+                            return installPlugin(uuid, provider, info.id, info.title, info.iconUrl).then((p) => {
+                                setPlugins((existing) => [...existing.filter((x) => x.id !== p.id), p]);
+                            });
+                        }),
+                    Promise.resolve()
+                );
+
+                setInstalling({ title: hit.title, step: 1 });
+                chain
+                    .then(() => doInstall(hit, latest?.id, 1))
+                    .catch((error) => {
+                        addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                        setInstalling(null);
+                        setBusy(null);
+                    });
             })
             .catch((error) => {
                 addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                setInstalling(null);
                 setBusy(null);
             });
     };
@@ -237,8 +249,10 @@ const PluginsContainer = () => {
     type MissingDep = { projectId: string; required: boolean; info?: Omit<PluginDependency, 'required'> };
 
     const installWithDeps = (hit: PluginHit, version: PluginVersion, missing: MissingDep[]) => {
-        // Install missing dependencies sequentially, then the plugin itself.
-        const chain = missing.reduce<Promise<void>>(
+        // Install only missing REQUIRED dependencies, then the plugin itself.
+        const toInstall = missing.filter((d) => d.required);
+        // ponytail: optional deps are shown as chips but never auto-installed.
+        const chain = toInstall.reduce<Promise<void>>(
             (prev, dep) =>
                 prev.then(() =>
                     installPlugin(uuid, provider, dep.info!.id, dep.info!.title, dep.info!.iconUrl).then((p) => {
@@ -260,10 +274,10 @@ const PluginsContainer = () => {
                 setHits((prev) =>
                     prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: plugin.versionNumber } : h))
                 );
-                // Keep the version picker open; just mark everything installed now.
+                // Keep the version picker open; mark installed deps as such.
                 setDependencies((prev) => {
                     const next = { ...prev };
-                    missing.forEach((d) => {
+                    toInstall.forEach((d) => {
                         const entry = next[d.projectId];
                         if (entry) next[d.projectId] = { ...entry, installed: true };
                     });
@@ -438,6 +452,7 @@ const PluginsContainer = () => {
                                     const missing = version.dependencies
                                         .map((d) => ({ ...d, info: dependencies[d.projectId] }))
                                         .filter((d) => d.info && !d.info.installed);
+                                    const requiredCount = missing.filter((d) => d.required).length;
 
                                     return (
                                         <div key={version.id} css={tw`py-2.5`}>
@@ -468,8 +483,8 @@ const PluginsContainer = () => {
                                                     >
                                                         {busy === `install:${versionsFor.id}` ? (
                                                             <Spinner size={'small'} />
-                                                        ) : missing.length > 0 ? (
-                                                            t('install_with_deps', { count: missing.length })
+                                                        ) : requiredCount > 0 ? (
+                                                            t('install_with_deps', { count: requiredCount })
                                                         ) : (
                                                             t('install')
                                                         )}

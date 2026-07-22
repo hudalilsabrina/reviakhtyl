@@ -39,6 +39,6 @@ return [
     'up_to_date' => 'Plugin is already up to date.',
     'install_with_deps_one' => 'Install + :count dep',
     'install_with_deps_other' => 'Install + :count deps',
-    'dep_required' => 'required',
-    'dep_optional' => 'optional',
+    'dep_required' => 'required · auto-install',
+    'dep_optional' => 'optional · skipped',
 ];
