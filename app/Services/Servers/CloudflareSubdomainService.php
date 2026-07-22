@@ -4,9 +4,11 @@ namespace App\Services\Servers;
 
 use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Exceptions\DisplayException;
+use App\Models\CloudflareDomain;
 use App\Models\Server;
 use App\Models\ServerSubdomain;
 use Illuminate\Contracts\Encryption\Encrypter;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -25,17 +27,18 @@ class CloudflareSubdomainService
      */
     public function isEnabledFor(Server $server): bool
     {
-        return $this->apiToken() !== null
-            && $this->zoneId() !== null
-            && $this->domain() !== null
+        return $this->domains()->isNotEmpty()
             && in_array('subdomain', $server->egg->features ?? [], true);
     }
 
-    public function domain(): ?string
+    /**
+     * Enabled domains available for subdomain creation.
+     *
+     * @return Collection<int, CloudflareDomain>
+     */
+    public function domains(): Collection
     {
-        $value = $this->settings->get('settings::panel:cloudflare:domain', null);
-
-        return $value ? strtolower(trim($value)) : null;
+        return CloudflareDomain::query()->where('is_enabled', true)->orderBy('domain')->get();
     }
 
     /**
@@ -43,7 +46,7 @@ class CloudflareSubdomainService
      *
      * @throws DisplayException
      */
-    public function store(Server $server, string $subdomain): ServerSubdomain
+    public function store(Server $server, string $subdomain, int $domainId): ServerSubdomain
     {
         $subdomain = $this->sanitize($subdomain);
 
@@ -51,34 +54,41 @@ class CloudflareSubdomainService
             throw new DisplayException('Please provide a valid subdomain using only letters, numbers, and dashes.');
         }
 
-        $domain = $this->domain();
-        if ($domain === null) {
-            throw new DisplayException('Subdomains are not configured on this panel.');
+        $domain = CloudflareDomain::query()->where('is_enabled', true)->find($domainId);
+
+        if (! $domain) {
+            throw new DisplayException('The selected domain is not available.');
         }
 
         $existing = ServerSubdomain::query()->where('server_id', $server->id)->first();
 
-        if ($existing?->subdomain === $subdomain && $existing->domain === $domain) {
+        if ($existing?->subdomain === $subdomain && $existing->cloudflare_domain_id === $domain->id) {
             return $existing;
         }
 
-        if (! $this->isNameAvailable($subdomain, $domain, $existing?->cf_record_id)) {
+        if (! $this->isNameAvailable($domain, $subdomain, $existing?->cf_record_id)) {
             throw new DisplayException(
-                'This subdomain is already taken. Try: '.implode(', ', $this->suggest($subdomain, $domain))
+                'This subdomain is already taken. Try: '.implode(', ', $this->suggest($domain, $subdomain))
             );
         }
 
         // Replace flow: remove the old CF record first so a failure here
-        // leaves the old (still working) record untouched.
-        if ($existing?->cf_record_id) {
-            $this->deleteRecord($existing->cf_record_id);
+        // leaves the old (still working) record untouched. Old record may
+        // live in a different zone, so resolve its own domain entry.
+        if ($existing?->cf_record_id && $existing->cloudflareDomain) {
+            $this->deleteRecord($existing->cloudflareDomain, $existing->cf_record_id);
         }
 
-        $recordId = $this->createSrvRecord($subdomain, $domain, $server);
+        $recordId = $this->createSrvRecord($domain, $subdomain, $server);
 
         $record = ServerSubdomain::query()->updateOrCreate(
             ['server_id' => $server->id],
-            ['subdomain' => $subdomain, 'domain' => $domain, 'cf_record_id' => $recordId]
+            [
+                'cloudflare_domain_id' => $domain->id,
+                'subdomain' => $subdomain,
+                'domain' => $domain->domain,
+                'cf_record_id' => $recordId,
+            ]
         );
 
         return $record;
@@ -92,16 +102,16 @@ class CloudflareSubdomainService
     {
         $record = $server->subdomain;
 
-        if (! $record) {
+        if (! $record || ! $record->cloudflareDomain) {
             return;
         }
 
         if ($record->cf_record_id) {
-            $this->deleteRecord($record->cf_record_id);
+            $this->deleteRecord($record->cloudflareDomain, $record->cf_record_id);
         }
 
         $record->forceFill([
-            'cf_record_id' => $this->createSrvRecord($record->subdomain, $record->domain, $server),
+            'cf_record_id' => $this->createSrvRecord($record->cloudflareDomain, $record->subdomain, $server),
         ])->save();
     }
 
@@ -127,8 +137,8 @@ class CloudflareSubdomainService
             return;
         }
 
-        if ($record->cf_record_id) {
-            $this->deleteRecord($record->cf_record_id);
+        if ($record->cf_record_id && $record->cloudflareDomain) {
+            $this->deleteRecord($record->cloudflareDomain, $record->cf_record_id);
         }
 
         $record->delete();
@@ -177,34 +187,32 @@ class CloudflareSubdomainService
     /**
      * @return array<int, string>
      */
-    private function suggest(string $subdomain, string $domain): array
+    private function suggest(CloudflareDomain $domain, string $subdomain): array
     {
         $suggestions = [];
 
         foreach (range(1, 3) as $i) {
             $candidate = $subdomain.'-'.$i;
-            if ($this->isNameAvailable($candidate, $domain)) {
-                $suggestions[] = $candidate.'.'.$domain;
+            if ($this->isNameAvailable($domain, $candidate)) {
+                $suggestions[] = $candidate.'.'.$domain->domain;
             }
         }
 
         return $suggestions;
     }
 
-    private function isNameAvailable(string $subdomain, string $domain, ?string $ignoreRecordId = null): bool
+    private function isNameAvailable(CloudflareDomain $domain, string $subdomain, ?string $ignoreRecordId = null): bool
     {
-        $name = $subdomain.'.'.$domain;
-
         $taken = ServerSubdomain::query()
             ->where('subdomain', $subdomain)
-            ->where('domain', $domain)
+            ->where('domain', $domain->domain)
             ->exists();
 
         if ($taken) {
             return false;
         }
 
-        foreach ($this->listRecords($name) as $record) {
+        foreach ($this->listRecords($domain, $subdomain.'.'.$domain->domain) as $record) {
             if ($ignoreRecordId !== null && ($record['id'] ?? null) === $ignoreRecordId) {
                 continue;
             }
@@ -218,9 +226,9 @@ class CloudflareSubdomainService
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function listRecords(string $name): array
+    private function listRecords(CloudflareDomain $domain, string $name): array
     {
-        $response = $this->client()->get(self::API_BASE.'/zones/'.$this->zoneId().'/dns_records', [
+        $response = $this->client($domain)->get(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
             'name' => $name,
         ]);
 
@@ -231,12 +239,12 @@ class CloudflareSubdomainService
         return $response->json('result') ?? [];
     }
 
-    private function createSrvRecord(string $subdomain, string $domain, Server $server): string
+    private function createSrvRecord(CloudflareDomain $domain, string $subdomain, Server $server): string
     {
-        $fqdn = $subdomain.'.'.$domain;
+        $fqdn = $subdomain.'.'.$domain->domain;
         $allocation = $server->allocation;
 
-        $response = $this->client()->post(self::API_BASE.'/zones/'.$this->zoneId().'/dns_records', [
+        $response = $this->client($domain)->post(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
             'type' => 'SRV',
             'name' => '_minecraft._tcp.'.$fqdn,
             'data' => [
@@ -259,9 +267,9 @@ class CloudflareSubdomainService
         return $response->json('result.id');
     }
 
-    private function deleteRecord(string $recordId): void
+    private function deleteRecord(CloudflareDomain $domain, string $recordId): void
     {
-        $response = $this->client()->delete(self::API_BASE.'/zones/'.$this->zoneId().'/dns_records/'.$recordId);
+        $response = $this->client($domain)->delete(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records/'.$recordId);
 
         if (! $response->successful() && $response->status() !== 404) {
             throw new DisplayException('Failed to delete DNS record: '.$this->errorMessage($response->json()));
@@ -277,16 +285,20 @@ class CloudflareSubdomainService
             ?: 'unexpected response';
     }
 
-    private function client(): PendingRequest
+    private function client(CloudflareDomain $domain): PendingRequest
     {
-        return Http::withToken($this->apiToken())
+        return Http::withToken($this->apiToken($domain))
             ->acceptJson()
             ->timeout((int) config('panel.guzzle.timeout', 15));
     }
 
-    private function apiToken(): ?string
+    /**
+     * Resolve the API token for a domain: per-zone token if set, else the
+     * global token from settings.
+     */
+    private function apiToken(CloudflareDomain $domain): ?string
     {
-        $value = $this->settings->get('settings::panel:cloudflare:api_token', null);
+        $value = $domain->api_token ?: $this->settings->get('settings::panel:cloudflare:api_token', null);
 
         if (empty($value)) {
             return null;
@@ -297,12 +309,5 @@ class CloudflareSubdomainService
         } catch (\Throwable) {
             return $value;
         }
-    }
-
-    private function zoneId(): ?string
-    {
-        $value = $this->settings->get('settings::panel:cloudflare:zone_id', null);
-
-        return $value ?: null;
     }
 }

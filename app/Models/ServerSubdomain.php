@@ -8,12 +8,14 @@ use Illuminate\Support\Carbon;
 /**
  * @property int $id
  * @property int $server_id
+ * @property int|null $cloudflare_domain_id
  * @property string $subdomain
  * @property string $domain
  * @property string|null $cf_record_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Server $server
+ * @property CloudflareDomain|null $cloudflareDomain
  */
 class ServerSubdomain extends Model
 {
@@ -25,6 +27,7 @@ class ServerSubdomain extends Model
 
     protected $casts = [
         'server_id' => 'integer',
+        'cloudflare_domain_id' => 'integer',
     ];
 
     public function getFqdn(): string
@@ -38,5 +41,13 @@ class ServerSubdomain extends Model
     public function server(): BelongsTo
     {
         return $this->belongsTo(Server::class);
+    }
+
+    /**
+     * @return BelongsTo<CloudflareDomain, $this>
+     */
+    public function cloudflareDomain(): BelongsTo
+    {
+        return $this->belongsTo(CloudflareDomain::class);
     }
 }
