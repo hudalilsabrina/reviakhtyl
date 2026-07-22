@@ -5,7 +5,6 @@ namespace App\Filament\Pages;
 use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Filament\Components\ImageInput;
 use App\Notifications\MailTested;
-use App\Services\Servers\CloudflareSubdomainService;
 use App\Traits\Helpers\AvailableLanguages;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -41,13 +40,6 @@ class Settings extends Page implements HasSchemas
     protected string $view = 'filament.pages.settings';
 
     public ?array $data = [];
-
-    /**
-     * Zones fetched from Cloudflare for the domain picker (zone ID => domain).
-     *
-     * @var array<string, string>
-     */
-    public array $cloudflareZones = [];
 
     protected array $settingKeys = [
         'app:name',
@@ -94,8 +86,6 @@ class Settings extends Page implements HasSchemas
         'panel:client_features:allocations:range_end',
 
         'panel:cloudflare:api_token',
-        'panel:cloudflare:zone_id',
-        'panel:cloudflare:domain',
     ];
 
     public function getHeading(): string
@@ -546,78 +536,13 @@ class Settings extends Page implements HasSchemas
                 ]),
 
             Section::make('Cloudflare') // Proper noun, left untranslated.
-                ->description('Configure Cloudflare DNS to allow users to attach a subdomain (SRV record) to their server. The API token needs Zone.DNS edit permission for the zone.')
-                ->columns(3)
+                ->description('Default API token used for Cloudflare DNS (Zone.DNS edit). Domains are managed under Domains; a domain can override this token with its own.')
+                ->columns(2)
                 ->schema([
                     TextInput::make('panel:cloudflare:api_token')
-                        ->label('API Token')
+                        ->label('Default API Token')
                         ->password()
                         ->revealable()
-                        ->maxLength(191)
-                        ->live()
-                        ->columnSpan(2),
-
-                    Actions::make([
-                        Action::make('fetch_cloudflare_zones')
-                            ->label('Fetch Zones')
-                            ->icon('tabler-cloud-search')
-                            ->color('gray')
-                            ->action(function ($get, $set) {
-                                $token = $get('panel:cloudflare:api_token');
-
-                                if (empty($token)) {
-                                    Notification::make()->title('Enter an API token first.')->danger()->send();
-
-                                    return;
-                                }
-
-                                try {
-                                    $zones = CloudflareSubdomainService::fetchZones($token);
-                                } catch (\Throwable $e) {
-                                    Notification::make()->title('Failed to fetch zones')->body($e->getMessage())->danger()->send();
-
-                                    return;
-                                }
-
-                                if (empty($zones)) {
-                                    Notification::make()->title('No zones found for this token.')->warning()->send();
-
-                                    return;
-                                }
-
-                                $this->cloudflareZones = $zones;
-                                $set('cloudflare:zone_picker', null);
-
-                                Notification::make()->title(count($zones).' zone(s) found. Select a domain.')->success()->send();
-                            }),
-                    ])->columnSpan(1)->verticallyAlignEnd(),
-
-                    Select::make('cloudflare:zone_picker')
-                        ->label('Domain')
-                        ->options(fn () => $this->cloudflareZones)
-                        ->disabled(fn () => empty($this->cloudflareZones))
-                        ->helperText(fn () => empty($this->cloudflareZones)
-                            ? 'Click "Fetch Zones" after entering your API token.'
-                            : 'Selecting a domain fills the Zone ID and Domain below.')
-                        ->live()
-                        ->afterStateUpdated(function ($state, $set) {
-                            if ($state && isset($this->cloudflareZones[$state])) {
-                                $set('panel:cloudflare:zone_id', $state);
-                                $set('panel:cloudflare:domain', $this->cloudflareZones[$state]);
-                            }
-                        })
-                        ->dehydrated(false)
-                        ->columnSpan(1)
-                        ->native(false),
-
-                    TextInput::make('panel:cloudflare:zone_id')
-                        ->label('Zone ID')
-                        ->maxLength(191)
-                        ->columnSpan(1),
-
-                    TextInput::make('panel:cloudflare:domain')
-                        ->label('Domain')
-                        ->helperText('Base domain for subdomains, e.g. example.com')
                         ->maxLength(191)
                         ->columnSpan(1),
                 ]),

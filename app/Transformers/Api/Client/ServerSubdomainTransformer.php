@@ -17,6 +17,7 @@ class ServerSubdomainTransformer extends BaseClientTransformer
             'id' => $model->id,
             'subdomain' => $model->subdomain,
             'domain' => $model->domain,
+            'cloudflare_domain_id' => $model->cloudflare_domain_id,
             'fqdn' => $model->getFqdn(),
         ];
     }
