@@ -145,6 +145,25 @@ class CloudflareSubdomainService
         }
     }
 
+    /**
+     * List zones (domains) visible to an API token.
+     *
+     * @return array<string, string> Map of zone ID => zone name.
+     */
+    public static function fetchZones(string $apiToken): array
+    {
+        $response = Http::withToken($apiToken)
+            ->acceptJson()
+            ->timeout(15)
+            ->get(self::API_BASE.'/zones', ['per_page' => 50]);
+
+        if (! $response->successful()) {
+            throw new DisplayException('Cloudflare API error: '.$response->json('errors.0.message', 'unexpected response'));
+        }
+
+        return collect($response->json('result') ?? [])->pluck('name', 'id')->all();
+    }
+
     public function sanitize(string $value): string
     {
         return Str::of($value)
