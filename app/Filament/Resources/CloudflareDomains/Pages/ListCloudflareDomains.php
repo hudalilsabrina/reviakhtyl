@@ -32,6 +32,7 @@ class ListCloudflareDomains extends ListRecords
                         ->password()
                         ->revealable()
                         ->required()
+                        ->live(debounce: 750)
                         ->default(fn () => self::defaultToken()),
 
                     CheckboxList::make('zones')
@@ -54,7 +55,6 @@ class ListCloudflareDomains extends ListRecords
 
                             return collect($zones)->except($existing)->all();
                         })
-                        ->descriptions(fn (): array => [])
                         ->bulkToggleable()
                         ->required()
                         ->minItems(1),

@@ -124,6 +124,11 @@ return [
             'rename' => 'Renamed the server from :old to :new',
             'description' => 'Changed the server description from :old to :new',
         ],
+        'subdomain' => [
+            'create' => 'Set the server subdomain to :subdomain',
+            'update' => 'Updated the server subdomain to :subdomain',
+            'delete' => 'Removed the :subdomain subdomain',
+        ],
         'startup' => [
             'edit' => 'Changed the :variable variable from ":old" to ":new"',
             'image' => 'Updated the Docker Image for the server from :old to :new',

@@ -18,6 +18,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Collection;
 
 class CloudflareDomainResource extends Resource
 {
@@ -114,11 +115,37 @@ class CloudflareDomainResource extends Resource
                         }
                     }),
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->before(function (CloudflareDomain $record, DeleteAction $action) {
+                        $count = $record->subdomains()->count();
+
+                        if ($count > 0) {
+                            Notification::make()
+                                ->title('Cannot delete domain')
+                                ->body($count.' subdomain(s) still use this domain. Remove them first or disable the domain instead.')
+                                ->danger()
+                                ->send();
+
+                            $action->cancel();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->before(function (Collection $records, DeleteBulkAction $action) {
+                            $blocked = $records->filter(fn ($record) => $record instanceof CloudflareDomain && $record->subdomains()->exists());
+
+                            if ($blocked->isNotEmpty()) {
+                                Notification::make()
+                                    ->title('Cannot delete domains')
+                                    ->body('In use: '.$blocked->pluck('domain')->implode(', ').'. Remove their subdomains first or disable them instead.')
+                                    ->danger()
+                                    ->send();
+
+                                $action->cancel();
+                            }
+                        }),
                 ]),
             ]);
     }

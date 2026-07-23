@@ -15,7 +15,7 @@ class StoreSubdomainRequest extends ClientApiRequest
     public function rules(): array
     {
         return [
-            'subdomain' => ['required', 'string', 'min:1', 'max:63', 'regex:/^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$|^[a-zA-Z0-9]$/'],
+            'subdomain' => ['required', 'string', 'min:1', 'max:63', 'regex:/^[a-zA-Z0-9-]+$/'],
             'domain_id' => ['required', 'integer', 'exists:cloudflare_domains,id'],
         ];
     }

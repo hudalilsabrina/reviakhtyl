@@ -17,6 +17,20 @@ class CloudflareSubdomainService
 {
     private const API_BASE = 'https://api.cloudflare.com/client/v4';
 
+    /**
+     * Per-request memo for the enabled domain list.
+     *
+     * @var Collection<int, CloudflareDomain>|null
+     */
+    private ?Collection $domainsCache = null;
+
+    /**
+     * Per-request memo for the enabled egg ID list.
+     *
+     * @var array<int, int>|null
+     */
+    private ?array $eggIdsCache = null;
+
     public function __construct(
         private SettingsRepositoryInterface $settings,
         private Encrypter $encrypter,
@@ -38,13 +52,21 @@ class CloudflareSubdomainService
      */
     public function enabledEggIds(): array
     {
+        if ($this->eggIdsCache !== null) {
+            return $this->eggIdsCache;
+        }
+
         $value = $this->settings->get('settings::panel:cloudflare:egg_ids', null);
 
         if (empty($value)) {
-            return [];
+            return $this->eggIdsCache = [];
         }
 
-        return array_map('intval', json_decode($value, true) ?: []);
+        if (is_array($value)) {
+            return $this->eggIdsCache = array_map('intval', $value);
+        }
+
+        return $this->eggIdsCache = array_map('intval', json_decode($value, true) ?: []);
     }
 
     /**
@@ -54,7 +76,10 @@ class CloudflareSubdomainService
      */
     public function domains(): Collection
     {
-        return CloudflareDomain::query()->where('is_enabled', true)->orderBy('domain')->get();
+        return $this->domainsCache ??= CloudflareDomain::query()
+            ->where('is_enabled', true)
+            ->orderBy('domain')
+            ->get();
     }
 
     /**
@@ -88,14 +113,17 @@ class CloudflareSubdomainService
             );
         }
 
-        // Replace flow: remove the old CF record first so a failure here
-        // leaves the old (still working) record untouched. Old record may
-        // live in a different zone, so resolve its own domain entry.
-        if ($existing?->cf_record_id && $existing->cloudflareDomain) {
-            $this->deleteRecord($existing->cloudflareDomain, $existing->cf_record_id);
-        }
-
+        // Create the new record first; only delete the old one after the new
+        // record exists. If creation fails, the old record keeps working.
         $recordId = $this->createSrvRecord($domain, $subdomain, $server);
+
+        if ($existing?->cf_record_id && $existing->cloudflareDomain) {
+            try {
+                $this->deleteRecord($existing->cloudflareDomain, $existing->cf_record_id);
+            } catch (\Throwable) {
+                // Old record cleanup is best-effort; the new one already works.
+            }
+        }
 
         $record = ServerSubdomain::query()->updateOrCreate(
             ['server_id' => $server->id],
@@ -122,13 +150,17 @@ class CloudflareSubdomainService
             return;
         }
 
+        // Create the replacement first; delete the old record only on success.
+        $newRecordId = $this->createSrvRecord($record->cloudflareDomain, $record->subdomain, $server);
+
         if ($record->cf_record_id) {
-            $this->deleteRecord($record->cloudflareDomain, $record->cf_record_id);
+            try {
+                $this->deleteRecord($record->cloudflareDomain, $record->cf_record_id);
+            } catch (\Throwable) {
+            }
         }
 
-        $record->forceFill([
-            'cf_record_id' => $this->createSrvRecord($record->cloudflareDomain, $record->subdomain, $server),
-        ])->save();
+        $record->forceFill(['cf_record_id' => $newRecordId])->save();
     }
 
     /**
@@ -138,7 +170,8 @@ class CloudflareSubdomainService
     {
         try {
             $this->sync($server);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            logger()->warning('Failed to sync Cloudflare SRV record for server '.$server->uuid.': '.$e->getMessage());
         }
     }
 

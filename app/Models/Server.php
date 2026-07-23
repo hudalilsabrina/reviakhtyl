@@ -164,7 +164,7 @@ class Server extends Model implements Identifiable
     /**
      * The default relationships to load for all server models.
      */
-    protected $with = ['allocation', 'egg.startupParts'];
+    protected $with = ['allocation', 'egg.startupParts', 'subdomain'];
 
     /**
      * Fields that are not mass assignable.
