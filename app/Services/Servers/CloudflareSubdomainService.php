@@ -192,6 +192,23 @@ class CloudflareSubdomainService
     }
 
     /**
+     * Whether the subdomain's SRV record is publicly resolvable.
+     */
+    public function isPropagated(ServerSubdomain $record): bool
+    {
+        $name = '_minecraft._tcp.'.$record->getFqdn();
+
+        try {
+            $records = @dns_get_record($name, DNS_SRV) ?: [];
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return collect($records)
+            ->contains(fn ($r) => ($r['type'] ?? '') === 'SRV' && ! empty($r['target']));
+    }
+
+    /**
      * List zones (domains) visible to an API token.
      *
      * @return array<string, string> Map of zone ID => zone name.
