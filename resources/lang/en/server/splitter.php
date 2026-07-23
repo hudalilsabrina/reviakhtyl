@@ -5,6 +5,8 @@ return [
     'description' => 'Split this server\'s CPU, memory and disk into smaller child servers on the same node, or merge a child back to reclaim its resources.',
     'unavailable' => 'This server cannot be split.',
     'unavailable-child' => 'This server is itself a split child and cannot be split further.',
+    'unavailable-limit' => 'Splitting is not enabled for this server. An administrator must set a split limit above zero.',
+    'unavailable-max' => 'This server has reached its split limit. Merge a child server to free a slot.',
     'current-title' => 'Current Resources',
     'limit' => 'Split limit',
     'used' => 'Children',

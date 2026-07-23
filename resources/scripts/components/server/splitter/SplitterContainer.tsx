@@ -115,7 +115,13 @@ const SplitterContainer = () => {
             });
     };
 
-    const splittable = !!state && state.splitLimit > 0 && state.canSplit;
+    const splittable = !!state && state.canSplit;
+    const unavailableKey =
+        state?.reason === 'child'
+            ? 'unavailable-child'
+            : state?.reason === 'max'
+              ? 'unavailable-max'
+              : 'unavailable-limit';
 
     return (
         <ServerContentBlock showFlashKey={'server:splitter'} title={t('title')}>
@@ -241,7 +247,7 @@ const SplitterContainer = () => {
                         </>
                     ) : (
                         <Card>
-                            <p css={tw`text-center text-sm text-gray-400`}>{t('unavailable-child')}</p>
+                            <p css={tw`text-center text-sm text-gray-400`}>{t(unavailableKey)}</p>
                         </Card>
                     )}
 
