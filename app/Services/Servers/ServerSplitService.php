@@ -70,6 +70,12 @@ class ServerSplitService
         }
 
         return $this->connection->transaction(function () use ($parent, $name, $cpu, $memory, $disk) {
+            $environment = $parent->variables
+                ->mapWithKeys(fn ($variable): array => [
+                    $variable->env_variable => $variable->server_value ?? $variable->default_value,
+                ])
+                ->all();
+
             /** @var object{cpu: int, memory: int, disk: int} $locked */
             $locked = DB::table('servers')->where('id', $parent->id)->lockForUpdate()->first(['cpu', 'memory', 'disk']);
 
@@ -121,7 +127,7 @@ class ServerSplitService
                 'allocation_limit' => 0,
                 'backup_limit' => 0,
                 'parent_id' => $parent->id,
-                'environment' => [],
+                'environment' => $environment,
             ]);
         }, 5);
     }
