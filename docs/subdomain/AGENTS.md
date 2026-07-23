@@ -10,6 +10,7 @@ SRV-record subdomains for game servers (Minecraft Java primary). Players connect
 |--------|------|---------|-------|
 | GET | `/` | `SubdomainController::index` | Current subdomain, available domains, suggested name |
 | POST | `/` | `SubdomainController::store` | Create/replace. Rate-limited: `api.subdomain` (5/min per user) |
+| GET | `/status` | `SubdomainController::status` | SRV propagation check. Rate-limited: `api.subdomain.status` (30/min) |
 | DELETE | `/` | `SubdomainController::delete` | 204 on success |
 
 **Core service** — `app/Services/Servers/CloudflareSubdomainService.php`
@@ -49,19 +50,22 @@ SRV-record subdomains for game servers (Minecraft Java primary). Players connect
 
 ## Patterns unique to this feature
 
-- **Replace-before-create** in `store()`: old CF record deleted first (may live in different zone). Failure leaves old record intact, preventing phantom duplicates.
+- **Create-before-delete** in `store()` and `sync()`: new CF record created first; old one deleted after (best-effort). If creation fails, old record keeps working.
 - **Two-tier availability check**: `isNameAvailable()` queries local DB (fast) then Cloudflare API (catches out-of-band records). `suggest()` offers `-1`, `-2`, `-3` suffixes.
-- **Sanitization split**: service `sanitize()` is permissive (`[a-z0-9-]`, trim dashes, cap at 63); `StoreSubdomainRequest` adds stricter regex (no leading/trailing dash, alphanumeric bookends).
+- **Sanitization**: `StoreSubdomainRequest` permits `[a-zA-Z0-9-]+`; service `sanitize()` lowercases, replaces invalid chars with `-`, trims edge dashes, caps at 63.
 - **Idempotent store**: matching subdomain + domain returns existing row without hitting Cloudflare.
-- **`Quietly` variants** (`syncQuietly`, `destroyQuietly`) swallow all `\Throwable` — used in hooks where failure shouldn't block the parent operation (allocation reassignment, server deletion).
-- **Permission**: `Permission::ACTION_SUBDOMAIN_MANAGE` (`subdomain.manage`). All three request classes live at `app/Http/Requests/Api/Client/Servers/Subdomain/`.
-- **Egg allowlist stored as JSON setting**, not a relation table. Parsed via `json_decode` in `enabledEggIds()`.
+- **`Quietly` variants** (`syncQuietly`, `destroyQuietly`) swallow all `\Throwable` (and log warnings) — used in hooks where failure shouldn't block the parent operation (allocation reassignment, server deletion).
+- **Permission**: `Permission::ACTION_SUBDOMAIN_MANAGE` (`subdomain.manage`). Request classes live at `app/Http/Requests/Api/Client/Servers/Subdomain/`.
+- **Egg allowlist stored as JSON setting**, not a relation table. Parsed via `json_decode` in `enabledEggIds()`; per-request memoized alongside `domains()`.
+- **Activity events**: `server:subdomain.create`, `server:subdomain.update`, `server:subdomain.delete` — translations in `resources/lang/en/activity.php`.
+- **Domain deletion blocked** while any `server_subdomains` rows reference it (Filament `DeleteAction`/`DeleteBulkAction` `before()` hooks). Disable instead to keep DNS alive.
 
 ## Gotchas
 
 - **Token scope**: must have Zone.DNS edit on target zone. Panel stores encrypted; falls back to plaintext if `Encrypter::decrypt` throws (legacy unencrypted data).
 - **Minecraft Java hardcoded**: `createSrvRecord()` uses `_minecraft._tcp`. Extending to other games requires new service/proto constants and probably a port field on the model.
-- **Rate limit per-user, not per-server**: batch operations from a single account share the 5/min bucket.
+- **Rate limit per-user, not per-server**: batch operations from a single account share the 5/min write bucket. Status polling gets its own 30/min bucket.
+- **Propagation check uses panel resolver**: `isPropagated()` calls `dns_get_record` on the panel host, not a public resolver. May disagree with user-side resolution briefly.
 - **Disabling a domain** (`is_enabled = false`) hides from UI but leaves DB rows + DNS records untouched — existing subdomains keep resolving.
 - **DB unique on `['subdomain', 'domain']`**: panel check precedes insert, but concurrent requests can race to `SQLSTATE[23000]`. Consider retry or advisory lock if this surfaces.
 - **No reconciliation job**: if Cloudflare API fails during server deletion, DNS record is orphaned forever. Manual cleanup only.

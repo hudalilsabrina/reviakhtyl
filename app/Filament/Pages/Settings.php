@@ -142,7 +142,7 @@ class Settings extends Page implements HasSchemas
             }
 
             if ($key === 'panel:cloudflare:egg_ids') {
-                $value = $value ? (json_decode($value, true) ?: []) : [];
+                $value = is_array($value) ? $value : ($value ? (json_decode($value, true) ?: []) : []);
             }
 
             $formData[$key] = $value;

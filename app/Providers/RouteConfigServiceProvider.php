@@ -84,6 +84,14 @@ class RouteConfigServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($key);
         });
 
+        // DNS propagation polling; cheap resolver lookup but called on an
+        // interval by every open subdomain page.
+        RateLimiter::for('api.subdomain.status', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinute(30)->by($key);
+        });
+
         // Plugin installs/updates hit external registries and Wings pulls.
         RateLimiter::for('api.plugins', function (Request $request) {
             $key = optional($request->user())->uuid ?: $request->ip();

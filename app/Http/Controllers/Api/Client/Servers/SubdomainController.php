@@ -49,13 +49,15 @@ class SubdomainController extends ClientApiController
             throw new DisplayException('Subdomains are not available for this server.');
         }
 
+        $isNew = $server->subdomain === null;
+
         $subdomain = $this->subdomainService->store(
             $server,
             $request->input('subdomain'),
             $request->integer('domain_id')
         );
 
-        Activity::event('server:subdomain.manage')
+        Activity::event($isNew ? 'server:subdomain.create' : 'server:subdomain.update')
             ->subject($subdomain)
             ->property('subdomain', $subdomain->getFqdn())
             ->log();
