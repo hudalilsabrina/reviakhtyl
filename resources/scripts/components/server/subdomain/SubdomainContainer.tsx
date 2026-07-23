@@ -121,7 +121,7 @@ const SubdomainContainer = () => {
     const submit = () => {
         setSubmitting(true);
         clearFlashes('server:subdomain');
-        setServerSubdomain(uuid, value, domainId)
+        setServerSubdomain(uuid, slugify(value), domainId)
             .then((subdomain) => {
                 setCurrent(subdomain);
                 setValue(subdomain.subdomain);
