@@ -12,7 +12,7 @@ return [
     'hint-invalid' => 'Subdomain must contain at least one letter or number.',
     'status-active' => 'Active',
     'status-pending' => 'Propagating',
-    'propagation-note' => 'DNS is still propagating. This can take a few minutes — the server stays reachable via IP:port meanwhile.',
+    'propagation-note' => 'DNS is still propagating. This can take a few minutes — the server stays reachable via its IP and port meanwhile.',
     'create' => 'Create Subdomain',
     'update' => 'Update Subdomain',
     'remove' => 'Remove',
