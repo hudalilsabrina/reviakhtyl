@@ -27,6 +27,16 @@ class SubstituteClientBindings extends SubstituteBindings
                 ->firstOrFail();
         });
 
+        $this->router->bind('child', function ($value, $route) {
+            return Server::query()
+                ->when(
+                    Str::startsWith($value, 'serv_'),
+                    fn ($builder) => $builder->whereIdentifier($value),
+                    fn ($builder) => $builder->where(strlen($value) === 8 ? 'uuidShort' : 'uuid', $value)
+                )
+                ->firstOrFail();
+        });
+
         $this->router->bind('user', function ($value, $route) {
             /** @var Subuser $match */
             $match = $route->parameter('server')
