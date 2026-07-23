@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import tw from 'twin.macro';
+import styled from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
-import TitledGreyBox from '@/reviactyl/elements/TitledGreyBox';
+import Card from '@/reviactyl/ui/Card';
 import Spinner from '@/reviactyl/elements/Spinner';
 import SpinnerOverlay from '@/reviactyl/elements/SpinnerOverlay';
 import Input from '@/reviactyl/elements/Input';
 import Label from '@/reviactyl/elements/Label';
-import Select from '@/reviactyl/elements/Select';
+import CopyOnClick from '@/reviactyl/elements/CopyOnClick';
 import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
 import { ServerContext } from '@/state/server';
@@ -17,6 +18,37 @@ import { httpErrorToHuman } from '@/api/http';
 import getServerSubdomain, { ServerSubdomain, SubdomainDomain } from '@/api/server/subdomain/getServerSubdomain';
 import setServerSubdomain from '@/api/server/subdomain/setServerSubdomain';
 import deleteServerSubdomain from '@/api/server/subdomain/deleteServerSubdomain';
+import getSubdomainStatus from '@/api/server/subdomain/getSubdomainStatus';
+import { FaCheckCircle, FaClock, FaGlobe } from 'react-icons/fa';
+
+const HeroCard = styled(Card)`
+    ${tw`relative overflow-hidden`};
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(17, 24, 39, 1) 60%);
+    border-color: rgba(6, 182, 212, 0.25);
+`;
+
+const StatusBadge = styled.span<{ $active: boolean }>`
+    ${tw`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-ui border`};
+    ${({ $active }) =>
+        $active
+            ? tw`bg-success/20 text-success border-success/30`
+            : tw`bg-amber-500/20 text-amber-400 border-amber-500/30`};
+`;
+
+const DomainChip = styled.button<{ $selected: boolean }>`
+    ${tw`px-3 py-1.5 text-xs font-medium rounded-ui border transition-colors duration-150`};
+    ${({ $selected }) =>
+        $selected
+            ? tw`bg-cyan-500/20 text-cyan-300 border-cyan-500/50`
+            : tw`bg-gray-800/60 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200`};
+`;
+
+const slugify = (value: string): string =>
+    value
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 63);
 
 const SubdomainContainer = () => {
     const { t } = useTranslation('server/subdomain');
@@ -33,6 +65,8 @@ const SubdomainContainer = () => {
     const [domainId, setDomainId] = useState<number>(0);
     const [value, setValue] = useState('');
     const [current, setCurrent] = useState<ServerSubdomain | null>(null);
+    const [propagated, setPropagated] = useState<boolean | null>(null);
+    const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
     useEffect(() => {
         clearFlashes('server:subdomain');
@@ -46,6 +80,43 @@ const SubdomainContainer = () => {
             .catch((error) => addError({ key: 'server:subdomain', message: httpErrorToHuman(error) }))
             .finally(() => setLoading(false));
     }, []);
+
+    useEffect(() => {
+        if (!current) {
+            setPropagated(null);
+            return;
+        }
+
+        const check = () =>
+            getSubdomainStatus(uuid)
+                .then(setPropagated)
+                .catch(() => setPropagated(false));
+
+        check();
+        pollRef.current = setInterval(check, 30000);
+
+        return () => {
+            if (pollRef.current) clearInterval(pollRef.current);
+        };
+    }, [current?.id, current?.fqdn]);
+
+    const selectedDomain = useMemo(() => domains.find((d) => d.id === domainId), [domains, domainId]);
+
+    const preview = useMemo(() => {
+        const slug = slugify(value);
+        return slug && selectedDomain ? `${slug}.${selectedDomain.domain}` : null;
+    }, [value, selectedDomain]);
+
+    const validationHint = useMemo(() => {
+        const raw = value.trim();
+        if (!raw) return t('hint-empty');
+        const slug = slugify(raw);
+        if (!slug) return t('hint-invalid');
+        if (raw !== slug) return null; // slugified — preview shows result
+        return null;
+    }, [value]);
+
+    const dirty = slugify(value) !== (current?.subdomain ?? '') || domainId !== current?.cloudflareDomainId;
 
     const submit = () => {
         setSubmitting(true);
@@ -78,62 +149,102 @@ const SubdomainContainer = () => {
             });
     };
 
-    const selectedDomain = domains.find((d) => d.id === domainId)?.domain;
-    const dirty = value.trim() !== current?.subdomain || domainId !== current?.cloudflareDomainId;
-
     return (
         <ServerContentBlock showFlashKey={'server:subdomain'} title={t('title')}>
             {loading ? (
                 <Spinner size={'large'} centered />
             ) : (
-                <TitledGreyBox title={t('title')} css={tw`relative`}>
-                    <SpinnerOverlay visible={submitting} />
-                    <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
-
+                <div css={tw`space-y-4`}>
                     {current && (
-                        <p css={tw`text-sm mb-4`}>
-                            {t('current')}
-                            <span css={tw`font-mono text-cyan-400`}>{current.fqdn}</span>
-                        </p>
+                        <HeroCard>
+                            <div css={tw`flex items-center justify-between gap-4 flex-wrap`}>
+                                <div css={tw`min-w-0`}>
+                                    <div
+                                        css={tw`flex items-center gap-2 text-xs uppercase tracking-wider text-cyan-300/80 mb-1`}
+                                    >
+                                        <FaGlobe />
+                                        <span>{t('your-address')}</span>
+                                    </div>
+                                    <CopyOnClick text={current.fqdn}>
+                                        <span
+                                            css={tw`font-mono text-2xl sm:text-3xl text-gray-50 break-all cursor-pointer hover:text-cyan-300 transition-colors`}
+                                        >
+                                            {current.fqdn}
+                                        </span>
+                                    </CopyOnClick>
+                                </div>
+                                <StatusBadge $active={propagated === true}>
+                                    {propagated === true ? (
+                                        <>
+                                            <FaCheckCircle /> {t('status-active')}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaClock /> {t('status-pending')}
+                                        </>
+                                    )}
+                                </StatusBadge>
+                            </div>
+                            {propagated === false && (
+                                <p css={tw`text-xs text-amber-400/80 mt-3`}>{t('propagation-note')}</p>
+                            )}
+                        </HeroCard>
                     )}
 
-                    <Label>{t('label')}</Label>
-                    <div css={tw`flex items-center gap-2`}>
+                    <Card css={tw`relative`}>
+                        <SpinnerOverlay visible={submitting} />
+                        <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
+
+                        <Label>{t('label')}</Label>
                         <Input
                             value={value}
                             onChange={(e) => setValue(e.currentTarget.value)}
                             placeholder={'my-server'}
                             maxLength={63}
                         />
-                        <Select value={domainId} onChange={(e) => setDomainId(Number(e.currentTarget.value))}>
-                            {domains.map((d) => (
-                                <option key={d.id} value={d.id}>
-                                    .{d.domain}
-                                </option>
-                            ))}
-                        </Select>
-                    </div>
 
-                    <div css={tw`mt-6 flex justify-end gap-2`}>
-                        {current && (
-                            <>
-                                <ConfirmationModal
-                                    visible={confirmDelete}
-                                    title={t('delete-title')}
-                                    buttonText={t('delete-confirm')}
-                                    onConfirmed={remove}
-                                    onModalDismissed={() => setConfirmDelete(false)}
-                                >
-                                    {t('delete-message', { fqdn: current.fqdn })}
-                                </ConfirmationModal>
-                                <Button.Danger onClick={() => setConfirmDelete(true)}>{t('remove')}</Button.Danger>
-                            </>
+                        {preview && (
+                            <p css={tw`text-xs mt-2 text-gray-400`}>
+                                {t('preview')} <span css={tw`font-mono text-cyan-300`}>{preview}</span>
+                            </p>
                         )}
-                        <Button disabled={!value.trim() || !selectedDomain || !dirty} onClick={submit}>
-                            {current ? t('update') : t('create')}
-                        </Button>
-                    </div>
-                </TitledGreyBox>
+                        {validationHint && <p css={tw`text-xs mt-2 text-red-400`}>{validationHint}</p>}
+
+                        <Label css={tw`mt-5`}>{t('domain-label')}</Label>
+                        <div css={tw`flex flex-wrap gap-2`}>
+                            {domains.map((d) => (
+                                <DomainChip
+                                    key={d.id}
+                                    type={'button'}
+                                    $selected={d.id === domainId}
+                                    onClick={() => setDomainId(d.id)}
+                                >
+                                    .{d.domain}
+                                </DomainChip>
+                            ))}
+                        </div>
+
+                        <div css={tw`mt-6 flex justify-end gap-2`}>
+                            {current && (
+                                <>
+                                    <ConfirmationModal
+                                        visible={confirmDelete}
+                                        title={t('delete-title')}
+                                        buttonText={t('delete-confirm')}
+                                        onConfirmed={remove}
+                                        onModalDismissed={() => setConfirmDelete(false)}
+                                    >
+                                        {t('delete-message', { fqdn: current.fqdn })}
+                                    </ConfirmationModal>
+                                    <Button.Danger onClick={() => setConfirmDelete(true)}>{t('remove')}</Button.Danger>
+                                </>
+                            )}
+                            <Button disabled={!preview || !dirty} onClick={submit}>
+                                {current ? t('update') : t('create')}
+                            </Button>
+                        </div>
+                    </Card>
+                </div>
             )}
         </ServerContentBlock>
     );
