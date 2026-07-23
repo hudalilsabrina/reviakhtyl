@@ -20,6 +20,7 @@ return [
     'memory-label' => 'Memory (MB)',
     'disk-label' => 'Disk (MB)',
     'create' => 'Create Split',
+    'cancel' => 'Cancel',
     'created' => 'Child server created.',
     'create-error-positive' => 'CPU, memory and disk must all be greater than zero.',
     'create-error-exceed' => 'Requested resources exceed the allocatable remaining amount.',
