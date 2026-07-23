@@ -73,6 +73,10 @@ class ServerSplitService
             /** @var object{cpu: int, memory: int, disk: int} $locked */
             $locked = DB::table('servers')->where('id', $parent->id)->lockForUpdate()->first(['cpu', 'memory', 'disk']);
 
+            if ($parent->children()->count() >= $parent->split_limit) {
+                throw new DisplayException('This server has reached its split limit.');
+            }
+
             if ($cpu > $locked->cpu || $memory > $locked->memory || $disk > $locked->disk) {
                 throw new DisplayException('Insufficient resources on parent server for this split.');
             }
