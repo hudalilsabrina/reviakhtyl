@@ -19,6 +19,7 @@ export interface SplitResources {
 export interface SplitsState {
     splitLimit: number;
     canSplit: boolean;
+    reason: 'child' | 'limit' | 'max' | null;
     used: number;
     remaining: SplitResources;
     children: SplitChild[];
@@ -27,6 +28,7 @@ export interface SplitsState {
 export const rawDataToSplitsState = (data: any): SplitsState => ({
     splitLimit: data.split_limit ?? 0,
     canSplit: data.can_split ?? false,
+    reason: data.reason ?? null,
     used: (data.children ?? []).length,
     remaining: {
         cpu: data.remaining?.cpu ?? 0,
