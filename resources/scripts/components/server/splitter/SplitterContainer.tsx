@@ -10,6 +10,7 @@ import Input from '@/reviactyl/elements/Input';
 import Label from '@/reviactyl/elements/Label';
 import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
+import Modal from '@/reviactyl/elements/Modal';
 import { ServerContext } from '@/state/server';
 import { ApplicationStore } from '@/state';
 import { httpErrorToHuman } from '@/api/http';
@@ -38,6 +39,7 @@ const SplitterContainer = () => {
     const [submitting, setSubmitting] = useState(false);
     const [state, setState] = useState<SplitsState | null>(null);
     const [mergeTarget, setMergeTarget] = useState<SplitChild | null>(null);
+    const [createOpen, setCreateOpen] = useState(false);
 
     const [name, setName] = useState('');
     const [splitCpu, setSplitCpu] = useState('');
@@ -92,6 +94,7 @@ const SplitterContainer = () => {
                 setSplitCpu('');
                 setSplitMemory('');
                 setSplitDisk('');
+                setCreateOpen(false);
             })
             .catch((error) => addError({ key: 'server:splitter', message: httpErrorToHuman(error) }))
             .then(refresh)
@@ -117,8 +120,8 @@ const SplitterContainer = () => {
         state?.reason === 'child'
             ? 'unavailable-child'
             : state?.reason === 'max'
-              ? 'unavailable-max'
-              : 'unavailable-limit';
+            ? 'unavailable-max'
+            : 'unavailable-limit';
 
     return (
         <ServerContentBlock showFlashKey={'server:splitter'} title={t('title')}>
@@ -142,49 +145,9 @@ const SplitterContainer = () => {
 
                     {splittable ? (
                         <>
-                            <Card css={tw`relative`}>
-                                <SpinnerOverlay visible={submitting} />
-                                <p css={tw`text-sm font-semibold text-gray-100 mb-4`}>{t('create-title')}</p>
-                                <div css={tw`grid grid-cols-1 sm:grid-cols-2 gap-4`}>
-                                    <div css={tw`sm:col-span-2`}>
-                                        <Label>{t('name-label')}</Label>
-                                        <Input value={name} onChange={(e) => setName(e.currentTarget.value)} />
-                                    </div>
-                                    <div>
-                                        <Label>{t('cpu-label')}</Label>
-                                        <Input
-                                            type={'number'}
-                                            min={0}
-                                            value={splitCpu}
-                                            onChange={(e) => setSplitCpu(e.currentTarget.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label>{t('memory-label')}</Label>
-                                        <Input
-                                            type={'number'}
-                                            min={0}
-                                            value={splitMemory}
-                                            onChange={(e) => setSplitMemory(e.currentTarget.value)}
-                                        />
-                                    </div>
-                                    <div>
-                                        <Label>{t('disk-label')}</Label>
-                                        <Input
-                                            type={'number'}
-                                            min={0}
-                                            value={splitDisk}
-                                            onChange={(e) => setSplitDisk(e.currentTarget.value)}
-                                        />
-                                    </div>
-                                </div>
-                                {formError && <p css={tw`text-xs mt-3 text-red-400`}>{formError}</p>}
-                                <div css={tw`mt-6 flex justify-end`}>
-                                    <Button disabled={!canSubmit || submitting} onClick={submit}>
-                                        {t('create')}
-                                    </Button>
-                                </div>
-                            </Card>
+                            <div css={tw`flex justify-end`}>
+                                <Button onClick={() => setCreateOpen(true)}>{t('create')}</Button>
+                            </div>
 
                             <Card css={tw`relative`}>
                                 <SpinnerOverlay visible={submitting && !!mergeTarget} />
@@ -228,6 +191,58 @@ const SplitterContainer = () => {
                                     </div>
                                 )}
                             </Card>
+
+                            <Modal visible={createOpen} onDismissed={() => setCreateOpen(false)} size={'sm'}>
+                                <Card css={tw`relative`}>
+                                    <SpinnerOverlay visible={submitting && createOpen} />
+                                    <p css={tw`text-sm font-semibold text-gray-100 mb-4`}>{t('create-title')}</p>
+                                    <div css={tw`grid grid-cols-1 sm:grid-cols-2 gap-4`}>
+                                        <div css={tw`sm:col-span-2`}>
+                                            <Label>{t('name-label')}</Label>
+                                            <Input value={name} onChange={(e) => setName(e.currentTarget.value)} />
+                                        </div>
+                                        <div>
+                                            <Label>{t('cpu-label')}</Label>
+                                            <Input
+                                                type={'number'}
+                                                min={0}
+                                                value={splitCpu}
+                                                onChange={(e) => setSplitCpu(e.currentTarget.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label>{t('memory-label')}</Label>
+                                            <Input
+                                                type={'number'}
+                                                min={0}
+                                                value={splitMemory}
+                                                onChange={(e) => setSplitMemory(e.currentTarget.value)}
+                                            />
+                                        </div>
+                                        <div>
+                                            <Label>{t('disk-label')}</Label>
+                                            <Input
+                                                type={'number'}
+                                                min={0}
+                                                value={splitDisk}
+                                                onChange={(e) => setSplitDisk(e.currentTarget.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    {formError && <p css={tw`text-xs mt-3 text-red-400`}>{formError}</p>}
+                                    <div css={tw`mt-6 flex justify-end gap-2`}>
+                                        <Button.Text
+                                            className={'!px-3 !py-1.5 text-xs'}
+                                            onClick={() => setCreateOpen(false)}
+                                        >
+                                            {t('cancel')}
+                                        </Button.Text>
+                                        <Button disabled={!canSubmit || submitting} onClick={submit}>
+                                            {t('create')}
+                                        </Button>
+                                    </div>
+                                </Card>
+                            </Modal>
                         </>
                     ) : (
                         <Card>
