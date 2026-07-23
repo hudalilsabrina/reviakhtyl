@@ -139,6 +139,7 @@ Route::group([
         Route::get('/', [Client\Servers\SubdomainController::class, 'index']);
         Route::middleware('throttle:api.subdomain')
             ->post('/', [Client\Servers\SubdomainController::class, 'store']);
+        Route::get('/status', [Client\Servers\SubdomainController::class, 'status']);
         Route::delete('/', [Client\Servers\SubdomainController::class, 'delete']);
     });
 

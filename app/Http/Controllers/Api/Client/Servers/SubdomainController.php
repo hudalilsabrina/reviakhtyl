@@ -65,6 +65,15 @@ class SubdomainController extends ClientApiController
             ->toArray();
     }
 
+    public function status(GetSubdomainRequest $request, Server $server): JsonResponse
+    {
+        $subdomain = $server->subdomain;
+
+        return new JsonResponse([
+            'propagated' => $subdomain ? $this->subdomainService->isPropagated($subdomain) : false,
+        ]);
+    }
+
     public function delete(DeleteSubdomainRequest $request, Server $server): JsonResponse
     {
         if (! $this->subdomainService->isEnabledFor($server)) {
