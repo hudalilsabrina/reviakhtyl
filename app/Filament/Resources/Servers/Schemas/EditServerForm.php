@@ -103,6 +103,19 @@ class EditServerForm
                                             ->maxLength(191)
                                             ->helperText(trans('admin/server.edit.fields.external_identifier.helper')),
 
+                                        TextInput::make('parent_display')
+                                            ->label(trans('admin/server.edit.fields.parent_server.label'))
+                                            ->helperText(trans('admin/server.edit.fields.parent_server.helper'))
+                                            ->formatStateUsing(fn (?Server $record): string => $record?->parent ? "{$record->parent->name} ({$record->parent->uuidShort})" : '')
+                                            ->visible(fn (?Server $record): bool => $record?->parent_id !== null)
+                                            ->readOnly()
+                                            ->suffixAction(Action::make('view_parent')
+                                                ->label(trans('admin/server.actions.view_parent'))
+                                                ->icon('heroicon-o-arrow-top-right-on-square')
+                                                ->url(fn (?Server $record): ?string => $record?->parent_id ? ServerResource::getUrl('edit', ['record' => $record->parent_id]) : null)
+                                                ->openUrlInNewTab()
+                                            ),
+
                                     ])
                                     ->columns(2),
                             ]),
@@ -408,6 +421,12 @@ class EditServerForm
                 ->minValue(0)
                 ->default(0)
                 ->helperText(trans('admin/server.edit.fields.backup_limit.helper')),
+            TextInput::make('split_limit')
+                ->label(trans('admin/server.edit.fields.split_limit.label'))
+                ->numeric()
+                ->minValue(0)
+                ->default(0)
+                ->helperText(trans('admin/server.edit.fields.split_limit.helper')),
         ];
     }
 
