@@ -31,8 +31,8 @@ const StatusBadge = styled.span<{ $active: boolean }>`
     ${tw`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-ui border`};
     ${({ $active }) =>
         $active
-            ? tw`bg-success/20 text-success border-success/30`
-            : tw`bg-amber-500/20 text-amber-400 border-amber-500/30`};
+            ? tw`bg-success/20 text-green-300 border-success/30`
+            : tw`bg-amber-500/20 text-amber-300 border-amber-500/30`};
 `;
 
 const DomainChip = styled.button<{ $selected: boolean }>`
