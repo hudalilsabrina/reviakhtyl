@@ -144,6 +144,12 @@ Route::group([
         Route::delete('/', [Client\Servers\SubdomainController::class, 'delete']);
     });
 
+    Route::group(['prefix' => '/splits'], function () {
+        Route::get('/', [Client\Servers\SplitController::class, 'index']);
+        Route::post('/', [Client\Servers\SplitController::class, 'store']);
+        Route::post('/{child}/merge', [Client\Servers\SplitMergeController::class, 'store']);
+    });
+
     Route::group(['prefix' => '/plugins'], function () {
         Route::get('/', [Client\Servers\PluginController::class, 'index']);
         Route::get('/search', [Client\Servers\PluginController::class, 'search']);
