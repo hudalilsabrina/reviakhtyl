@@ -69,67 +69,87 @@ class ServerSplitService
             ));
         }
 
-        return $this->connection->transaction(function () use ($parent, $name, $cpu, $memory, $disk) {
-            $environment = $parent->variables
-                ->mapWithKeys(fn ($variable): array => [
-                    $variable->env_variable => $variable->server_value ?? $variable->default_value,
-                ])
-                ->all();
+        $environment = $parent->variables
+            ->mapWithKeys(fn ($variable): array => [
+                $variable->env_variable => $variable->server_value ?? $variable->default_value,
+            ])
+            ->all();
 
-            /** @var object{cpu: int, memory: int, disk: int} $locked */
-            $locked = DB::table('servers')->where('id', $parent->id)->lockForUpdate()->first(['cpu', 'memory', 'disk']);
+        // Child must be fully created (and committed) before the daemon is
+        // contacted, so creation happens outside the resource transfer below.
+        $child = $this->creationService->handle([
+            'name' => $name,
+            'owner_id' => $parent->owner_id,
+            'node_id' => $parent->node_id,
+            'allocation_id' => $this->claimAllocation($parent)->id,
+            'nest_id' => $parent->nest_id,
+            'egg_id' => $parent->egg_id,
+            'startup' => $parent->startup,
+            'image' => $parent->image,
+            'cpu' => $cpu,
+            'memory' => $memory,
+            'disk' => $disk,
+            'swap' => $parent->swap,
+            'io' => $parent->io,
+            'threads' => $parent->threads,
+            'oom_disabled' => $parent->oom_disabled,
+            'database_limit' => 0,
+            'allocation_limit' => 0,
+            'backup_limit' => 0,
+            'parent_id' => $parent->id,
+            'environment' => $environment,
+        ]);
 
-            if ($parent->children()->count() >= $parent->split_limit) {
-                throw new DisplayException('This server has reached its split limit.');
-            }
+        try {
+            $this->connection->transaction(function () use ($parent, $cpu, $memory, $disk) {
+                /** @var object{cpu: int, memory: int, disk: int} $locked */
+                $locked = DB::table('servers')->where('id', $parent->id)->lockForUpdate()->first(['cpu', 'memory', 'disk']);
 
-            if ($cpu > $locked->cpu || $memory > $locked->memory || $disk > $locked->disk) {
-                throw new DisplayException('Insufficient resources on parent server for this split.');
-            }
+                if ($parent->children()->count() >= $parent->split_limit) {
+                    throw new DisplayException('This server has reached its split limit.');
+                }
 
-            $allocation = Allocation::query()
-                ->where('node_id', $parent->node_id)
-                ->whereNull('server_id')
-                ->lockForUpdate()
-                ->first();
+                if ($cpu > $locked->cpu || $memory > $locked->memory || $disk > $locked->disk) {
+                    throw new DisplayException('Insufficient resources on parent server for this split.');
+                }
 
-            if (! $allocation) {
-                throw new DisplayException('No free allocation available on this node.');
-            }
+                $this->buildModificationService->handle($parent, [
+                    'cpu' => $locked->cpu - $cpu,
+                    'memory' => $locked->memory - $memory,
+                    'disk' => $locked->disk - $disk,
+                    'allocation_id' => $parent->allocation_id,
+                    'database_limit' => $parent->database_limit,
+                    'allocation_limit' => $parent->allocation_limit,
+                    'backup_limit' => $parent->backup_limit,
+                ]);
+            }, 5);
+        } catch (\Throwable $exception) {
+            $this->deletionService->withForce()->handle($child);
 
-            $this->buildModificationService->handle($parent, [
-                'cpu' => $locked->cpu - $cpu,
-                'memory' => $locked->memory - $memory,
-                'disk' => $locked->disk - $disk,
-                'allocation_id' => $parent->allocation_id,
-                'database_limit' => $parent->database_limit,
-                'allocation_limit' => $parent->allocation_limit,
-                'backup_limit' => $parent->backup_limit,
-            ]);
+            throw $exception;
+        }
 
-            return $this->creationService->handle([
-                'name' => $name,
-                'owner_id' => $parent->owner_id,
-                'node_id' => $parent->node_id,
-                'allocation_id' => $allocation->id,
-                'nest_id' => $parent->nest_id,
-                'egg_id' => $parent->egg_id,
-                'startup' => $parent->startup,
-                'image' => $parent->image,
-                'cpu' => $cpu,
-                'memory' => $memory,
-                'disk' => $disk,
-                'swap' => $parent->swap,
-                'io' => $parent->io,
-                'threads' => $parent->threads,
-                'oom_disabled' => $parent->oom_disabled,
-                'database_limit' => 0,
-                'allocation_limit' => 0,
-                'backup_limit' => 0,
-                'parent_id' => $parent->id,
-                'environment' => $environment,
-            ]);
-        }, 5);
+        return $child;
+    }
+
+    /**
+     * Claim a free allocation on the parent's node for a split child.
+     *
+     * @throws DisplayException
+     */
+    private function claimAllocation(Server $parent): Allocation
+    {
+        $allocation = Allocation::query()
+            ->where('node_id', $parent->node_id)
+            ->whereNull('server_id')
+            ->lockForUpdate()
+            ->first();
+
+        if (! $allocation) {
+            throw new DisplayException('No free allocation available on this node.');
+        }
+
+        return $allocation;
     }
 
     /**
