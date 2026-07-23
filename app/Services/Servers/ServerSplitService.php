@@ -1,0 +1,172 @@
+<?php
+
+namespace App\Services\Servers;
+
+use App\Exceptions\DisplayException;
+use App\Models\Allocation;
+use App\Models\Server;
+use Illuminate\Database\ConnectionInterface;
+use Illuminate\Support\Facades\DB;
+
+class ServerSplitService
+{
+    private const MIN_CPU = 1;
+
+    private const MIN_MEMORY = 8;
+
+    private const MIN_DISK = 8;
+
+    public function __construct(
+        private ConnectionInterface $connection,
+        private ServerCreationService $creationService,
+        private ServerDeletionService $deletionService,
+        private BuildModificationService $buildModificationService,
+    ) {}
+
+    /**
+     * Split a parent server into a new child server, transferring resources.
+     *
+     * @throws \Throwable
+     * @throws DisplayException
+     */
+    public function split(Server $parent, array $data): Server
+    {
+        $cpu = (int) ($data['cpu'] ?? 0);
+        $memory = (int) ($data['memory'] ?? 0);
+        $disk = (int) ($data['disk'] ?? 0);
+        $name = trim((string) ($data['name'] ?? ''));
+
+        if ($parent->isSuspended()) {
+            throw new DisplayException('Cannot split a suspended server.');
+        }
+
+        if (! $parent->isInstalled()) {
+            throw new DisplayException('Cannot split a server that is still installing.');
+        }
+
+        if ($parent->isSplitChild()) {
+            throw new DisplayException('Cannot split a split child.');
+        }
+
+        if (! $parent->canSplit()) {
+            throw new DisplayException('This server has reached its split limit.');
+        }
+
+        if ($this->isRunning($parent)) {
+            throw new DisplayException('Stop the server before splitting it.');
+        }
+
+        if ($name === '') {
+            throw new DisplayException('A name is required for the new server.');
+        }
+
+        if ($cpu < self::MIN_CPU || $memory < self::MIN_MEMORY || $disk < self::MIN_DISK) {
+            throw new DisplayException(sprintf(
+                'Minimum split size is %d%% CPU, %d MB memory, %d MB disk.',
+                self::MIN_CPU,
+                self::MIN_MEMORY,
+                self::MIN_DISK
+            ));
+        }
+
+        return $this->connection->transaction(function () use ($parent, $name, $cpu, $memory, $disk) {
+            /** @var object{cpu: int, memory: int, disk: int} $locked */
+            $locked = DB::table('servers')->where('id', $parent->id)->lockForUpdate()->first(['cpu', 'memory', 'disk']);
+
+            if ($cpu > $locked->cpu || $memory > $locked->memory || $disk > $locked->disk) {
+                throw new DisplayException('Insufficient resources on parent server for this split.');
+            }
+
+            $allocation = Allocation::query()
+                ->where('node_id', $parent->node_id)
+                ->whereNull('server_id')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $allocation) {
+                throw new DisplayException('No free allocation available on this node.');
+            }
+
+            $this->buildModificationService->handle($parent, [
+                'cpu' => $locked->cpu - $cpu,
+                'memory' => $locked->memory - $memory,
+                'disk' => $locked->disk - $disk,
+                'allocation_id' => $parent->allocation_id,
+                'database_limit' => $parent->database_limit,
+                'allocation_limit' => $parent->allocation_limit,
+                'backup_limit' => $parent->backup_limit,
+            ]);
+
+            return $this->creationService->handle([
+                'name' => $name,
+                'owner_id' => $parent->owner_id,
+                'node_id' => $parent->node_id,
+                'allocation_id' => $allocation->id,
+                'nest_id' => $parent->nest_id,
+                'egg_id' => $parent->egg_id,
+                'startup' => $parent->startup,
+                'image' => $parent->image,
+                'cpu' => $cpu,
+                'memory' => $memory,
+                'disk' => $disk,
+                'swap' => $parent->swap,
+                'io' => $parent->io,
+                'threads' => $parent->threads,
+                'oom_disabled' => $parent->oom_disabled,
+                'database_limit' => 0,
+                'allocation_limit' => 0,
+                'backup_limit' => 0,
+                'parent_id' => $parent->id,
+                'environment' => [],
+            ]);
+        }, 5);
+    }
+
+    /**
+     * Merge a split child back into its parent, returning resources and deleting the child.
+     *
+     * @throws \Throwable
+     * @throws DisplayException
+     */
+    public function merge(Server $parent, Server $child): void
+    {
+        if ($child->parent_id !== $parent->id) {
+            throw new DisplayException('This server is not a split child of the given parent.');
+        }
+
+        if ($child->isSuspended()) {
+            throw new DisplayException('Cannot merge a suspended server.');
+        }
+
+        if ($this->isRunning($child)) {
+            throw new DisplayException('Stop the child server before merging it.');
+        }
+
+        $this->connection->transaction(function () use ($parent, $child) {
+            /** @var object{cpu: int, memory: int, disk: int} $locked */
+            $locked = DB::table('servers')->where('id', $parent->id)->lockForUpdate()->first(['cpu', 'memory', 'disk']);
+
+            $this->buildModificationService->handle($parent, [
+                'cpu' => $locked->cpu + $child->cpu,
+                'memory' => $locked->memory + $child->memory,
+                'disk' => $locked->disk + $child->disk,
+                'allocation_id' => $parent->allocation_id,
+                'database_limit' => $parent->database_limit,
+                'allocation_limit' => $parent->allocation_limit,
+                'backup_limit' => $parent->backup_limit,
+            ]);
+
+            $this->deletionService->withForce()->handle($child);
+        }, 5);
+    }
+
+    /**
+     * Determines if the server is currently running according to the resolved
+     * (daemon-reported) status. Anything other than a definitive stopped state
+     * is treated as running to avoid splitting/merging live containers.
+     */
+    private function isRunning(Server $server): bool
+    {
+        return ! in_array($server->getResolvedStatus(), ['offline', 'crashed'], true);
+    }
+}
