@@ -49,6 +49,8 @@ use Znck\Eloquent\Traits\BelongsToThrough;
  * @property int|null $allocation_limit
  * @property int|null $database_limit
  * @property int $backup_limit
+ * @property int|null $parent_id
+ * @property int $split_limit
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $installed_at
@@ -193,6 +195,8 @@ class Server extends Model implements Identifiable
         'database_limit' => 'present|nullable|integer|min:0',
         'allocation_limit' => 'sometimes|nullable|integer|min:0',
         'backup_limit' => 'present|nullable|integer|min:0',
+        'parent_id' => 'sometimes|nullable|integer|exists:servers,id',
+        'split_limit' => 'sometimes|integer|min:0',
     ];
 
     /**
@@ -214,6 +218,8 @@ class Server extends Model implements Identifiable
         'database_limit' => 'integer',
         'allocation_limit' => 'integer',
         'backup_limit' => 'integer',
+        'parent_id' => 'integer',
+        'split_limit' => 'integer',
         self::CREATED_AT => 'datetime',
         self::UPDATED_AT => 'datetime',
         'deleted_at' => 'datetime',
@@ -461,6 +467,44 @@ class Server extends Model implements Identifiable
     public function plugins(): HasMany
     {
         return $this->hasMany(ServerPlugin::class);
+    }
+
+    /**
+     * Returns the parent server this server was split from, if any.
+     *
+     * @return BelongsTo<Server, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Server::class, 'parent_id');
+    }
+
+    /**
+     * Returns the child servers split from this server.
+     *
+     * @return HasMany<Server, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(Server::class, 'parent_id');
+    }
+
+    /**
+     * Determines if this server is a child created by splitting a parent server.
+     */
+    public function isSplitChild(): bool
+    {
+        return ! is_null($this->parent_id);
+    }
+
+    /**
+     * Determines if this server can be split into additional child servers.
+     */
+    public function canSplit(): bool
+    {
+        return $this->split_limit > 0
+            && is_null($this->parent_id)
+            && $this->children()->count() < $this->split_limit;
     }
 
     /**
