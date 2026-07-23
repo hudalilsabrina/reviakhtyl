@@ -307,6 +307,7 @@ return [
         'delete' => 'Delete',
         'delete_forcibly' => 'Forcibly Delete',
         'view' => 'View',
+        'view_parent' => 'View Parent',
     ],
 
     'exceptions' => [
@@ -454,6 +455,14 @@ return [
                 'label' => 'Backup Limit',
                 'helper' => 'The total number of backups that can be created for this server.',
             ],
+            'split_limit' => [
+                'label' => 'Split Limit',
+                'helper' => 'Max number of child servers this server can be split into.',
+            ],
+            'parent_server' => [
+                'label' => 'Parent Server',
+                'helper' => 'This server is a split child of the linked parent.',
+            ],
             'image' => [
                 'label' => 'Image',
                 'helper' => 'Select an image from the dropdown, or enter a custom image below.',
@@ -507,6 +516,18 @@ return [
 
         'actions' => [
             'make_primary' => 'Make Primary',
+        ],
+    ],
+
+    'children' => [
+        'title' => 'Split Children',
+
+        'table' => [
+            'name' => 'Name',
+            'identifier' => 'Identifier',
+            'cpu' => 'CPU',
+            'memory' => 'Memory',
+            'disk' => 'Disk',
         ],
     ],
 
