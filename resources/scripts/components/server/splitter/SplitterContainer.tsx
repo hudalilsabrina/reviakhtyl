@@ -115,7 +115,7 @@ const SplitterContainer = () => {
             });
     };
 
-    const splittable = !!state && state.splitLimit > 0;
+    const splittable = !!state && state.splitLimit > 0 && state.canSplit;
 
     return (
         <ServerContentBlock showFlashKey={'server:splitter'} title={t('title')}>
