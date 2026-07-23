@@ -17,11 +17,11 @@ import getSplits, { SplitChild, SplitsState } from '@/api/server/splits/getSplit
 import createSplit from '@/api/server/splits/createSplit';
 import mergeSplit from '@/api/server/splits/mergeSplit';
 
-const Stat = ({ label, value, unit }: { label: string; value: number; unit?: string }) => (
+const Stat = ({ label, value, unit }: { label: string; value: number | string; unit?: string }) => (
     <div>
         <p css={tw`text-xs uppercase tracking-wider text-gray-500`}>{label}</p>
         <p css={tw`text-lg font-semibold text-gray-100`}>
-            {value.toLocaleString()}
+            {typeof value === 'number' ? value.toLocaleString() : value}
             {unit && <span css={tw`ml-1 text-sm font-normal text-gray-400`}>{unit}</span>}
         </p>
     </div>
@@ -30,9 +30,6 @@ const Stat = ({ label, value, unit }: { label: string; value: number; unit?: str
 const SplitterContainer = () => {
     const { t } = useTranslation('server/splitter');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
-    const cpu = ServerContext.useStoreState((state) => state.server.data!.limits.cpu);
-    const memory = ServerContext.useStoreState((state) => state.server.data!.limits.memory);
-    const disk = ServerContext.useStoreState((state) => state.server.data!.limits.disk);
     const { addError, addFlash, clearFlashes } = useStoreActions(
         (actions: Actions<ApplicationStore>) => actions.flashes
     );
@@ -136,24 +133,11 @@ const SplitterContainer = () => {
                     <Card>
                         <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
                         <div css={tw`grid grid-cols-2 sm:grid-cols-4 gap-4`}>
-                            <Stat label={t('cpu')} value={cpu} unit={'%'} />
-                            <Stat label={t('memory')} value={memory} unit={'MB'} />
-                            <Stat label={t('disk')} value={disk} unit={'MB'} />
-                            <Stat label={t('limit')} value={state.splitLimit} />
+                            <Stat label={t('cpu')} value={state.remaining.cpu} unit={'%'} />
+                            <Stat label={t('memory')} value={state.remaining.memory} unit={'MB'} />
+                            <Stat label={t('disk')} value={state.remaining.disk} unit={'MB'} />
+                            <Stat label={t('children')} value={`${state.used} / ${state.splitLimit}`} />
                         </div>
-                        {splittable && (
-                            <div css={tw`mt-4 pt-4 border-t border-gray-700`}>
-                                <p css={tw`text-xs uppercase tracking-wider text-gray-500 mb-2`}>
-                                    {t('remaining-title')}
-                                </p>
-                                <div css={tw`grid grid-cols-2 sm:grid-cols-4 gap-4`}>
-                                    <Stat label={t('cpu')} value={state.remaining.cpu} unit={'%'} />
-                                    <Stat label={t('memory')} value={state.remaining.memory} unit={'MB'} />
-                                    <Stat label={t('disk')} value={state.remaining.disk} unit={'MB'} />
-                                    <Stat label={t('used')} value={state.used} />
-                                </div>
-                            </div>
-                        )}
                     </Card>
 
                     {splittable ? (
