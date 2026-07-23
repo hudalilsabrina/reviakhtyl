@@ -70,6 +70,9 @@ class EditServer extends EditRecord
     protected function handleRecordUpdate(Model $record, array $data): Model
     {
         /** @var Server $record */
+        $record->split_limit = (int) ($data['split_limit'] ?? $record->split_limit);
+        $record->save();
+
         app(DetailsModificationService::class)->handle($record, Arr::only($data, [
             'external_id',
             'owner_id',
