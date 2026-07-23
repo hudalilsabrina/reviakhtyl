@@ -49,6 +49,7 @@ class AppServiceProvider extends ServiceProvider
             'mount' => Models\Mount::class,
             'schedule' => Models\Schedule::class,
             'server' => Models\Server::class,
+            'server_subdomain' => Models\ServerSubdomain::class,
             'node' => Models\Node::class,
             'ssh_key' => Models\UserSSHKey::class,
             'task' => Models\Task::class,
