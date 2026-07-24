@@ -49,6 +49,34 @@ class CreateServerSubuserTest extends ClientApiIntegrationTestCase
     }
 
     /**
+     * Test that a newly created user account correctly causes the creation of a user:user.create
+     * activity log entry.
+     */
+    public function test_creating_subuser_with_new_email_logs_user_creation()
+    {
+        [$user, $server] = $this->generateTestAccount();
+
+        $response = $this->actingAs($user)->postJson($this->link($server).'/users', [
+            'email' => $email = $this->faker->email,
+            'permissions' => [
+                Permission::ACTION_USER_CREATE,
+            ],
+        ]);
+
+        $response->assertOk();
+
+        /** @var User $subuser */
+        $subuser = User::query()->where('email', $email)->firstOrFail();
+
+        $this->assertActivityLogged('user:user.create');
+        $this->assertDatabaseHas('activity_logs', [
+            'event' => 'user:user.create',
+            'actor_type' => $user->getMorphClass(),
+            'actor_id' => $user->id,
+        ]);
+    }
+
+    /**
      * Tests that an error is returned if a subuser attempts to create a new subuser and assign
      * permissions that their account does not also possess.
      */
