@@ -109,7 +109,7 @@ class EditNodeForm
                                                     $repository = app(DaemonConfigurationRepository::class);
                                                     $data = $repository->setNode($record)->getSystemInformation();
 
-                                                    return (int) $data['cpu_count'] ?? trans('admin/node.general.na');
+                                                    return (int) ($data['cpu_count'] ?? 0);
                                                 } catch (\Exception $e) {
                                                     return trans('admin/node.general.unavailable');
                                                 }
