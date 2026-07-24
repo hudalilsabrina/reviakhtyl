@@ -16,12 +16,29 @@ export interface SplitResources {
     disk: number;
 }
 
+export interface SplitVariable {
+    envVariable: string;
+    name: string;
+    description: string;
+    value: string;
+    editable: boolean;
+}
+
+export interface SplitDefaults {
+    name: string;
+    startup: string;
+    image: string;
+    dockerImages: string[];
+    variables: SplitVariable[];
+}
+
 export interface SplitsState {
     splitLimit: number;
     canSplit: boolean;
     reason: 'child' | 'limit' | 'max' | null;
     used: number;
     remaining: SplitResources;
+    defaults: SplitDefaults | null;
     children: SplitChild[];
 }
 
@@ -35,6 +52,23 @@ export const rawDataToSplitsState = (data: any): SplitsState => ({
         memory: data.remaining?.memory ?? 0,
         disk: data.remaining?.disk ?? 0,
     },
+    defaults: data.defaults
+        ? {
+              name: data.defaults.name ?? '',
+              startup: data.defaults.startup ?? '',
+              image: data.defaults.image ?? '',
+              dockerImages: data.defaults.docker_images ?? [],
+              variables: (data.defaults.variables ?? []).map(
+                  (v: any): SplitVariable => ({
+                      envVariable: v.env_variable,
+                      name: v.name,
+                      description: v.description ?? '',
+                      value: v.value ?? '',
+                      editable: !!v.editable,
+                  })
+              ),
+          }
+        : null,
     children: (data.children ?? []).map((child: any): SplitChild => {
         const attributes = child.attributes ?? child;
 

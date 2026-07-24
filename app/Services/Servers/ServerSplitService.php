@@ -75,6 +75,26 @@ class ServerSplitService
             ])
             ->all();
 
+        // Allow overriding individual egg variables (e.g. server jar, version)
+        // while defaulting to the parent's current values.
+        $overrides = $data['environment'] ?? [];
+        if (is_array($overrides)) {
+            $allowed = $parent->egg->variables->pluck('env_variable')->all();
+
+            foreach ($overrides as $key => $value) {
+                if (in_array($key, $allowed, true)) {
+                    $environment[$key] = (string) $value;
+                }
+            }
+        }
+
+        $startup = trim((string) ($data['startup'] ?? '')) ?: $parent->startup;
+
+        $image = trim((string) ($data['image'] ?? '')) ?: $parent->image;
+        if (! in_array($image, $parent->egg->docker_images, true)) {
+            $image = $parent->image;
+        }
+
         // Child must be fully created (and committed) before the daemon is
         // contacted, so creation happens outside the resource transfer below.
         $child = $this->creationService->handle([
@@ -84,8 +104,8 @@ class ServerSplitService
             'allocation_id' => $this->claimAllocation($parent)->id,
             'nest_id' => $parent->nest_id,
             'egg_id' => $parent->egg_id,
-            'startup' => $parent->startup,
-            'image' => $parent->image,
+            'startup' => $startup,
+            'image' => $image,
             'cpu' => $cpu,
             'memory' => $memory,
             'disk' => $disk,

@@ -8,6 +8,7 @@ import Spinner from '@/reviactyl/elements/Spinner';
 import SpinnerOverlay from '@/reviactyl/elements/SpinnerOverlay';
 import Input from '@/reviactyl/elements/Input';
 import Label from '@/reviactyl/elements/Label';
+import Select from '@/reviactyl/elements/Select';
 import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
 import Modal from '@/reviactyl/elements/Modal';
@@ -45,6 +46,19 @@ const SplitterContainer = () => {
     const [splitCpu, setSplitCpu] = useState('');
     const [splitMemory, setSplitMemory] = useState('');
     const [splitDisk, setSplitDisk] = useState('');
+    const [startup, setStartup] = useState('');
+    const [image, setImage] = useState('');
+    const [envValues, setEnvValues] = useState<Record<string, string>>({});
+
+    const openCreate = () => {
+        if (state?.defaults) {
+            setName(state.defaults.name);
+            setStartup(state.defaults.startup);
+            setImage(state.defaults.image);
+            setEnvValues(Object.fromEntries(state.defaults.variables.map((v) => [v.envVariable, v.value])));
+        }
+        setCreateOpen(true);
+    };
 
     const refresh = () =>
         getSplits(uuid)
@@ -87,7 +101,13 @@ const SplitterContainer = () => {
         if (!canSubmit) return;
         setSubmitting(true);
         clearFlashes('server:splitter');
-        createSplit(uuid, { name: name.trim(), ...numeric })
+        createSplit(uuid, {
+            name: name.trim(),
+            ...numeric,
+            startup,
+            image,
+            environment: envValues,
+        })
             .then(() => {
                 addFlash({ type: 'success', key: 'server:splitter', message: t('created') });
                 setName('');
@@ -146,7 +166,7 @@ const SplitterContainer = () => {
                     {splittable ? (
                         <>
                             <div css={tw`flex justify-end`}>
-                                <Button onClick={() => setCreateOpen(true)}>{t('create')}</Button>
+                                <Button onClick={openCreate}>{t('create')}</Button>
                             </div>
 
                             <Card css={tw`relative`}>
@@ -192,7 +212,7 @@ const SplitterContainer = () => {
                                 )}
                             </Card>
 
-                            <Modal visible={createOpen} onDismissed={() => setCreateOpen(false)} size={'sm'}>
+                            <Modal visible={createOpen} onDismissed={() => setCreateOpen(false)} size={'md'}>
                                 <Card css={tw`relative`}>
                                     <SpinnerOverlay visible={submitting && createOpen} />
                                     <p css={tw`text-sm font-semibold text-gray-100 mb-4`}>{t('create-title')}</p>
@@ -228,6 +248,38 @@ const SplitterContainer = () => {
                                                 onChange={(e) => setSplitDisk(e.currentTarget.value)}
                                             />
                                         </div>
+                                        <div>
+                                            <Label>{t('image-label')}</Label>
+                                            <Select value={image} onChange={(e) => setImage(e.currentTarget.value)}>
+                                                {(state.defaults?.dockerImages ?? []).map((img) => (
+                                                    <option key={img} value={img}>
+                                                        {img}
+                                                    </option>
+                                                ))}
+                                            </Select>
+                                        </div>
+                                        <div css={tw`sm:col-span-2`}>
+                                            <Label>{t('startup-label')}</Label>
+                                            <Input
+                                                value={startup}
+                                                onChange={(e) => setStartup(e.currentTarget.value)}
+                                            />
+                                        </div>
+                                        {(state.defaults?.variables ?? []).map((v) => (
+                                            <div key={v.envVariable} title={v.description}>
+                                                <Label>{v.name}</Label>
+                                                <Input
+                                                    value={envValues[v.envVariable] ?? ''}
+                                                    disabled={!v.editable}
+                                                    onChange={(e) =>
+                                                        setEnvValues((prev) => ({
+                                                            ...prev,
+                                                            [v.envVariable]: e.currentTarget.value,
+                                                        }))
+                                                    }
+                                                />
+                                            </div>
+                                        ))}
                                     </div>
                                     {formError && <p css={tw`text-xs mt-3 text-red-400`}>{formError}</p>}
                                     <div css={tw`mt-6 flex justify-end gap-2`}>
