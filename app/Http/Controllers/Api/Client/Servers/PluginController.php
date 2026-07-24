@@ -9,16 +9,18 @@ use App\Http\Requests\Api\Client\Servers\Plugins\DeletePluginRequest;
 use App\Http\Requests\Api\Client\Servers\Plugins\InstallPluginRequest;
 use App\Http\Requests\Api\Client\Servers\Plugins\SearchPluginsRequest;
 use App\Http\Requests\Api\Client\Servers\Plugins\TogglePluginRequest;
+use App\Http\Requests\Api\Client\Servers\Plugins\TrackPluginRequest;
 use App\Http\Requests\Api\Client\Servers\Plugins\UpdatePluginRequest;
 use App\Models\Server;
 use App\Models\ServerPlugin;
+use App\Services\Plugins\PluginJarService;
 use App\Services\Plugins\PluginManagerService;
 use App\Transformers\Api\Client\ServerPluginTransformer;
 use Illuminate\Http\JsonResponse;
 
 class PluginController extends ClientApiController
 {
-    public function __construct(private PluginManagerService $manager)
+    public function __construct(private PluginManagerService $manager, private PluginJarService $jars)
     {
         parent::__construct();
     }
@@ -96,6 +98,49 @@ class PluginController extends ClientApiController
             'versions' => $versions,
             'dependencies' => $dependencies,
         ];
+    }
+
+    /**
+     * Jars in /plugins that are not tracked, with metadata parsed from their descriptors.
+     */
+    public function untracked(SearchPluginsRequest $request, Server $server): JsonResponse
+    {
+        $untracked = collect($this->jars->untracked($server))
+            ->map(fn ($jar) => $jar + $this->jars->metadata($server, $jar['file_name'], $jar['size']));
+
+        return new JsonResponse(['data' => $untracked->values()->all()]);
+    }
+
+    /**
+     * Register an uploaded jar as a tracked "manual" plugin.
+     */
+    public function register(TrackPluginRequest $request, Server $server): array
+    {
+        $fileName = $request->input('file_name');
+        $exists = $server->plugins()->where('provider', 'manual')->where('file_name', $fileName)->exists();
+
+        if ($exists) {
+            throw new DisplayException('This file is already tracked.');
+        }
+
+        $plugin = $server->plugins()->create([
+            'provider' => 'manual',
+            'project_id' => 'manual:'.$fileName,
+            'slug' => $request->input('slug'),
+            'title' => $request->input('title'),
+            'version_id' => $request->input('version'),
+            'version_number' => $request->input('version'),
+            'file_name' => $fileName,
+            'icon_url' => null,
+        ]);
+
+        Activity::event('server:plugin.install')
+            ->property('plugin', $plugin->title.' '.$plugin->version_number.' (manual upload)')
+            ->log();
+
+        return $this->fractal->item($plugin)
+            ->transformWith($this->getTransformer(ServerPluginTransformer::class))
+            ->toArray();
     }
 
     public function store(InstallPluginRequest $request, Server $server): array|JsonResponse

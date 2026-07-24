@@ -1,6 +1,6 @@
 import http from '@/api/http';
 
-export type PluginProvider = 'modrinth' | 'hangar' | 'spiget';
+export type PluginProvider = 'modrinth' | 'hangar' | 'spiget' | 'manual';
 
 export interface ServerPlugin {
     id: number;
@@ -166,4 +166,29 @@ export const togglePlugin = async (uuid: string, pluginId: number): Promise<Serv
 
 export const deletePlugin = async (uuid: string, pluginId: number): Promise<void> => {
     await http.delete(`/api/client/servers/${uuid}/plugins/${pluginId}`);
+};
+
+export interface UntrackedJar {
+    file_name: string;
+    size: number;
+    slug: string;
+    title: string;
+    version: string;
+}
+
+export const getUntrackedJars = async (uuid: string): Promise<UntrackedJar[]> => {
+    const { data } = await http.get(`/api/client/servers/${uuid}/plugins/untracked`);
+
+    return data.data || [];
+};
+
+export const registerJar = async (uuid: string, jar: UntrackedJar): Promise<ServerPlugin> => {
+    const { data } = await http.post(`/api/client/servers/${uuid}/plugins/register`, {
+        file_name: jar.file_name,
+        title: jar.title,
+        slug: jar.slug,
+        version: jar.version,
+    });
+
+    return rawDataToServerPlugin(data);
 };

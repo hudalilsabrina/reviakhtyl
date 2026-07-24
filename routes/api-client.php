@@ -154,6 +154,8 @@ Route::group([
         Route::get('/', [Client\Servers\PluginController::class, 'index']);
         Route::get('/search', [Client\Servers\PluginController::class, 'search']);
         Route::get('/versions', [Client\Servers\PluginController::class, 'versions']);
+        Route::get('/untracked', [Client\Servers\PluginController::class, 'untracked']);
+        Route::post('/register', [Client\Servers\PluginController::class, 'register']);
         Route::middleware('throttle:api.plugins')
             ->post('/', [Client\Servers\PluginController::class, 'store']);
         Route::middleware('throttle:api.plugins')
