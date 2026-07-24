@@ -19,6 +19,10 @@ class SplitServerRequest extends ClientApiRequest
             'cpu' => ['required', 'integer', 'min:0'],
             'memory' => ['required', 'integer', 'min:0'],
             'disk' => ['required', 'integer', 'min:0'],
+            'startup' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'image' => ['sometimes', 'nullable', 'string', 'max:191'],
+            'environment' => ['sometimes', 'array'],
+            'environment.*' => ['nullable', 'string', 'max:191'],
         ];
     }
 }

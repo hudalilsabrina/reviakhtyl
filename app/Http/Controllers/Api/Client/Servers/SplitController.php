@@ -51,6 +51,23 @@ class SplitController extends ClientApiController
                 'memory' => $server->memory,
                 'disk' => $server->disk,
             ],
+            'defaults' => [
+                'name' => $server->name.' (split)',
+                'startup' => $server->startup,
+                'image' => $server->image,
+                'docker_images' => array_values($server->egg->docker_images),
+                'variables' => $server->variables
+                    ->where('user_viewable', true)
+                    ->map(fn ($variable) => [
+                        'env_variable' => $variable->env_variable,
+                        'name' => $variable->name,
+                        'description' => $variable->description,
+                        'value' => $variable->server_value ?? $variable->default_value,
+                        'editable' => $variable->user_editable,
+                    ])
+                    ->values()
+                    ->all(),
+            ],
             'children' => $children->map(fn (Server $child) => $this->fractal->item($child)
                 ->transformWith($this->getTransformer(ServerSplitTransformer::class))
                 ->toArray()

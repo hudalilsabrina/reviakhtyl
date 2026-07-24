@@ -16,6 +16,8 @@ return [
     'disk' => 'Disk',
     'create-title' => 'Create Split',
     'name-label' => 'Child server name',
+    'startup-label' => 'Startup Command',
+    'image-label' => 'Docker Image',
     'cpu-label' => 'CPU (%)',
     'memory-label' => 'Memory (MB)',
     'disk-label' => 'Disk (MB)',
