@@ -3,6 +3,7 @@
 namespace App\Filament\Widgets;
 
 use App\Services\Helpers\SoftwareVersionService;
+use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -49,6 +50,13 @@ class UpdateWidget extends BaseWidget
                 )
                     ->icon('heroicon-o-information-circle')
                     ->iconColor('warning')
+                    ->headerActions([
+                        Action::make('update')
+                            ->label(trans('admin/index.update-btn'))
+                            ->icon('heroicon-c-cursor-arrow-rays')
+                            ->url('https://reviactyl.app/docs/panel/updating-the-panel', true)
+                            ->color('warning'),
+                    ])
                     ->schema([
                         TextEntry::make('info')
                             ->hiddenLabel()
