@@ -192,7 +192,7 @@ const PluginsContainer = () => {
         getUntrackedJars(uuid)
             .then(setUntracked)
             .catch(() => setUntracked([]));
-    }, [tab, plugins]);
+    }, [tab]);
 
     const track = (jar: UntrackedJar) => {
         setBusy(`track:${jar.file_name}`);

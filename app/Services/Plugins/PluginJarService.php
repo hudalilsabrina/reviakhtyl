@@ -4,6 +4,7 @@ namespace App\Services\Plugins;
 
 use App\Models\Server;
 use App\Repositories\Agent\DaemonFileRepository;
+use Illuminate\Support\Facades\Cache;
 
 class PluginJarService
 {
@@ -55,6 +56,12 @@ class PluginJarService
             return $fallback;
         }
 
+        // Cache parsed metadata per jar; keyed by name+size so re-uploads bust it.
+        $cacheKey = sprintf('server:%d:jar-meta:%s:%d', $server->id, md5($fileName), $size);
+        if ($cached = Cache::get($cacheKey)) {
+            return $cached;
+        }
+
         try {
             $contents = $this->fileRepository->setServer($server)->getContent('/plugins/'.$fileName, self::MAX_SIZE);
             $zip = new \ZipArchive();
@@ -84,14 +91,19 @@ class PluginJarService
             @unlink($tmp);
 
             if (! $meta || empty($meta['slug'])) {
+                Cache::put($cacheKey, $fallback, now()->addHour());
+
                 return $fallback;
             }
 
-            return [
+            $result = [
                 'slug' => strtolower(preg_replace('/[^A-Za-z0-9_.-]+/', '-', (string) $meta['slug'])),
                 'title' => (string) ($meta['title'] ?? $meta['slug']),
                 'version' => (string) ($meta['version'] ?? 'unknown'),
             ];
+            Cache::put($cacheKey, $result, now()->addHour());
+
+            return $result;
         } catch (\Exception) {
             return $fallback;
         }
