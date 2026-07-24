@@ -45,4 +45,4 @@ extensions/*
 !extensions/.gitkeep
 *.rext
 public/extensions/*
-!public/extensions/.gitkeep
+!public/extensions/.gitkeep.opencode/
