@@ -67,7 +67,7 @@ class Egg extends Model implements Identifiable
     public const RESOURCE_NAME = 'egg';
 
     /**
-     * Every egg version the panel can import sorted by newest first. 
+     * Every egg version the panel can import sorted by newest first.
      * Add to this list to release a new egg version.
      */
     public const VERSIONS = ['RCYL_v26', 'PTDL_v2', 'PTDL_v1'];
