@@ -28,16 +28,24 @@ import {
     ServerPlugin,
     togglePlugin,
     updatePlugin,
+    getUntrackedJars,
+    registerJar,
+    UntrackedJar,
 } from '@/api/server/plugins/plugins';
 
 const Card = styled.div`
     ${tw`bg-gray-900 border border-gray-800 rounded-ui p-3 sm:p-4 flex gap-3 sm:gap-4 transition-colors duration-150 hover:border-gray-700`}
 `;
 
-const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' }>`
+const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' | 'manual' }>`
     ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded`}
     font-size: 10px;
 
+    ${(props) =>
+        props.$variant === 'manual' &&
+        css`
+            ${tw`bg-blue-600/30 text-blue-200`};
+        `}
     ${(props) =>
         props.$variant === 'provider' &&
         css`
@@ -134,6 +142,8 @@ const PluginsContainer = () => {
     const [versions, setVersions] = useState<PluginVersion[] | null>(null);
     const [installedRow, setInstalledRow] = useState<string | null>(null);
     const [dependencies, setDependencies] = useState<Record<string, Omit<PluginDependency, 'required'>>>({});
+    const [untracked, setUntracked] = useState<UntrackedJar[]>([]);
+    const [trackJar, setTrackJar] = useState<UntrackedJar | null>(null);
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
 
@@ -175,6 +185,32 @@ const PluginsContainer = () => {
 
         return () => clearTimeout(timer);
     }, [query]);
+
+    // Scan for manually-uploaded jars when opening the Installed tab.
+    useEffect(() => {
+        if (tab !== 'installed') return;
+        getUntrackedJars(uuid)
+            .then(setUntracked)
+            .catch(() => setUntracked([]));
+    }, [tab, plugins]);
+
+    const track = (jar: UntrackedJar) => {
+        setBusy(`track:${jar.file_name}`);
+        clearFlashes('server:plugins');
+        registerJar(uuid, jar)
+            .then((plugin) => {
+                setPlugins((prev) => [...prev, plugin]);
+                setUntracked((prev) => prev.filter((j) => j.file_name !== jar.file_name));
+                setTrackJar(null);
+                addFlash({
+                    type: 'success',
+                    key: 'server:plugins',
+                    message: t('track_success', { title: plugin.title }) ?? '',
+                });
+            })
+            .catch((error) => addError({ key: 'server:plugins', message: httpErrorToHuman(error) }))
+            .finally(() => setBusy(null));
+    };
 
     // On 409 (same plugin installed from another provider) ask the user to confirm replacement.
     const [replaceConflict, setReplaceConflict] = useState<{
@@ -491,6 +527,17 @@ const PluginsContainer = () => {
             </ConfirmationModal>
 
             <ConfirmationModal
+                visible={!!trackJar}
+                title={t('track')}
+                buttonText={t('track')}
+                onConfirmed={() => trackJar && track(trackJar)}
+                showSpinnerOverlay={!!busy}
+                onModalDismissed={() => setTrackJar(null)}
+            >
+                {trackJar && t('track_confirm', { title: trackJar.title, version: trackJar.version })}
+            </ConfirmationModal>
+
+            <ConfirmationModal
                 visible={!!replaceConflict}
                 title={t('replace_title')}
                 buttonText={t('replace_confirm')}
@@ -639,73 +686,122 @@ const PluginsContainer = () => {
             {loading ? (
                 <Spinner centered />
             ) : tab === 'installed' ? (
-                plugins.length === 0 ? (
-                    <div css={tw`text-center py-16 text-gray-500`}>
-                        <FaPuzzlePiece css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
-                        <p css={tw`text-sm`}>{t('no_plugins')}</p>
-                    </div>
-                ) : (
-                    <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
-                        {plugins.map((plugin) => (
-                            <Card key={plugin.id}>
-                                <PluginIcon url={plugin.iconUrl} />
-                                <div css={tw`flex-1 min-w-0`}>
-                                    <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                        <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{plugin.title}</h3>
-                                        <Badge $variant={'provider'}>{plugin.provider}</Badge>
-                                        {plugin.disabled && <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>}
-                                    </div>
-                                    <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>{plugin.fileName}</p>
-                                    <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
-                                        <Badge $variant={'installed'}>
-                                            <FaCheck style={{ fontSize: '9px' }} />
-                                            <span css={tw`font-mono`}>{plugin.versionNumber}</span>
-                                        </Badge>
-                                    </p>
-                                    <div css={tw`flex gap-2 mt-3 flex-wrap`}>
-                                        {!plugin.disabled && (
+                <>
+                    {untracked.length > 0 && (
+                        <div css={tw`mb-4`}>
+                            <p css={tw`text-xs text-gray-400 mb-2`}>{t('untracked_title')}</p>
+                            <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                                {untracked.map((jar) => (
+                                    <Card key={jar.file_name}>
+                                        <PluginIcon url={null} />
+                                        <div css={tw`flex-1 min-w-0`}>
+                                            <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                                <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                    {jar.title}
+                                                </h3>
+                                                <Badge $variant={'manual'}>{t('manual_badge')}</Badge>
+                                            </div>
+                                            <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
+                                                {jar.file_name}
+                                            </p>
+                                            <div css={tw`flex gap-2 mt-3`}>
+                                                <Button
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => setTrackJar(jar)}
+                                                >
+                                                    {busy === `track:${jar.file_name}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        t('track')
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {plugins.length === 0 ? (
+                        <div css={tw`text-center py-16 text-gray-500`}>
+                            <FaPuzzlePiece css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
+                            <p css={tw`text-sm`}>{t('no_plugins')}</p>
+                        </div>
+                    ) : (
+                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                            {plugins.map((plugin) => (
+                                <Card key={plugin.id}>
+                                    <PluginIcon url={plugin.iconUrl} />
+                                    <div css={tw`flex-1 min-w-0`}>
+                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                {plugin.title}
+                                            </h3>
+                                            <Badge $variant={plugin.provider === 'manual' ? 'manual' : 'provider'}>
+                                                {plugin.provider === 'manual' ? t('manual_badge') : plugin.provider}
+                                            </Badge>
+                                            {plugin.disabled && (
+                                                <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>
+                                            )}
+                                        </div>
+                                        <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
+                                            {plugin.fileName}
+                                        </p>
+                                        <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
+                                            <Badge $variant={'installed'}>
+                                                <FaCheck style={{ fontSize: '9px' }} />
+                                                <span css={tw`font-mono`}>{plugin.versionNumber}</span>
+                                            </Badge>
+                                        </p>
+                                        <div css={tw`flex gap-2 mt-3 flex-wrap`}>
+                                            {!plugin.disabled && plugin.provider !== 'manual' && (
+                                                <Button
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => runUpdate(plugin)}
+                                                >
+                                                    {busy === `update:${plugin.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        t('update')
+                                                    )}
+                                                </Button>
+                                            )}
                                             <Button
                                                 size={Button.Sizes.Small}
                                                 variant={Button.Variants.Secondary}
                                                 disabled={!!busy}
-                                                onClick={() => runUpdate(plugin)}
+                                                onClick={() =>
+                                                    mutate(`toggle:${plugin.id}`, togglePlugin(uuid, plugin.id))
+                                                }
                                             >
-                                                {busy === `update:${plugin.id}` ? (
+                                                {busy === `toggle:${plugin.id}` ? (
                                                     <Spinner size={'small'} />
+                                                ) : plugin.disabled ? (
+                                                    t('enable')
                                                 ) : (
-                                                    t('update')
+                                                    t('disable')
                                                 )}
                                             </Button>
-                                        )}
-                                        <Button
-                                            size={Button.Sizes.Small}
-                                            variant={Button.Variants.Secondary}
-                                            disabled={!!busy}
-                                            onClick={() => mutate(`toggle:${plugin.id}`, togglePlugin(uuid, plugin.id))}
-                                        >
-                                            {busy === `toggle:${plugin.id}` ? (
-                                                <Spinner size={'small'} />
-                                            ) : plugin.disabled ? (
-                                                t('enable')
-                                            ) : (
-                                                t('disable')
-                                            )}
-                                        </Button>
-                                        <Button.Danger
-                                            size={Button.Sizes.Small}
-                                            variant={Button.Variants.Secondary}
-                                            disabled={!!busy}
-                                            onClick={() => setConfirmRemove(plugin)}
-                                        >
-                                            <FaTrash css={tw`inline mr-1 -mt-0.5`} />
-                                            {t('remove')}
-                                        </Button.Danger>
+                                            <Button.Danger
+                                                size={Button.Sizes.Small}
+                                                variant={Button.Variants.Secondary}
+                                                disabled={!!busy}
+                                                onClick={() => setConfirmRemove(plugin)}
+                                            >
+                                                <FaTrash css={tw`inline mr-1 -mt-0.5`} />
+                                                {t('remove')}
+                                            </Button.Danger>
+                                        </div>
                                     </div>
-                                </div>
-                            </Card>
-                        ))}
-                    </div>
-                )
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+                </>
             ) : (
                 <>
                     <form

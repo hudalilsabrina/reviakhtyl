@@ -45,4 +45,9 @@ return [
     'replace_title' => 'Replace plugin?',
     'replace_body' => '":title" is already installed from :provider. Installing this copy will replace the existing jar. Continue?',
     'replace_confirm' => 'Replace',
+    'manual_badge' => 'Manual',
+    'untracked_title' => 'Uploaded jars detected',
+    'track' => 'Track',
+    'track_confirm' => 'Track ":title" (:version) as an installed plugin? You can disable or remove it afterwards.',
+    'track_success' => '":title" is now tracked.',
 ];
