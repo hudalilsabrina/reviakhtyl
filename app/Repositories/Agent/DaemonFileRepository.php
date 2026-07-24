@@ -6,6 +6,7 @@ use App\Exceptions\Http\Connection\DaemonConnectionException;
 use App\Exceptions\Http\Server\FileSizeTooLargeException;
 use App\Models\Server;
 use GuzzleHttp\Exception\ClientException;
+use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\TransferException;
 use Illuminate\Support\Arr;
 use Psr\Http\Message\ResponseInterface;
@@ -294,6 +295,21 @@ class DaemonFileRepository extends DaemonRepository
                     'json' => array_filter($attributes, fn ($value) => ! is_null($value)),
                 ]
             );
+        } catch (ServerException $exception) {
+            // Wings v2 sometimes throws inside the pull handler even though the file
+            // was downloaded successfully (returns an opaque 500). Give Wings a moment
+            // to finish writing, then treat the pull as successful when the file exists.
+            if ($params['foreground'] ?? false) {
+                sleep(2);
+                $file = rtrim($directory ?? '/', '/').'/'.($params['filename'] ?? basename(parse_url($url, PHP_URL_PATH) ?: 'download'));
+                foreach ($this->getDirectory($directory ?? '/') as $entry) {
+                    if (($entry['name'] ?? null) === basename($file)) {
+                        return $exception->getResponse();
+                    }
+                }
+            }
+
+            throw new DaemonConnectionException($exception);
         } catch (TransferException $exception) {
             throw new DaemonConnectionException($exception);
         }
