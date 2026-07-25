@@ -110,7 +110,28 @@ class PluginController extends ClientApiController
         $untracked = collect($this->jars->untracked($server))
             ->map(fn ($jar) => $jar + $this->jars->metadata($server, $jar['file_name'], $jar['size']));
 
-        return new JsonResponse(['data' => $untracked->values()->all()]);
+        // Auto-track: automatically register all untracked jars as manual plugins
+        foreach ($untracked as $jar) {
+            $exists = $server->plugins()->where('provider', 'manual')->where('file_name', $jar['file_name'])->exists();
+            
+            if (! $exists) {
+                $server->plugins()->create([
+                    'provider' => 'manual',
+                    'project_id' => 'manual:'.$jar['file_name'],
+                    'slug' => $jar['slug'],
+                    'title' => $jar['title'],
+                    'version_id' => $jar['version'],
+                    'version_number' => $jar['version'],
+                    'file_name' => $jar['file_name'],
+                    'icon_url' => null,
+                ]);
+            }
+        }
+
+        // Clear cache after auto-tracking
+        \Illuminate\Support\Facades\Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
+
+        return new JsonResponse(['data' => []]);
     }
 
     /**
