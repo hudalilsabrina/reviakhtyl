@@ -18,6 +18,9 @@ Route::get('/login', [Auth\LoginController::class, 'index'])->name('auth.login')
 Route::get('/register', [Auth\RegisterController::class, 'index'])->name('auth.register');
 Route::get('/password', [Auth\LoginController::class, 'index'])->name('auth.forgot-password');
 Route::get('/password/reset/{token}', [Auth\LoginController::class, 'index'])->name('auth.reset');
+Route::get('/suspended', [Auth\AccountSuspendedController::class, 'index'])
+    ->withoutMiddleware('guest')
+    ->name('auth.suspended');
 
 // Social Login Routes
 Route::get('/login/{provider}', [Auth\SocialLoginController::class, 'redirect'])
