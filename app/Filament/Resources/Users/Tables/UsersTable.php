@@ -33,6 +33,11 @@ class UsersTable
                     ->boolean()
                     ->label(trans('strings.admin'))
                     ->sortable(),
+                IconColumn::make('suspended')
+                    ->boolean()
+                    ->label('Suspended')
+                    ->sortable()
+                    ->color(fn ($state) => $state ? 'danger' : 'success'),
                 IconColumn::make('use_totp')
                     ->boolean()
                     ->label(trans('strings.2fa'))
@@ -48,6 +53,8 @@ class UsersTable
             ->filters([
                 TernaryFilter::make('root_admin')
                     ->label(trans('admin/user.details.admin_status')),
+                TernaryFilter::make('suspended')
+                    ->label('Suspended'),
             ])
             ->recordActions([
                 EditAction::make(),
