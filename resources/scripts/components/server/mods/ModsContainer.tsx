@@ -899,9 +899,10 @@ const ModsContainer = () => {
                             <Select
                                 value={provider}
                                 onChange={(e) => setProvider(e.target.value as ModProvider)}
-                                css={tw`flex-1 sm:flex-none sm:w-32`}
+                                css={tw`flex-1 sm:flex-none sm:w-40`}
                             >
                                 <option value={'modrinth'}>Modrinth</option>
+                                <option value={'curseforge'}>CurseForge</option>
                             </Select>
                             <Select
                                 value={sort}
