@@ -15,7 +15,7 @@ import { StatBlock } from '@/reviactyl/ui/StatBlock';
 import { useStoreState } from 'easy-peasy';
 import Blur from '@/reviactyl/ui/Blur';
 import { useTranslation } from 'react-i18next';
-import { FaFloppyDisk, FaGlobe, FaHashtag, FaMemory, FaMicrochip } from 'react-icons/fa6';
+import { FaFloppyDisk, FaGlobe, FaHashtag, FaMemory, FaMicrochip, FaClock } from 'react-icons/fa6';
 
 type Stats = Record<'memory' | 'cpu' | 'disk', number>;
 
@@ -54,6 +54,7 @@ const TopServerDetails = () => {
     const instance = ServerContext.useStoreState((state) => state.socket.instance);
     const limits = ServerContext.useStoreState((state) => state.server.data!.limits);
     const serverId = ServerContext.useStoreState((state) => state.server.data?.internalId);
+    const expiresAt = ServerContext.useStoreState((state) => state.server.data?.expiresAt);
     const rootAdmin = useStoreState((state) => state.user.data!.rootAdmin);
 
     const textLimits = useMemo(
@@ -179,6 +180,27 @@ const TopServerDetails = () => {
                         <span className='text-sm text-gray-100'>{id}</span>
                     </CopyOnClick>
                 </StatBlock>
+
+                {expiresAt && (
+                    <StatBlock
+                        className={`${
+                            new Date(expiresAt) < new Date()
+                                ? 'bg-red-500/20 border-red-500/50'
+                                : Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 7
+                                ? 'bg-yellow-500/20 border-yellow-500/50'
+                                : 'bg-gray-900 border-gray-800'
+                        }`}
+                    >
+                        <span className='w-5 text-gray-300'>
+                            <FaClock />
+                        </span>
+                        <span className='text-sm text-gray-100'>
+                            {new Date(expiresAt) < new Date()
+                                ? 'Expired'
+                                : `Expires ${new Date(expiresAt).toLocaleDateString()}`}
+                        </span>
+                    </StatBlock>
+                )}
             </StatContainer>
         </Container>
     );
