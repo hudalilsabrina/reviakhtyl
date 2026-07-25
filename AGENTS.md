@@ -31,6 +31,8 @@ Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
 
 - [`docs/subdomain/AGENTS.md`](docs/subdomain/AGENTS.md) — Cloudflare SRV-record subdomains (client API, service, admin, frontend).
 - [`docs/modular-startup/AGENTS.md`](docs/modular-startup/AGENTS.md) — Egg-defined toggle-able startup command fragments (`{{STARTUP_PARTS}}` placeholder).
+- [`docs/mods/AGENTS.md`](docs/mods/AGENTS.md) — Minecraft client-side mod installer (Modrinth integration, Fabric/Forge/NeoForge/Quilt).
+- [`docs/plugins/AGENTS.md`](docs/plugins/AGENTS.md) — Minecraft server plugin installer (Modrinth/Hangar/SpigotMC, multi-registry support).
 
 ## Gotchas
 
