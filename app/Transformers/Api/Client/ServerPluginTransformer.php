@@ -23,7 +23,7 @@ class ServerPluginTransformer extends BaseClientTransformer
             'version_number' => $plugin->version_number,
             'file_name' => $plugin->file_name,
             'icon_url' => $plugin->icon_url,
-            'disabled' => str_ends_with($plugin->file_name, '.disabled'),
+            'disabled' => $plugin->disabled,
         ];
     }
 }
