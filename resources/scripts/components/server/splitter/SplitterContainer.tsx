@@ -46,14 +46,12 @@ const SplitterContainer = () => {
     const [splitCpu, setSplitCpu] = useState('');
     const [splitMemory, setSplitMemory] = useState('');
     const [splitDisk, setSplitDisk] = useState('');
-    const [startup, setStartup] = useState('');
     const [image, setImage] = useState('');
     const [envValues, setEnvValues] = useState<Record<string, string>>({});
 
     const openCreate = () => {
         if (state?.defaults) {
             setName(state.defaults.name);
-            setStartup(state.defaults.startup);
             setImage(state.defaults.image);
             setEnvValues(Object.fromEntries(state.defaults.variables.map((v) => [v.envVariable, v.value])));
         }
@@ -104,7 +102,6 @@ const SplitterContainer = () => {
         createSplit(uuid, {
             name: name.trim(),
             ...numeric,
-            startup,
             image,
             environment: envValues,
         })
@@ -257,13 +254,6 @@ const SplitterContainer = () => {
                                                     </option>
                                                 ))}
                                             </Select>
-                                        </div>
-                                        <div css={tw`sm:col-span-2`}>
-                                            <Label>{t('startup-label')}</Label>
-                                            <Input
-                                                value={startup}
-                                                onChange={(e) => setStartup(e.currentTarget.value)}
-                                            />
                                         </div>
                                         {(state.defaults?.variables ?? []).map((v) => (
                                             <div key={v.envVariable} title={v.description}>
