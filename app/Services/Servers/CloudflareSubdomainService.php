@@ -125,15 +125,35 @@ class CloudflareSubdomainService
             }
         }
 
-        $record = ServerSubdomain::query()->updateOrCreate(
-            ['server_id' => $server->id],
-            [
-                'cloudflare_domain_id' => $domain->id,
-                'subdomain' => $subdomain,
-                'domain' => $domain->domain,
-                'cf_record_id' => $recordId,
-            ]
-        );
+        try {
+            $record = ServerSubdomain::query()->updateOrCreate(
+                ['server_id' => $server->id],
+                [
+                    'cloudflare_domain_id' => $domain->id,
+                    'subdomain' => $subdomain,
+                    'domain' => $domain->domain,
+                    'cf_record_id' => $recordId,
+                ]
+            );
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // Race: another request created this subdomain between our check and insert.
+            try {
+                $this->deleteRecord($domain, $recordId);
+            } catch (\Throwable) {
+            }
+
+            throw new DisplayException(
+                'This subdomain was just taken. Try: '.implode(', ', $this->suggest($domain, $subdomain))
+            );
+        } catch (\Throwable $e) {
+            // DB write failed; clean up the orphaned CF record.
+            try {
+                $this->deleteRecord($domain, $recordId);
+            } catch (\Throwable) {
+            }
+
+            throw $e;
+        }
 
         return $record;
     }
