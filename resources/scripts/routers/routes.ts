@@ -199,6 +199,7 @@ export default {
             {
                 route: 'plugins/*',
                 permission: 'plugin.*',
+                eggFeature: 'plugins',
                 name: 'server.plugins',
                 component: PluginsContainer,
                 icon: FaPuzzlePiece,

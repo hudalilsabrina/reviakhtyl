@@ -29,6 +29,7 @@ class PluginController extends ClientApiController
 
     public function index(SearchPluginsRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $this->manager->provider($request->input('provider', 'modrinth')); // validates provider
 
         return [
@@ -42,6 +43,7 @@ class PluginController extends ClientApiController
 
     public function search(SearchPluginsRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $result = $this->manager->provider($request->input('provider'))->search(
             $request->input('query', '') ?? '',
             $this->manager->loaders($server),
@@ -64,6 +66,7 @@ class PluginController extends ClientApiController
 
     public function versions(SearchPluginsRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $request->validate(['project_id' => ['required', 'string', 'max:128']]);
 
         $provider = $this->manager->provider($request->input('provider'));
@@ -107,6 +110,7 @@ class PluginController extends ClientApiController
      */
     public function untracked(SearchPluginsRequest $request, Server $server): JsonResponse
     {
+        $this->assertEnabled($server);
         $untracked = collect($this->jars->untracked($server))
             ->map(fn ($jar) => $jar + $this->jars->metadata($server, $jar['file_name'], $jar['size']));
 
@@ -139,6 +143,7 @@ class PluginController extends ClientApiController
      */
     public function register(TrackPluginRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $fileName = $request->input('file_name');
         $exists = $server->plugins()->where('provider', 'manual')->where('file_name', $fileName)->exists();
 
@@ -194,6 +199,7 @@ class PluginController extends ClientApiController
 
     public function store(InstallPluginRequest $request, Server $server): array|JsonResponse
     {
+        $this->assertEnabled($server);
         // Same slug from another provider → ask the client to confirm replacement.
         if (! $request->boolean('replace')) {
             $duplicate = $this->manager->crossProviderDuplicate(
@@ -244,6 +250,7 @@ class PluginController extends ClientApiController
 
     public function update(UpdatePluginRequest $request, Server $server, int $plugin): array
     {
+        $this->assertEnabled($server);
         $plugin = $this->findPlugin($server, $plugin);
 
         try {
@@ -268,6 +275,7 @@ class PluginController extends ClientApiController
      */
     public function link(InstallPluginRequest $request, Server $server, int $plugin): array
     {
+        $this->assertEnabled($server);
         $plugin = $this->findPlugin($server, $plugin);
 
         if ($plugin->provider !== 'manual') {
@@ -296,6 +304,7 @@ class PluginController extends ClientApiController
 
     public function toggle(TogglePluginRequest $request, Server $server, int $plugin): array
     {
+        $this->assertEnabled($server);
         $plugin = $this->manager->toggle($server, $this->findPlugin($server, $plugin));
 
         Activity::event('server:plugin.toggle')
@@ -309,6 +318,7 @@ class PluginController extends ClientApiController
 
     public function destroy(DeletePluginRequest $request, Server $server, int $plugin): JsonResponse
     {
+        $this->assertEnabled($server);
         $plugin = $this->findPlugin($server, $plugin);
         $title = $plugin->title;
 
@@ -317,6 +327,13 @@ class PluginController extends ClientApiController
         Activity::event('server:plugin.delete')->property('plugin', $title)->log();
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    private function assertEnabled(Server $server): void
+    {
+        if (! $this->manager->isEnabledFor($server)) {
+            throw new DisplayException('Plugins are not available for this server.');
+        }
     }
 
     private function findPlugin(Server $server, int $plugin): ServerPlugin

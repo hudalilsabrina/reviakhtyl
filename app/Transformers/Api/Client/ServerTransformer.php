@@ -11,6 +11,7 @@ use App\Models\Server;
 use App\Models\ServerCategory;
 use App\Models\Subuser;
 use App\Services\Mods\ModManagerService;
+use App\Services\Plugins\PluginManagerService;
 use App\Services\Servers\CloudflareSubdomainService;
 use App\Services\Servers\StartupCommandService;
 use Illuminate\Container\Container;
@@ -41,6 +42,9 @@ class ServerTransformer extends BaseClientTransformer
         /** @var CloudflareSubdomainService $subdomainService */
         $subdomainService = Container::getInstance()->make(CloudflareSubdomainService::class);
 
+        /** @var PluginManagerService $pluginService */
+        $pluginService = Container::getInstance()->make(PluginManagerService::class);
+
         /** @var ModManagerService $modService */
         $modService = Container::getInstance()->make(ModManagerService::class);
 
@@ -48,6 +52,10 @@ class ServerTransformer extends BaseClientTransformer
 
         if ($subdomainService->isEnabledFor($server) && ! in_array('subdomain', $eggFeatures, true)) {
             $eggFeatures[] = 'subdomain';
+        }
+
+        if ($pluginService->isEnabledFor($server) && ! in_array('plugins', $eggFeatures, true)) {
+            $eggFeatures[] = 'plugins';
         }
 
         if ($modService->isEnabledFor($server) && ! in_array('mods', $eggFeatures, true)) {
