@@ -185,6 +185,18 @@ export default ({
                                     {t('server.maintenance')}
                                 </span>
                             </div>
+                        ) : server.expiresAt && new Date(server.expiresAt) < new Date() ? (
+                            <div css={tw`flex-1 text-center`}>
+                                <span css={tw`bg-red-500 rounded px-2 py-1 text-red-100 text-xs`}>
+                                    Expired
+                                </span>
+                            </div>
+                        ) : server.expiresAt && Math.ceil((new Date(server.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 7 ? (
+                            <div css={tw`flex-1 text-center`}>
+                                <span css={tw`bg-yellow-500 rounded px-2 py-1 text-yellow-100 text-xs`}>
+                                    Expires in {Math.ceil((new Date(server.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}d
+                                </span>
+                            </div>
                         ) : server.isTransferring || server.status ? (
                             <div css={tw`flex-1 text-center`}>
                                 <span
