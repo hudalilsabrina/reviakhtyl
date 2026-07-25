@@ -42,6 +42,10 @@ use Illuminate\Validation\Rules\In;
  * @property string|null $remember_token
  * @property string $language
  * @property bool $root_admin
+ * @property bool $suspended
+ * @property string|null $suspension_reason
+ * @property Carbon|null $suspended_at
+ * @property Carbon|null $suspend_until
  * @property bool $use_totp
  * @property string|null $totp_secret
  * @property Carbon|null $totp_authenticated_at
@@ -154,6 +158,10 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         'root_admin',
         'editor',
         'last_seen',
+        'suspended',
+        'suspension_reason',
+        'suspended_at',
+        'suspend_until',
     ];
 
     /**
@@ -161,6 +169,9 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      */
     protected $casts = [
         'root_admin' => 'boolean',
+        'suspended' => 'boolean',
+        'suspended_at' => 'datetime',
+        'suspend_until' => 'datetime',
         'use_totp' => 'boolean',
         'gravatar' => 'boolean',
         'totp_authenticated_at' => 'datetime',
@@ -179,6 +190,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     protected $attributes = [
         'external_id' => null,
         'root_admin' => false,
+        'suspended' => false,
         'language' => 'en',
         'use_totp' => false,
         'totp_secret' => null,
@@ -369,5 +381,40 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function categories(): HasMany
     {
         return $this->hasMany(ServerCategory::class);
+    }
+
+    /**
+     * Check if the user account is currently suspended.
+     */
+    public function isSuspended(): bool
+    {
+        if (!$this->suspended) {
+            return false;
+        }
+
+        // Check if suspension has expired
+        if ($this->suspend_until && $this->suspend_until->isPast()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Scope to filter only suspended users.
+     */
+    public function scopeSuspended(Builder $query): Builder
+    {
+        return $query->where('suspended', true)
+            ->where(fn($q) => $q->whereNull('suspend_until')->orWhere('suspend_until', '>', now()));
+    }
+
+    /**
+     * Scope to filter only active (non-suspended) users.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('suspended', false)
+            ->orWhere(fn($q) => $q->where('suspended', true)->where('suspend_until', '<=', now()));
     }
 }
