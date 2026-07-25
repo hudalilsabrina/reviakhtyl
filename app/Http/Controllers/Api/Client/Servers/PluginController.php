@@ -234,6 +234,14 @@ class PluginController extends ClientApiController
         $this->assertEnabled($server);
         $plugin = $this->findPlugin($server, $plugin);
 
+        // Check if updating would create a cross-provider duplicate
+        $duplicate = $this->manager->crossProviderDuplicate($server, $plugin->provider, $plugin->slug);
+        if ($duplicate && $duplicate->id !== $plugin->id) {
+            throw new DisplayException(
+                sprintf('Cannot update: "%s" is already installed from %s.', $duplicate->title, $duplicate->provider)
+            );
+        }
+
         try {
             $plugin = $this->manager->update($server, $plugin);
         } catch (DisplayException $e) {
@@ -261,6 +269,18 @@ class PluginController extends ClientApiController
 
         if ($plugin->provider !== 'manual') {
             throw new DisplayException('Only manual plugins can be linked to a provider.');
+        }
+
+        // Check if linking would create a cross-provider duplicate
+        $duplicate = $this->manager->crossProviderDuplicate(
+            $server,
+            $request->input('provider'),
+            $request->input('slug') ?? $request->input('title') ?? $request->input('project_id')
+        );
+        if ($duplicate && $duplicate->id !== $plugin->id) {
+            throw new DisplayException(
+                sprintf('Cannot link: "%s" is already installed from %s.', $duplicate->title, $duplicate->provider)
+            );
         }
 
         // Convert manual plugin to provider plugin by updating its metadata
