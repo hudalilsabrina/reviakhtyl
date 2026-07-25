@@ -113,9 +113,13 @@ class CloudflareSubdomainService
             );
         }
 
+        // ponytail: hardcoded minecraft, extend when other games need SRV
+        $srvService = '_minecraft';
+        $srvProto = '_tcp';
+
         // Create the new record first; only delete the old one after the new
         // record exists. If creation fails, the old record keeps working.
-        $recordId = $this->createSrvRecord($domain, $subdomain, $server);
+        $recordId = $this->createSrvRecord($domain, $subdomain, $server, $srvService, $srvProto);
 
         if ($existing?->cf_record_id && $existing->cloudflareDomain) {
             try {
@@ -132,6 +136,8 @@ class CloudflareSubdomainService
                     'cloudflare_domain_id' => $domain->id,
                     'subdomain' => $subdomain,
                     'domain' => $domain->domain,
+                    'srv_service' => $srvService,
+                    'srv_proto' => $srvProto,
                     'cf_record_id' => $recordId,
                 ]
             );
@@ -171,7 +177,13 @@ class CloudflareSubdomainService
         }
 
         // Create the replacement first; delete the old record only on success.
-        $newRecordId = $this->createSrvRecord($record->cloudflareDomain, $record->subdomain, $server);
+        $newRecordId = $this->createSrvRecord(
+            $record->cloudflareDomain,
+            $record->subdomain,
+            $server,
+            $record->srv_service,
+            $record->srv_proto
+        );
 
         if ($record->cf_record_id) {
             try {
@@ -249,7 +261,7 @@ class CloudflareSubdomainService
      */
     public function isPropagated(ServerSubdomain $record): bool
     {
-        $name = '_minecraft._tcp.'.$record->getFqdn();
+        $name = $record->srv_service.'.'.$record->srv_proto.'.'.$record->getFqdn();
 
         try {
             $records = @dns_get_record($name, DNS_SRV) ?: [];
@@ -347,17 +359,17 @@ class CloudflareSubdomainService
         return $response->json('result') ?? [];
     }
 
-    private function createSrvRecord(CloudflareDomain $domain, string $subdomain, Server $server): string
+    private function createSrvRecord(CloudflareDomain $domain, string $subdomain, Server $server, string $srvService, string $srvProto): string
     {
         $fqdn = $subdomain.'.'.$domain->domain;
         $allocation = $server->allocation;
 
         $response = $this->client()->post(self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records', [
             'type' => 'SRV',
-            'name' => '_minecraft._tcp.'.$fqdn,
+            'name' => $srvService.'.'.$srvProto.'.'.$fqdn,
             'data' => [
-                'service' => '_minecraft',
-                'proto' => '_tcp',
+                'service' => $srvService,
+                'proto' => $srvProto,
                 'name' => $fqdn,
                 'priority' => 0,
                 'weight' => 5,

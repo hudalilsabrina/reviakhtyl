@@ -11,6 +11,8 @@ use Illuminate\Support\Carbon;
  * @property int|null $cloudflare_domain_id
  * @property string $subdomain
  * @property string $domain
+ * @property string $srv_service
+ * @property string $srv_proto
  * @property string|null $cf_record_id
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -28,6 +30,11 @@ class ServerSubdomain extends Model
     protected $casts = [
         'server_id' => 'integer',
         'cloudflare_domain_id' => 'integer',
+    ];
+
+    protected $attributes = [
+        'srv_service' => '_minecraft',
+        'srv_proto' => '_tcp',
     ];
 
     public function getFqdn(): string
