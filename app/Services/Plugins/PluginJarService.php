@@ -24,11 +24,15 @@ class PluginJarService
             ->filter()
             ->all();
 
-        try {
-            $files = $this->fileRepository->setServer($server)->getDirectory('/plugins');
-        } catch (\Exception) {
-            return [];
-        }
+        // Cache directory listing for 30 seconds to reduce Wings calls
+        $cacheKey = sprintf('server:%d:plugins-dir', $server->id);
+        $files = Cache::remember($cacheKey, now()->addSeconds(30), function () use ($server) {
+            try {
+                return $this->fileRepository->setServer($server)->getDirectory('/plugins');
+            } catch (\Exception) {
+                return [];
+            }
+        });
 
         return collect($files)
             ->filter(fn ($f) => ($f['file'] ?? true) && str_ends_with(strtolower($f['name'] ?? ''), '.jar'))
