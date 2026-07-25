@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $icon_url
  * @property Carbon $created_at
  * @property Carbon $updated_at
+ * @property bool $disabled
  * @property Server $server
  */
 class ServerPlugin extends Model
@@ -37,6 +38,13 @@ class ServerPlugin extends Model
         'file_name',
         'icon_url',
     ];
+
+    protected $appends = ['disabled'];
+
+    public function getDisabledAttribute(): bool
+    {
+        return str_ends_with($this->file_name, '.disabled');
+    }
 
     public function server(): BelongsTo
     {
