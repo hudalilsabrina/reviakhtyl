@@ -246,7 +246,17 @@ const PluginsContainer = () => {
                         addError({ key: 'server:plugins', message: 'No compatible version found.' });
                         return;
                     }
-                    linkPlugin(uuid, linkingPlugin.id, provider, hit.id, hit.title, hit.iconUrl, version.id, version.versionNumber, hit.slug)
+                    linkPlugin(
+                        uuid,
+                        linkingPlugin.id,
+                        provider,
+                        hit.id,
+                        hit.title,
+                        hit.iconUrl,
+                        version.id,
+                        version.versionNumber,
+                        hit.slug
+                    )
                         .then((plugin) => {
                             setPlugins((prev) => prev.map((p) => (p.id === plugin.id ? plugin : p)));
                             setLinkingPlugin(null);
@@ -856,11 +866,11 @@ const PluginsContainer = () => {
             ) : (
                 <>
                     {linkingPlugin && (
-                        <div css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-ui flex items-center justify-between`}>
+                        <div
+                            css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-ui flex items-center justify-between`}
+                        >
                             <div>
-                                <p css={tw`text-sm font-semibold text-blue-200`}>
-                                    Linking: {linkingPlugin.title}
-                                </p>
+                                <p css={tw`text-sm font-semibold text-blue-200`}>Linking: {linkingPlugin.title}</p>
                                 <p css={tw`text-xs text-blue-300/80 mt-0.5`}>
                                     Select a plugin below to link it to this manual plugin for updates
                                 </p>
