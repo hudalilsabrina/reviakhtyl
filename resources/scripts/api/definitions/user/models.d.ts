@@ -7,6 +7,10 @@ interface User extends Model {
     email: string;
     image: string;
     twoFactorEnabled: boolean;
+    suspended: boolean;
+    suspensionReason: string | null;
+    suspendedAt: Date | null;
+    suspendUntil: Date | null;
     createdAt: Date;
     permissions: SubuserPermission[];
     can(permission: SubuserPermission): boolean;

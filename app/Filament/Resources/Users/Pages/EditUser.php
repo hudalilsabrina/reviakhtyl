@@ -4,6 +4,8 @@ namespace App\Filament\Resources\Users\Pages;
 
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
+use App\Notifications\AccountSuspended;
+use App\Notifications\AccountUnsuspended;
 use App\Services\Users\UserUpdateService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -43,6 +45,9 @@ class EditUser extends EditRecord
                     // Suspend all user's servers
                     $record->servers()->update(['status' => 'suspended']);
 
+                    // Send notification email
+                    $record->notify(new AccountSuspended($data['suspension_reason'], $data['suspend_until'] ?? null));
+
                     Notification::make()
                         ->title('User Suspended')
                         ->success()
@@ -63,6 +68,9 @@ class EditUser extends EditRecord
 
                     // Unsuspend all user's servers
                     $record->servers()->where('status', 'suspended')->update(['status' => null]);
+
+                    // Send notification email
+                    $record->notify(new AccountUnsuspended());
 
                     Notification::make()
                         ->title('User Unsuspended')
