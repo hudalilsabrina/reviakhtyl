@@ -76,5 +76,169 @@
             "rules": "nullable|regex:\/^[0-9\\.\\-]+$\/",
             "field_type": "text"
         }
+    ],
+    "startup_parts": [
+        {
+            "name": "UseG1GC",
+            "value": "-XX:+UseG1GC",
+            "description": "Use the G1 Garbage Collector for better performance.",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 0,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "ParallelRefProcEnabled",
+            "value": "-XX:+ParallelRefProcEnabled",
+            "description": "Enable parallel reference processing for GC.",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 1,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "MaxGCPauseMillis",
+            "value": "-XX:MaxGCPauseMillis=200",
+            "description": "Target max GC pause time in milliseconds.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 2,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "AlwaysPreTouch",
+            "value": "-XX:+AlwaysPreTouch",
+            "description": "Pre-touch memory pages during JVM initialization.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 3,
+            "group_name": "Performance"
+        },
+        {
+            "name": "DisableAttachMechanism",
+            "value": "-XX:+DisableAttachMechanism",
+            "description": "Disable the JVM attach mechanism for security.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 4,
+            "group_name": "Security"
+        },
+        {
+            "name": "UseAikarFlags",
+            "value": "-XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:TargetSurvivorRatio=90 -XX:G1MixedGCCountTarget=4",
+            "description": "Aikar's optimized G1GC tuning flags for Minecraft servers.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 5,
+            "group_name": "Tuning"
+        },
+        {
+            "name": "UnlockExperimentalVMOptions",
+            "value": "-XX:+UnlockExperimentalVMOptions",
+            "description": "Enable experimental JVM options for advanced tuning.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 6,
+            "group_name": "Advanced"
+        },
+        {
+            "name": "UseStringDeduplication",
+            "value": "-XX:+UseStringDeduplication",
+            "description": "Reduce memory by deduplicating identical strings.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 7,
+            "group_name": "Performance"
+        },
+        {
+            "name": "UseLargePages",
+            "value": "-XX:+UseLargePages",
+            "description": "Use large memory pages for better TLB performance.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 8,
+            "group_name": "Performance"
+        },
+        {
+            "name": "NoGUI",
+            "value": "nogui",
+            "description": "Disable the graphical user interface (server-only mode).",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 9,
+            "group_name": "Server Options"
+        },
+        {
+            "name": "OnlineMode",
+            "value": "--online-mode true",
+            "description": "Enforce Mojang authentication (premium accounts only).",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 10,
+            "group_name": "Server Options"
+        },
+        {
+            "name": "DisableExplicitGC",
+            "value": "-XX:+DisableExplicitGC",
+            "description": "Prevent plugins from triggering manual garbage collection.",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 11,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "PerfDisableSharedMem",
+            "value": "-XX:+PerfDisableSharedMem",
+            "description": "Disable JVM shared memory for reduced file descriptor usage.",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 12,
+            "group_name": "Performance"
+        },
+        {
+            "name": "UseCompressedOops",
+            "value": "-XX:+UseCompressedOops",
+            "description": "Compress object pointers to reduce memory overhead (64-bit only).",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 13,
+            "group_name": "Performance"
+        },
+        {
+            "name": "G1NewSizePercent",
+            "value": "-XX:G1NewSizePercent=30",
+            "description": "Set initial young generation size to 30% of heap.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 14,
+            "group_name": "Tuning"
+        },
+        {
+            "name": "G1MaxNewSizePercent",
+            "value": "-XX:G1MaxNewSizePercent=40",
+            "description": "Set maximum young generation size to 40% of heap.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 15,
+            "group_name": "Tuning"
+        },
+        {
+            "name": "G1HeapWastePercent",
+            "value": "-XX:G1HeapWastePercent=5",
+            "description": "Allow 5% heap waste before triggering mixed GC.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 16,
+            "group_name": "Tuning"
+        },
+        {
+            "name": "InitiatingHeapOccupancyPercent",
+            "value": "-XX:InitiatingHeapOccupancyPercent=15",
+            "description": "Start concurrent GC when heap is 15% full.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 17,
+            "group_name": "Tuning"
+        }
     ]
 }
