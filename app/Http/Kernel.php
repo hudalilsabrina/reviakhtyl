@@ -10,6 +10,7 @@ use App\Http\Middleware\Api\Client\RequireClientApiKey;
 use App\Http\Middleware\Api\Client\SubstituteClientBindings;
 use App\Http\Middleware\Api\Daemon\DaemonAuthenticate;
 use App\Http\Middleware\Api\IsValidJson;
+use App\Http\Middleware\CheckUserSuspension;
 use App\Http\Middleware\EditorMiddleware;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\EnsureInstallationState;
@@ -72,6 +73,7 @@ class Kernel extends HttpKernel
             LanguageMiddleware::class,
             EditorMiddleware::class,
             UpdateLastSeen::class,
+            CheckUserSuspension::class,
         ],
         'api' => [
             EnsureStatefulRequests::class,
@@ -80,6 +82,7 @@ class Kernel extends HttpKernel
             TrackAPIKey::class,
             RequireTwoFactorAuthentication::class,
             AuthenticateIPAccess::class,
+            CheckUserSuspension::class,
         ],
         'application-api' => [
             SubstituteBindings::class,
