@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Client\Servers;
 use App\Exceptions\DisplayException;
 use App\Facades\Activity;
 use App\Http\Controllers\Api\Client\ClientApiController;
+use App\Http\Requests\Api\Client\Servers\Mods\BulkDeleteModsRequest;
+use App\Http\Requests\Api\Client\Servers\Mods\BulkUpdateModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\DeleteModRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\InstallModRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\SearchModsRequest;
@@ -298,6 +300,71 @@ class ModController extends ClientApiController
         Activity::event('server:mod.delete')->property('mod', $title)->log();
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    public function bulkUpdate(BulkUpdateModsRequest $request, Server $server): JsonResponse
+    {
+        $this->assertEnabled($server);
+        $modIds = $request->input('mod_ids');
+        $mods = $server->mods()->whereIn('id', $modIds)->get();
+
+        $results = ['success' => [], 'failed' => []];
+
+        foreach ($mods as $mod) {
+            try {
+                $updated = $this->manager->update($server, $mod);
+                $results['success'][] = [
+                    'id' => $updated->id,
+                    'title' => $updated->title,
+                    'version' => $updated->version_number,
+                ];
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'id' => $mod->id,
+                    'title' => $mod->title,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        if (count($results['success']) > 0) {
+            Activity::event('server:mod.bulk-update')
+                ->property('count', count($results['success']))
+                ->log();
+        }
+
+        return new JsonResponse($results);
+    }
+
+    public function bulkDestroy(BulkDeleteModsRequest $request, Server $server): JsonResponse
+    {
+        $this->assertEnabled($server);
+        $modIds = $request->input('mod_ids');
+        $mods = $server->mods()->whereIn('id', $modIds)->get();
+
+        $results = ['success' => [], 'failed' => []];
+
+        foreach ($mods as $mod) {
+            try {
+                $title = $mod->title;
+                $this->manager->delete($server, $mod);
+                $results['success'][] = ['id' => $mod->id, 'title' => $title];
+            } catch (\Exception $e) {
+                $results['failed'][] = [
+                    'id' => $mod->id,
+                    'title' => $mod->title,
+                    'error' => $e->getMessage(),
+                ];
+            }
+        }
+
+        if (count($results['success']) > 0) {
+            Activity::event('server:mod.bulk-delete')
+                ->property('count', count($results['success']))
+                ->log();
+        }
+
+        return new JsonResponse($results);
     }
 
     private function assertEnabled(Server $server): void
