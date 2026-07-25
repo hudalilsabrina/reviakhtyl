@@ -40,6 +40,10 @@ class ServerSplitService
             throw new DisplayException('Cannot split a suspended server.');
         }
 
+        if (! is_null($parent->transfer)) {
+            throw new DisplayException('Cannot split a server that is currently being transferred.');
+        }
+
         if (! $parent->isInstalled()) {
             throw new DisplayException('Cannot split a server that is still installing.');
         }
@@ -190,6 +194,10 @@ class ServerSplitService
 
         if ($this->isRunning($child)) {
             throw new DisplayException('Stop the child server before merging it.');
+        }
+
+        if ($parent->node_id !== $child->node_id) {
+            throw new DisplayException('Cannot merge: parent and child are on different nodes. Move the child to the parent\'s node first, or delete the child manually.');
         }
 
         $this->connection->transaction(function () use ($parent, $child) {
