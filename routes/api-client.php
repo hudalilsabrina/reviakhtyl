@@ -168,6 +168,24 @@ Route::group([
         Route::delete('/{plugin}', [Client\Servers\PluginController::class, 'destroy']);
     });
 
+    Route::group(['prefix' => '/mods'], function () {
+        Route::get('/', [Client\Servers\ModController::class, 'index']);
+        Route::get('/search', [Client\Servers\ModController::class, 'search']);
+        Route::get('/versions', [Client\Servers\ModController::class, 'versions']);
+        Route::middleware('throttle:api.mods')
+            ->get('/untracked', [Client\Servers\ModController::class, 'untracked']);
+        Route::middleware('throttle:api.mods')
+            ->post('/register', [Client\Servers\ModController::class, 'register']);
+        Route::middleware('throttle:api.mods')
+            ->post('/', [Client\Servers\ModController::class, 'store']);
+        Route::middleware('throttle:api.mods')
+            ->post('/{mod}/update', [Client\Servers\ModController::class, 'update']);
+        Route::middleware('throttle:api.mods')
+            ->post('/{mod}/link', [Client\Servers\ModController::class, 'link']);
+        Route::post('/{mod}/toggle', [Client\Servers\ModController::class, 'toggle']);
+        Route::delete('/{mod}', [Client\Servers\ModController::class, 'destroy']);
+    });
+
     Route::group(['prefix' => '/users'], function () {
         Route::get('/', [Client\Servers\SubuserController::class, 'index']);
         Route::middleware([ResourceLimit::Subuser->middleware()])

@@ -99,6 +99,8 @@ class Permission extends Model
 
     public const ACTION_PLUGIN_MANAGE = 'plugin.manage';
 
+    public const ACTION_MOD_MANAGE = 'mod.manage';
+
     /**
      * Should timestamps be used on this model.
      */
@@ -252,6 +254,13 @@ class Permission extends Model
             'description' => 'Permissions that control a user\'s access to the plugin installer for this server.',
             'keys' => [
                 'manage' => 'Allows a user to search, install, update, and remove Minecraft plugins on this server.',
+            ],
+        ],
+
+        'mod' => [
+            'description' => 'Permissions that control a user\'s access to the mod installer for this server.',
+            'keys' => [
+                'manage' => 'Allows a user to search, install, update, and remove Minecraft mods on this server.',
             ],
         ],
     ];

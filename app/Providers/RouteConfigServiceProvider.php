@@ -99,6 +99,13 @@ class RouteConfigServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($key);
         });
 
+        // Mod installs/updates hit external registries and Wings pulls.
+        RateLimiter::for('api.mods', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinute(10)->by($key);
+        });
+
         RateLimiter::for('api.application', function (Request $request) {
             $key = optional($request->user())->uuid ?: $request->ip();
 

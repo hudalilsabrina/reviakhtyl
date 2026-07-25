@@ -472,6 +472,16 @@ class Server extends Model implements Identifiable
     }
 
     /**
+     * Returns mods installed on this server through the mod installer.
+     *
+     * @return HasMany<ServerMod, $this>
+     */
+    public function mods(): HasMany
+    {
+        return $this->hasMany(ServerMod::class);
+    }
+
+    /**
      * Returns the parent server this server was split from, if any.
      *
      * @return BelongsTo<Server, $this>
