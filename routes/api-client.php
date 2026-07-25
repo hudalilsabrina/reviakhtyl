@@ -162,6 +162,8 @@ Route::group([
             ->post('/', [Client\Servers\PluginController::class, 'store']);
         Route::middleware('throttle:api.plugins')
             ->post('/{plugin}/update', [Client\Servers\PluginController::class, 'update']);
+        Route::middleware('throttle:api.plugins')
+            ->post('/{plugin}/link', [Client\Servers\PluginController::class, 'link']);
         Route::post('/{plugin}/toggle', [Client\Servers\PluginController::class, 'toggle']);
         Route::delete('/{plugin}', [Client\Servers\PluginController::class, 'destroy']);
     });

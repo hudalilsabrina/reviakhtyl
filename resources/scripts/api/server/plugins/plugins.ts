@@ -158,6 +158,30 @@ export const updatePlugin = async (uuid: string, pluginId: number): Promise<Serv
     return rawDataToServerPlugin(data);
 };
 
+export const linkPlugin = async (
+    uuid: string,
+    pluginId: number,
+    provider: PluginProvider,
+    projectId: string,
+    title: string,
+    iconUrl: string | null,
+    versionId: string,
+    versionNumber: string,
+    slug: string
+): Promise<ServerPlugin> => {
+    const { data } = await http.post(`/api/client/servers/${uuid}/plugins/${pluginId}/link`, {
+        provider,
+        project_id: projectId,
+        title,
+        icon_url: iconUrl,
+        version_id: versionId,
+        version_number: versionNumber,
+        slug,
+    });
+
+    return rawDataToServerPlugin(data);
+};
+
 export const togglePlugin = async (uuid: string, pluginId: number): Promise<ServerPlugin> => {
     const { data } = await http.post(`/api/client/servers/${uuid}/plugins/${pluginId}/toggle`);
 

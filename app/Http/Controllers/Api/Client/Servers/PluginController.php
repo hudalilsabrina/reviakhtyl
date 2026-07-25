@@ -263,6 +263,37 @@ class PluginController extends ClientApiController
             ->toArray();
     }
 
+    /**
+     * Link a manual plugin to a provider for updates.
+     */
+    public function link(InstallPluginRequest $request, Server $server, int $plugin): array
+    {
+        $plugin = $this->findPlugin($server, $plugin);
+
+        if ($plugin->provider !== 'manual') {
+            throw new DisplayException('Only manual plugins can be linked to a provider.');
+        }
+
+        // Convert manual plugin to provider plugin by updating its metadata
+        $plugin->update([
+            'provider' => $request->input('provider'),
+            'project_id' => $request->input('project_id'),
+            'slug' => $request->input('slug') ?? $plugin->slug,
+            'title' => $request->input('title') ?? $plugin->title,
+            'version_id' => $request->input('version_id'),
+            'version_number' => $request->input('version_number'),
+            'icon_url' => $request->input('icon_url'),
+        ]);
+
+        Activity::event('server:plugin.link')
+            ->property('plugin', $plugin->title.' linked to '.$request->input('provider'))
+            ->log();
+
+        return $this->fractal->item($plugin->refresh())
+            ->transformWith($this->getTransformer(ServerPluginTransformer::class))
+            ->toArray();
+    }
+
     public function toggle(TogglePluginRequest $request, Server $server, int $plugin): array
     {
         $plugin = $this->manager->toggle($server, $this->findPlugin($server, $plugin));
