@@ -23,6 +23,7 @@ import TopServerDetails from '@/components/server/TopServerDetails';
 import Announcement from '@/reviactyl/ui/Announcement';
 import MaintenanceAlert from '@/reviactyl/ui/MaintenanceAlert';
 import Maintenance from '@/reviactyl/ui/Maintenance';
+import Alert from '@/reviactyl/elements/alert/Alert';
 import { useTranslation } from 'react-i18next';
 import { DesignifySidebarButton } from '@/state/designify';
 import { ExtensionSlot } from '@/extensions/ExtensionSlot';
@@ -203,6 +204,44 @@ const ServerNavigation = () => {
     );
 };
 
+const ExpirationAlert = () => {
+    const expiresAt = ServerContext.useStoreState((state) => state.server.data?.expiresAt);
+
+    if (!expiresAt) return null;
+
+    const expirationDate = new Date(expiresAt);
+    const now = new Date();
+    const daysUntilExpiration = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilExpiration < 0) {
+        return (
+            <div className='mb-4'>
+                <Alert type='danger'>
+                    <div>
+                        <strong>Server Expired:</strong> This server expired on{' '}
+                        {expirationDate.toLocaleDateString()}. It will be deleted after the 3-day grace period.
+                    </div>
+                </Alert>
+            </div>
+        );
+    }
+
+    if (daysUntilExpiration <= 7) {
+        return (
+            <div className='mb-4'>
+                <Alert type='warning'>
+                    <div>
+                        <strong>Server Expiring Soon:</strong> This server will expire in {daysUntilExpiration}{' '}
+                        {daysUntilExpiration === 1 ? 'day' : 'days'} on {expirationDate.toLocaleDateString()}.
+                    </div>
+                </Alert>
+            </div>
+        );
+    }
+
+    return null;
+};
+
 export default function ServerRouter() {
     const params = useParams<{ id: string }>();
     const location = useLocation();
@@ -303,7 +342,7 @@ export default function ServerRouter() {
                                     {inConflictState &&
                                     (!rootAdmin || !location.pathname.endsWith(`/server/${id}/`)) ? (
                                         <ConflictStateRenderer />
-                                    ) : (
+                                     ) : (
                                         <ErrorBoundary>
                                             <TopServerDetails />
                                             <ExtensionSlot
@@ -315,6 +354,7 @@ export default function ServerRouter() {
                                             />
                                             <Announcement />
                                             <MaintenanceAlert />
+                                            <ExpirationAlert />
 
                                             <Routes location={location}>
                                                 {allRoutes
