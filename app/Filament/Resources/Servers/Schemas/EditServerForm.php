@@ -23,6 +23,7 @@ use App\Services\Servers\ServerDeletionService;
 use App\Services\Servers\SuspensionService;
 use Carbon\CarbonImmutable;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -115,6 +116,16 @@ class EditServerForm
                                                 ->url(fn (?Server $record): ?string => $record?->parent_id ? ServerResource::getUrl('edit', ['record' => $record->parent_id]) : null)
                                                 ->openUrlInNewTab()
                                             ),
+
+                                        DateTimePicker::make('expires_at')
+                                            ->label('Expiration Date')
+                                            ->helperText('Server will be suspended when expired, then deleted after 3 days grace period. Leave empty for no expiration.')
+                                            ->nullable()
+                                            ->native(false)
+                                            ->seconds(false)
+                                            ->timezone('UTC')
+                                            ->displayFormat('Y-m-d H:i')
+                                            ->suffixIcon('tabler-clock-exclamation'),
 
                                     ])
                                     ->columns(2),
