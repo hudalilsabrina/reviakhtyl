@@ -9,6 +9,7 @@ use App\Models\Nest;
 use App\Models\User;
 use App\Services\Helpers\RandomWordService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -57,6 +58,16 @@ class CreateServerForm
                             ->label(trans('admin/server.create.fields.description.label'))
                             ->rows(3)
                             ->helperText(trans('admin/server.create.fields.description.helper')),
+
+                        DateTimePicker::make('expires_at')
+                            ->label('Expiration Date')
+                            ->helperText('Server will be suspended when expired, then deleted after 3 days grace period. Leave empty for no expiration.')
+                            ->nullable()
+                            ->native(false)
+                            ->seconds(false)
+                            ->timezone('UTC')
+                            ->displayFormat('Y-m-d H:i')
+                            ->suffixIcon('tabler-clock-exclamation'),
 
                         Toggle::make('start_on_completion')
                             ->label(trans('admin/server.create.fields.start_on_completion.label'))
