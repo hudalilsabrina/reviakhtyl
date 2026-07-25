@@ -108,6 +108,7 @@ class ServerTransformer extends BaseClientTransformer
             // This field is deprecated, please use "status".
             'is_installing' => ! $server->isInstalled(),
             'is_transferring' => ! is_null($server->transfer),
+            'expires_at' => $server->expires_at?->toIso8601String(),
             'nest_id' => $server->nest_id,
             'egg_id' => $server->egg_id,
             'egg_image' => $server->egg->image,
