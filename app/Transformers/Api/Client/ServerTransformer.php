@@ -10,6 +10,7 @@ use App\Models\Permission;
 use App\Models\Server;
 use App\Models\ServerCategory;
 use App\Models\Subuser;
+use App\Services\Mods\ModManagerService;
 use App\Services\Servers\CloudflareSubdomainService;
 use App\Services\Servers\StartupCommandService;
 use Illuminate\Container\Container;
@@ -40,10 +41,17 @@ class ServerTransformer extends BaseClientTransformer
         /** @var CloudflareSubdomainService $subdomainService */
         $subdomainService = Container::getInstance()->make(CloudflareSubdomainService::class);
 
+        /** @var ModManagerService $modService */
+        $modService = Container::getInstance()->make(ModManagerService::class);
+
         $eggFeatures = $server->egg->inherit_features ?? [];
 
         if ($subdomainService->isEnabledFor($server) && ! in_array('subdomain', $eggFeatures, true)) {
             $eggFeatures[] = 'subdomain';
+        }
+
+        if ($modService->isEnabledFor($server) && ! in_array('mods', $eggFeatures, true)) {
+            $eggFeatures[] = 'mods';
         }
 
         $user = $this->request->user();

@@ -90,6 +90,8 @@ class Settings extends Page implements HasSchemas
 
         'panel:cloudflare:api_token',
         'panel:cloudflare:egg_ids',
+
+        'panel:mods:egg_ids',
     ];
 
     public function getHeading(): string
@@ -141,7 +143,7 @@ class Settings extends Page implements HasSchemas
                 $value = (int) $value;
             }
 
-            if ($key === 'panel:cloudflare:egg_ids') {
+            if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:mods:egg_ids'], true)) {
                 $value = is_array($value) ? $value : ($value ? (json_decode($value, true) ?: []) : []);
             }
 
@@ -601,6 +603,20 @@ class Settings extends Page implements HasSchemas
                         ->native(false),
                 ]),
 
+            Section::make('Mods')
+                ->description('Client mod installer (Modrinth). Only servers on selected eggs see the Mods page.')
+                ->columns(2)
+                ->schema([
+                    Select::make('panel:mods:egg_ids')
+                        ->label('Enabled Eggs')
+                        ->helperText('Servers on these eggs can search and install mods. Leave empty to disable for all.')
+                        ->multiple()
+                        ->searchable()
+                        ->options(fn () => Egg::query()->orderBy('name')->pluck('name', 'id'))
+                        ->columnSpan(1)
+                        ->native(false),
+                ]),
+
             Section::make(trans('admin/settings.advanced.creation-title'))
                 ->columns(4)
                 ->schema([
@@ -653,7 +669,7 @@ class Settings extends Page implements HasSchemas
             if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token'], true) && ! empty($value)) {
                 $value = $encrypter->encrypt($value);
             }
-            if ($key === 'panel:cloudflare:egg_ids') {
+            if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:mods:egg_ids'], true)) {
                 $value = json_encode(array_map('intval', array_filter((array) $value)));
             }
             $settings->set(
