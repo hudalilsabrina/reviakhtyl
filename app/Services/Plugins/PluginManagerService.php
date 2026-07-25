@@ -203,6 +203,14 @@ class PluginManagerService
             'filename' => $version['file_name'],
             'foreground' => true,
         ]);
+
+        // Verify file landed to prevent ghost track
+        $files = $repository->getDirectory('/plugins');
+        $found = collect($files)->contains('name', $version['file_name']);
+        
+        if (!$found) {
+            throw new DisplayException('Download completed but file not found in /plugins directory.');
+        }
     }
 
     private function variable(Server $server, string $key): ?string
