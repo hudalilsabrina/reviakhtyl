@@ -13,10 +13,12 @@ use App\Http\Requests\Api\Client\Servers\Plugins\TrackPluginRequest;
 use App\Http\Requests\Api\Client\Servers\Plugins\UpdatePluginRequest;
 use App\Models\Server;
 use App\Models\ServerPlugin;
+use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Plugins\PluginJarService;
 use App\Services\Plugins\PluginManagerService;
 use App\Transformers\Api\Client\ServerPluginTransformer;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class PluginController extends ClientApiController
 {
@@ -128,10 +130,10 @@ class PluginController extends ClientApiController
         try {
             $files = $this->jars->untracked($server);
             $fileExists = collect($files)->contains('file_name', $fileName);
-            
+
             // Also check tracked files in case it was uploaded manually
-            if (!$fileExists) {
-                $listing = app(\App\Repositories\Agent\DaemonFileRepository::class)
+            if (! $fileExists) {
+                $listing = app(DaemonFileRepository::class)
                     ->setServer($server)
                     ->getDirectory('/plugins');
                 $fileExists = collect($listing)
@@ -142,7 +144,7 @@ class PluginController extends ClientApiController
             throw new DisplayException('Failed to verify file existence: '.$e->getMessage());
         }
 
-        if (!$fileExists) {
+        if (! $fileExists) {
             throw new DisplayException('The jar file no longer exists in /plugins.');
         }
 
@@ -158,7 +160,7 @@ class PluginController extends ClientApiController
         ]);
 
         // Clear directory cache after tracking
-        \Illuminate\Support\Facades\Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
+        Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
 
         Activity::event('server:plugin.install')
             ->property('plugin', $plugin->title.' '.$plugin->version_number.' (manual upload)')

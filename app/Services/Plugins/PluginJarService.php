@@ -69,9 +69,10 @@ class PluginJarService
         try {
             // Stream only the descriptor files instead of loading entire jar
             $meta = $this->extractMetadataStreaming($server, $fileName, $size);
-            
+
             if (! $meta || empty($meta['slug'])) {
                 Cache::put($cacheKey, $fallback, now()->addHour());
+
                 return $fallback;
             }
 
@@ -95,13 +96,13 @@ class PluginJarService
     private function extractMetadataStreaming(Server $server, string $fileName, int $size): ?array
     {
         $contents = $this->fileRepository->setServer($server)->getContent('/plugins/'.$fileName, self::MAX_SIZE);
-        
+
         // Write to temp file for ZipArchive (no in-memory option in PHP < 8.2)
         $tmp = tempnam(sys_get_temp_dir(), 'jar');
         try {
             file_put_contents($tmp, $contents);
             $zip = new \ZipArchive();
-            
+
             if (! $zip->open($tmp)) {
                 return null;
             }
@@ -114,16 +115,16 @@ class PluginJarService
                     break;
                 }
             }
-            
+
             if (! $meta && ($raw = $zip->getFromName('velocity-plugin.json')) !== false) {
                 $json = json_decode($raw, true);
                 if (is_array($json) && ! empty($json['id'])) {
                     $meta = ['slug' => $json['id'], 'title' => $json['name'] ?? $json['id'], 'version' => $json['version'] ?? 'unknown'];
                 }
             }
-            
+
             $zip->close();
-            
+
             return $meta;
         } finally {
             @unlink($tmp);

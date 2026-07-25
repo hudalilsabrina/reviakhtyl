@@ -6,6 +6,7 @@ use App\Exceptions\DisplayException;
 use App\Models\Server;
 use App\Models\ServerPlugin;
 use App\Repositories\Agent\DaemonFileRepository;
+use Illuminate\Support\Facades\Cache;
 
 class PluginManagerService
 {
@@ -91,7 +92,7 @@ class PluginManagerService
             // For manual plugins, extract jar metadata and compare plugin.yml name
             if ($p->provider === 'manual' && method_exists($this, 'jarService')) {
                 try {
-                    $jarService = app(\App\Services\Plugins\PluginJarService::class);
+                    $jarService = app(PluginJarService::class);
                     $meta = $jarService->metadata($server, $p->file_name, 0);
                     if (strtolower($meta['slug']) === $normalized || strtolower($meta['title']) === $normalized) {
                         return $p;
@@ -177,7 +178,7 @@ class PluginManagerService
         $this->fileRepository->deleteFiles('/plugins', [$plugin->file_name.'.disabled']);
 
         $plugin->delete();
-        
+
         $this->clearPluginCache($server);
     }
 
@@ -215,8 +216,8 @@ class PluginManagerService
         // Verify file landed to prevent ghost track
         $files = $repository->getDirectory('/plugins');
         $found = collect($files)->contains('name', $version['file_name']);
-        
-        if (!$found) {
+
+        if (! $found) {
             throw new DisplayException('Download completed but file not found in /plugins directory.');
         }
     }
@@ -236,6 +237,6 @@ class PluginManagerService
 
     private function clearPluginCache(Server $server): void
     {
-        \Illuminate\Support\Facades\Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
+        Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
     }
 }
