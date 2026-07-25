@@ -19,7 +19,10 @@ class CheckUserSuspension
         $user = Auth::user();
 
         if ($user && $user->isSuspended()) {
-            Auth::logout();
+            // Allow access to the suspension page itself and logout
+            if ($request->routeIs('auth.suspended') || $request->routeIs('auth.logout')) {
+                return $next($request);
+            }
 
             if ($request->expectsJson()) {
                 return response()->json([
@@ -33,8 +36,14 @@ class CheckUserSuspension
                 ], 403);
             }
 
-            return redirect()->route('auth.login')
-                ->withErrors(['suspended' => $user->suspension_reason ?? 'Your account has been suspended.']);
+            // Store suspension data in session and redirect to suspension view
+            $request->session()->put('suspension_data', [
+                'reason' => $user->suspension_reason,
+                'suspended_at' => $user->suspended_at,
+                'suspend_until' => $user->suspend_until,
+            ]);
+
+            return redirect()->route('auth.suspended');
         }
 
         return $next($request);
