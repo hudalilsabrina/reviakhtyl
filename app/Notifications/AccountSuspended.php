@@ -34,15 +34,15 @@ class AccountSuspended extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $message = (new MailMessage)
+        $message = (new MailMessage())
             ->error()
             ->subject('Your Account Has Been Suspended')
             ->greeting('Account Suspended')
             ->line('Your account has been suspended by an administrator.')
-            ->line('Reason: ' . $this->reason);
+            ->line('Reason: '.$this->reason);
 
         if ($this->suspendUntil) {
-            $message->line('Suspension expires: ' . $this->suspendUntil->format('F j, Y \a\t g:i A'));
+            $message->line('Suspension expires: '.$this->suspendUntil->format('F j, Y \a\t g:i A'));
         } else {
             $message->line('This is a permanent suspension.');
         }

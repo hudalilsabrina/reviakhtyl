@@ -388,7 +388,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      */
     public function isSuspended(): bool
     {
-        if (!$this->suspended) {
+        if (! $this->suspended) {
             return false;
         }
 
@@ -406,7 +406,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function scopeSuspended(Builder $query): Builder
     {
         return $query->where('suspended', true)
-            ->where(fn($q) => $q->whereNull('suspend_until')->orWhere('suspend_until', '>', now()));
+            ->where(fn ($q) => $q->whereNull('suspend_until')->orWhere('suspend_until', '>', now()));
     }
 
     /**
@@ -415,6 +415,6 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('suspended', false)
-            ->orWhere(fn($q) => $q->where('suspended', true)->where('suspend_until', '<=', now()));
+            ->orWhere(fn ($q) => $q->where('suspended', true)->where('suspend_until', '<=', now()));
     }
 }

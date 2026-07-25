@@ -26,7 +26,7 @@ class AccountUnsuspended extends Notification implements ShouldQueue
      */
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        return (new MailMessage())
             ->success()
             ->subject('Your Account Has Been Unsuspended')
             ->greeting('Account Restored')

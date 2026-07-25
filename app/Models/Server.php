@@ -257,8 +257,8 @@ class Server extends Model implements Identifiable
 
     public function isExpiring(): bool
     {
-        return $this->expires_at !== null 
-            && $this->expires_at->isFuture() 
+        return $this->expires_at !== null
+            && $this->expires_at->isFuture()
             && $this->expires_at->diffInDays() <= 7;
     }
 

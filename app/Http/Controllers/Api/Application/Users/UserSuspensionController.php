@@ -4,12 +4,12 @@ namespace App\Http\Controllers\Api\Application\Users;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Notifications\AccountSuspended;
+use App\Notifications\AccountUnsuspended;
 use App\Transformers\Api\Application\UserTransformer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
-use App\Notifications\AccountSuspended;
-use App\Notifications\AccountUnsuspended;
 
 class UserSuspensionController extends Controller
 {
