@@ -300,11 +300,21 @@ class DaemonFileRepository extends DaemonRepository
             // was downloaded successfully (returns an opaque 500). Give Wings a moment
             // to finish writing, then treat the pull as successful when the file exists.
             if ($params['foreground'] ?? false) {
-                sleep(2);
                 $file = rtrim($directory ?? '/', '/').'/'.($params['filename'] ?? basename(parse_url($url, PHP_URL_PATH) ?: 'download'));
-                foreach ($this->getDirectory($directory ?? '/') as $entry) {
-                    if (($entry['name'] ?? null) === basename($file)) {
-                        return $exception->getResponse();
+                $expectedName = basename($file);
+                
+                // Check up to 3 times with increasing delays
+                foreach ([1, 2, 3] as $attempt) {
+                    sleep($attempt);
+                    try {
+                        $entries = $this->getDirectory($directory ?? '/');
+                        foreach ($entries as $entry) {
+                            if (($entry['name'] ?? null) === $expectedName) {
+                                return $exception->getResponse();
+                            }
+                        }
+                    } catch (\Exception) {
+                        // getDirectory failed; try again
                     }
                 }
             }
