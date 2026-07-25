@@ -1,6 +1,6 @@
 import http from '@/api/http';
 
-export type ModProvider = 'modrinth' | 'manual';
+export type ModProvider = 'modrinth' | 'curseforge' | 'manual';
 
 export interface ServerMod {
     id: number;
@@ -215,4 +215,19 @@ export const registerJar = async (uuid: string, jar: UntrackedJar): Promise<Serv
     });
 
     return rawDataToServerMod(data);
+};
+
+export interface BulkOperationResult {
+    success: { id: number; title: string; version?: string }[];
+    failed: { id: number; title: string; error: string }[];
+}
+
+export const bulkUpdateMods = async (uuid: string, modIds: number[]): Promise<BulkOperationResult> => {
+    const { data } = await http.post(`/api/client/servers/${uuid}/mods/bulk/update`, { mod_ids: modIds });
+    return data;
+};
+
+export const bulkDeleteMods = async (uuid: string, modIds: number[]): Promise<BulkOperationResult> => {
+    const { data } = await http.delete(`/api/client/servers/${uuid}/mods/bulk`, { data: { mod_ids: modIds } });
+    return data;
 };
