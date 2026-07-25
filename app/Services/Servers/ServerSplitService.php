@@ -5,6 +5,7 @@ namespace App\Services\Servers;
 use App\Exceptions\DisplayException;
 use App\Models\Allocation;
 use App\Models\Server;
+use App\Models\User;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -21,6 +22,7 @@ class ServerSplitService
         private ServerCreationService $creationService,
         private ServerDeletionService $deletionService,
         private BuildModificationService $buildModificationService,
+        private VariableValidatorService $variableValidatorService,
     ) {}
 
     /**
@@ -83,14 +85,19 @@ class ServerSplitService
         // while defaulting to the parent's current values.
         $overrides = $data['environment'] ?? [];
         if (is_array($overrides)) {
-            $allowed = $parent->egg->variables->pluck('env_variable')->all();
-
             foreach ($overrides as $key => $value) {
-                if (in_array($key, $allowed, true)) {
-                    $environment[$key] = (string) $value;
-                }
+                $environment[$key] = (string) $value;
             }
         }
+
+        // Validate the final environment against egg variable rules at admin level.
+        // This ensures required fields are present, regex patterns match, etc.
+        $validated = $this->variableValidatorService
+            ->setUserLevel(User::USER_LEVEL_ADMIN)
+            ->handle($parent->egg_id, $environment);
+
+        // Extract validated values back into environment array
+        $environment = $validated->mapWithKeys(fn ($item) => [$item->key => $item->value])->all();
 
         $startup = trim((string) ($data['startup'] ?? '')) ?: $parent->startup;
 
