@@ -35,7 +35,11 @@ class PluginJarService
         });
 
         return collect($files)
-            ->filter(fn ($f) => ($f['file'] ?? true) && str_ends_with(strtolower($f['name'] ?? ''), '.jar'))
+            ->filter(function ($f) {
+                $name = strtolower($f['name'] ?? '');
+
+                return ($f['file'] ?? true) && (str_ends_with($name, '.jar') || str_ends_with($name, '.jar.disabled'));
+            })
             ->reject(fn ($f) => in_array($f['name'], $tracked, true))
             ->map(fn ($f) => ['file_name' => $f['name'], 'size' => (int) ($f['size'] ?? 0)])
             ->values()
