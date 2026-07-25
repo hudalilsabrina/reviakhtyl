@@ -2,6 +2,7 @@
 
 namespace App\Services\Mods;
 
+use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Exceptions\DisplayException;
 use App\Models\Server;
 use App\Models\ServerMod;
@@ -15,13 +16,49 @@ class ModManagerService
     /** @var array<string, ModProviderInterface> */
     private array $providers;
 
+    /** @var array<int, int>|null */
+    private ?array $eggIdsCache = null;
+
     public function __construct(
         private DaemonFileRepository $fileRepository,
+        private SettingsRepositoryInterface $settings,
         ModrinthService $modrinth,
     ) {
         $this->providers = [
             ModrinthService::PROVIDER => $modrinth,
         ];
+    }
+
+    /**
+     * Whether the mod installer is enabled for this server's egg.
+     */
+    public function isEnabledFor(Server $server): bool
+    {
+        return in_array($server->egg_id, $this->enabledEggIds(), true);
+    }
+
+    /**
+     * Egg IDs allowed to use the mod installer, from settings.
+     *
+     * @return array<int, int>
+     */
+    public function enabledEggIds(): array
+    {
+        if ($this->eggIdsCache !== null) {
+            return $this->eggIdsCache;
+        }
+
+        $value = $this->settings->get('settings::panel:mods:egg_ids', null);
+
+        if (empty($value)) {
+            return $this->eggIdsCache = [];
+        }
+
+        if (is_array($value)) {
+            return $this->eggIdsCache = array_map('intval', $value);
+        }
+
+        return $this->eggIdsCache = array_map('intval', json_decode($value, true) ?: []);
     }
 
     public function provider(string $name): ModProviderInterface

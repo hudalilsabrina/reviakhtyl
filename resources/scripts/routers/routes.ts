@@ -206,6 +206,7 @@ export default {
             {
                 route: 'mods/*',
                 permission: 'mod.*',
+                eggFeature: 'mods',
                 name: 'server.mods',
                 component: ModsContainer,
                 icon: FaCube,

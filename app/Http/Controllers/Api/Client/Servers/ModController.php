@@ -29,6 +29,7 @@ class ModController extends ClientApiController
 
     public function index(SearchModsRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $this->manager->provider($request->input('provider', 'modrinth'));
 
         return [
@@ -42,6 +43,7 @@ class ModController extends ClientApiController
 
     public function search(SearchModsRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $result = $this->manager->provider($request->input('provider'))->search(
             $request->input('query', '') ?? '',
             $this->manager->loaders($server),
@@ -64,6 +66,7 @@ class ModController extends ClientApiController
 
     public function versions(SearchModsRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $request->validate(['project_id' => ['required', 'string', 'max:128']]);
 
         $provider = $this->manager->provider($request->input('provider'));
@@ -102,6 +105,7 @@ class ModController extends ClientApiController
      */
     public function untracked(SearchModsRequest $request, Server $server): JsonResponse
     {
+        $this->assertEnabled($server);
         $untracked = collect($this->jars->untracked($server))
             ->map(fn ($jar) => $jar + $this->jars->metadata($server, $jar['file_name'], $jar['size']));
 
@@ -132,6 +136,7 @@ class ModController extends ClientApiController
      */
     public function register(TrackModRequest $request, Server $server): array
     {
+        $this->assertEnabled($server);
         $fileName = $request->input('file_name');
         $exists = $server->mods()->where('provider', 'manual')->where('file_name', $fileName)->exists();
 
@@ -184,6 +189,7 @@ class ModController extends ClientApiController
 
     public function store(InstallModRequest $request, Server $server): array|JsonResponse
     {
+        $this->assertEnabled($server);
         if (! $request->boolean('replace')) {
             $duplicate = $this->manager->crossProviderDuplicate(
                 $server,
@@ -233,6 +239,7 @@ class ModController extends ClientApiController
 
     public function update(UpdateModRequest $request, Server $server, int $mod): array
     {
+        $this->assertEnabled($server);
         $mod = $this->findMod($server, $mod);
 
         try {
@@ -257,6 +264,7 @@ class ModController extends ClientApiController
      */
     public function link(InstallModRequest $request, Server $server, int $mod): array
     {
+        $this->assertEnabled($server);
         $mod = $this->findMod($server, $mod);
 
         if ($mod->provider !== 'manual') {
@@ -284,6 +292,7 @@ class ModController extends ClientApiController
 
     public function toggle(ToggleModRequest $request, Server $server, int $mod): array
     {
+        $this->assertEnabled($server);
         $mod = $this->manager->toggle($server, $this->findMod($server, $mod));
 
         Activity::event('server:mod.toggle')
@@ -297,6 +306,7 @@ class ModController extends ClientApiController
 
     public function destroy(DeleteModRequest $request, Server $server, int $mod): JsonResponse
     {
+        $this->assertEnabled($server);
         $mod = $this->findMod($server, $mod);
         $title = $mod->title;
 
@@ -305,6 +315,13 @@ class ModController extends ClientApiController
         Activity::event('server:mod.delete')->property('mod', $title)->log();
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
+    }
+
+    private function assertEnabled(Server $server): void
+    {
+        if (! $this->manager->isEnabledFor($server)) {
+            throw new DisplayException('Mods are not available for this server.');
+        }
     }
 
     private function findMod(Server $server, int $mod): ServerMod
