@@ -75,6 +75,20 @@ class ServerSplitService
             ));
         }
 
+        // Ensure parent retains minimum usable resources after split.
+        if (
+            $cpu > $parent->cpu - self::MIN_CPU ||
+            $memory > $parent->memory - self::MIN_MEMORY ||
+            $disk > $parent->disk - self::MIN_DISK
+        ) {
+            throw new DisplayException(sprintf(
+                'Split would leave parent with insufficient resources. Parent must retain at least %d%% CPU, %d MB memory, %d MB disk.',
+                self::MIN_CPU,
+                self::MIN_MEMORY,
+                self::MIN_DISK
+            ));
+        }
+
         $environment = $parent->variables
             ->mapWithKeys(fn ($variable): array => [
                 $variable->env_variable => $variable->server_value ?? $variable->default_value,
