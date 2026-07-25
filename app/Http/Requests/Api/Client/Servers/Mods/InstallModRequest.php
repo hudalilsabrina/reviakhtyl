@@ -15,7 +15,7 @@ class InstallModRequest extends ClientApiRequest
     public function rules(): array
     {
         return [
-            'provider' => ['required', 'string', 'in:modrinth'],
+            'provider' => ['required', 'string', 'in:modrinth,curseforge'],
             'project_id' => ['required', 'string', 'max:128'],
             'title' => ['sometimes', 'nullable', 'string', 'max:191'],
             'slug' => ['sometimes', 'nullable', 'string', 'max:191'],
