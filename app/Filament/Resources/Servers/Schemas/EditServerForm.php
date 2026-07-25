@@ -458,6 +458,8 @@ class EditServerForm
     {
         return $server !== null
             && $server->transfer === null
+            && ! $server->isSplitChild()
+            && ! $server->children()->exists()
             && Node::query()->whereKeyNot($server->node_id)->exists();
     }
 

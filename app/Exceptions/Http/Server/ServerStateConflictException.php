@@ -24,6 +24,10 @@ class ServerStateConflictException extends ConflictHttpException
             $message = 'This server is currently restoring from a backup, please try again later.';
         } elseif (! is_null($server->transfer)) {
             $message = 'This server is currently being transferred to a new machine, please try again later.';
+        } elseif ($server->isSplitChild()) {
+            $message = 'Split child servers cannot be transferred. Merge it into the parent first.';
+        } elseif ($server->children()->exists()) {
+            $message = 'This server has split children and cannot be transferred. Merge all children first.';
         }
 
         parent::__construct($message, $previous);

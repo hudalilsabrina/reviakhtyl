@@ -587,6 +587,8 @@ class Server extends Model implements Identifiable
             ! $this->isInstalled()
             || $this->status === self::STATUS_RESTORING_BACKUP
             || ! is_null($this->transfer)
+            || $this->isSplitChild()
+            || $this->children()->exists()
         ) {
             throw new ServerStateConflictException($this);
         }
