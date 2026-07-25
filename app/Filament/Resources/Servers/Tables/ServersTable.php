@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Servers\Tables;
 
 use App\Models\Server;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -165,6 +166,39 @@ class ServersTable
                 BulkActionGroup::make([
                     DeleteBulkAction::make()
                         ->label(trans('admin/server.actions.delete')),
+                    Action::make('extend_expiration')
+                        ->label('Extend Expiration')
+                        ->icon('tabler-clock-plus')
+                        ->requiresConfirmation()
+                        ->modalHeading('Extend Server Expiration')
+                        ->modalDescription('Extend the expiration date for selected servers by a specified number of days.')
+                        ->form([
+                            \Filament\Forms\Components\TextInput::make('days')
+                                ->label('Days to extend')
+                                ->numeric()
+                                ->required()
+                                ->minValue(1)
+                                ->default(30),
+                        ])
+                        ->action(function (array $data, \Illuminate\Support\Collection $records): void {
+                            $days = (int) $data['days'];
+                            foreach ($records as $server) {
+                                $currentExpiry = $server->expires_at;
+                                if ($currentExpiry === null) {
+                                    $newExpiry = now()->addDays($days);
+                                } else {
+                                    $newExpiry = $currentExpiry->isPast() 
+                                        ? now()->addDays($days) 
+                                        : $currentExpiry->addDays($days);
+                                }
+                                $server->update(['expires_at' => $newExpiry]);
+                            }
+                            \Filament\Notifications\Notification::make()
+                                ->success()
+                                ->title('Expiration Extended')
+                                ->body("Extended expiration for {$records->count()} server(s) by {$days} days.")
+                                ->send();
+                        }),
                 ]),
             ]);
     }
