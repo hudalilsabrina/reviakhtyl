@@ -15,7 +15,7 @@ class SearchModsRequest extends ClientApiRequest
     public function rules(): array
     {
         return [
-            'provider' => ['sometimes', 'nullable', 'string', 'in:modrinth'],
+            'provider' => ['sometimes', 'nullable', 'string', 'in:modrinth,curseforge'],
             'query' => ['sometimes', 'nullable', 'string', 'max:128'],
             'limit' => ['sometimes', 'integer', 'min:1', 'max:50'],
             'offset' => ['sometimes', 'integer', 'min:0'],

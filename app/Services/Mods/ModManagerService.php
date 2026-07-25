@@ -23,9 +23,11 @@ class ModManagerService
         private DaemonFileRepository $fileRepository,
         private SettingsRepositoryInterface $settings,
         ModrinthService $modrinth,
+        CurseForgeService $curseforge,
     ) {
         $this->providers = [
             ModrinthService::PROVIDER => $modrinth,
+            CurseForgeService::PROVIDER => $curseforge,
         ];
     }
 

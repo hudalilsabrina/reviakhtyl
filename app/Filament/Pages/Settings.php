@@ -580,7 +580,7 @@ class Settings extends Page implements HasSchemas
                 ]),
 
             Section::make('Mods')
-                ->description('Client mod installer (Modrinth). Only servers on selected eggs see the Mods page.')
+                ->description('Client mod installer (Modrinth, CurseForge). Only servers on selected eggs see the Mods page.')
                 ->columns(2)
                 ->schema([
                     Select::make('panel:mods:egg_ids')
@@ -591,6 +591,10 @@ class Settings extends Page implements HasSchemas
                         ->options(fn () => Egg::query()->orderBy('name')->pluck('name', 'id'))
                         ->columnSpan(1)
                         ->native(false),
+                    TextInput::make('panel:mods:curseforge_api_key')
+                        ->label('CurseForge API Key')
+                        ->helperText('Required for CurseForge mod provider. Get key from console.curseforge.com')
+                        ->columnSpan(1),
                 ]),
 
             Section::make(trans('admin/settings.advanced.creation-title'))
