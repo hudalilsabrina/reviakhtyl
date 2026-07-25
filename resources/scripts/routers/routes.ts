@@ -6,6 +6,7 @@ import ScheduleContainer from '@/components/server/schedules/ScheduleContainer';
 import UsersContainer from '@/components/server/users/UsersContainer';
 import BackupContainer from '@/components/server/backups/BackupContainer';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
+import ModsContainer from '@/components/server/mods/ModsContainer';
 import SplitterContainer from '@/components/server/splitter/SplitterContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
@@ -31,6 +32,7 @@ import {
     FaKey,
     FaLock,
     FaPlay,
+    FaCube,
     FaPuzzlePiece,
     FaTerminal,
     FaUser,
@@ -200,6 +202,13 @@ export default {
                 name: 'server.plugins',
                 component: PluginsContainer,
                 icon: FaPuzzlePiece,
+            },
+            {
+                route: 'mods/*',
+                permission: 'mod.*',
+                name: 'server.mods',
+                component: ModsContainer,
+                icon: FaCube,
             },
             {
                 route: 'splitter/*',

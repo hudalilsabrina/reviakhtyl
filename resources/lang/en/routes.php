@@ -26,6 +26,7 @@ return [
         'schedules' => 'Schedules',
         'backups' => 'Backups',
         'plugins' => 'Plugins',
+        'mods' => 'Mods',
         'splitter' => 'Splitter',
         'users' => 'Users',
         'settings' => 'Settings',
