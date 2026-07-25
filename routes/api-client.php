@@ -182,6 +182,10 @@ Route::group([
             ->post('/{mod}/update', [Client\Servers\ModController::class, 'update']);
         Route::middleware('throttle:api.mods')
             ->post('/{mod}/link', [Client\Servers\ModController::class, 'link']);
+        Route::middleware('throttle:api.mods')
+            ->post('/bulk/update', [Client\Servers\ModController::class, 'bulkUpdate']);
+        Route::middleware('throttle:api.mods')
+            ->delete('/bulk', [Client\Servers\ModController::class, 'bulkDestroy']);
         Route::post('/{mod}/toggle', [Client\Servers\ModController::class, 'toggle']);
         Route::delete('/{mod}', [Client\Servers\ModController::class, 'destroy']);
     });
