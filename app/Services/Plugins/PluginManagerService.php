@@ -71,15 +71,38 @@ class PluginManagerService
     }
 
     /**
-     * Same plugin already installed from a different provider, matched by slug.
+     * Same plugin already installed from a different provider, matched by slug/title.
+     * For manual plugins, also checks against jar metadata to catch plugin.yml name mismatches.
      */
     public function crossProviderDuplicate(Server $server, string $providerName, string $slug): ?ServerPlugin
     {
         $normalized = strtolower($slug);
 
-        return $server->plugins
-            ->filter(fn ($p) => $p->provider !== $providerName)
-            ->first(fn ($p) => strtolower($p->slug) === $normalized || strtolower($p->title) === $normalized);
+        foreach ($server->plugins as $p) {
+            if ($p->provider === $providerName) {
+                continue;
+            }
+
+            // Check slug and title
+            if (strtolower($p->slug) === $normalized || strtolower($p->title) === $normalized) {
+                return $p;
+            }
+
+            // For manual plugins, extract jar metadata and compare plugin.yml name
+            if ($p->provider === 'manual' && method_exists($this, 'jarService')) {
+                try {
+                    $jarService = app(\App\Services\Plugins\PluginJarService::class);
+                    $meta = $jarService->metadata($server, $p->file_name, 0);
+                    if (strtolower($meta['slug']) === $normalized || strtolower($meta['title']) === $normalized) {
+                        return $p;
+                    }
+                } catch (\Exception) {
+                    // Jar read failed; skip metadata check
+                }
+            }
+        }
+
+        return null;
     }
 
     /**
