@@ -157,6 +157,9 @@ class PluginController extends ClientApiController
             'icon_url' => null,
         ]);
 
+        // Clear directory cache after tracking
+        \Illuminate\Support\Facades\Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
+
         Activity::event('server:plugin.install')
             ->property('plugin', $plugin->title.' '.$plugin->version_number.' (manual upload)')
             ->log();

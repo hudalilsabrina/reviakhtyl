@@ -139,6 +139,8 @@ class PluginManagerService
             ]
         );
 
+        $this->clearPluginCache($server);
+
         return $plugin;
     }
 
@@ -163,6 +165,8 @@ class PluginManagerService
             'file_name' => $latest['file_name'],
         ]);
 
+        $this->clearPluginCache($server);
+
         return $plugin->refresh();
     }
 
@@ -173,6 +177,8 @@ class PluginManagerService
         $this->fileRepository->deleteFiles('/plugins', [$plugin->file_name.'.disabled']);
 
         $plugin->delete();
+        
+        $this->clearPluginCache($server);
     }
 
     public function toggle(Server $server, ServerPlugin $plugin): ServerPlugin
@@ -186,6 +192,8 @@ class PluginManagerService
         ]);
 
         $plugin->update(['file_name' => $to]);
+
+        $this->clearPluginCache($server);
 
         return $plugin->refresh();
     }
@@ -224,5 +232,10 @@ class PluginManagerService
         $value = $variable->server_value ?? $variable->default_value;
 
         return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    private function clearPluginCache(Server $server): void
+    {
+        \Illuminate\Support\Facades\Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
     }
 }
