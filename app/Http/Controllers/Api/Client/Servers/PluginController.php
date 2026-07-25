@@ -123,6 +123,29 @@ class PluginController extends ClientApiController
             throw new DisplayException('This file is already tracked.');
         }
 
+        // Verify the jar file actually exists before creating a DB entry
+        $fileExists = false;
+        try {
+            $files = $this->jars->untracked($server);
+            $fileExists = collect($files)->contains('file_name', $fileName);
+            
+            // Also check tracked files in case it was uploaded manually
+            if (!$fileExists) {
+                $listing = app(\App\Repositories\Agent\DaemonFileRepository::class)
+                    ->setServer($server)
+                    ->getDirectory('/plugins');
+                $fileExists = collect($listing)
+                    ->where('file', true)
+                    ->contains('name', $fileName);
+            }
+        } catch (\Exception $e) {
+            throw new DisplayException('Failed to verify file existence: '.$e->getMessage());
+        }
+
+        if (!$fileExists) {
+            throw new DisplayException('The jar file no longer exists in /plugins.');
+        }
+
         $plugin = $server->plugins()->create([
             'provider' => 'manual',
             'project_id' => 'manual:'.$fileName,
