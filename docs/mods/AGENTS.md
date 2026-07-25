@@ -14,7 +14,7 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 
 **API** (`app/Http/Controllers/Api/Client/Servers/ModController`)
 - `GET /mods` — List installed mods, detected game version, loaders
-- `GET /mods/search` — Search Modrinth registry
+- `GET /mods/search` — Search registry by provider
 - `GET /mods/versions` — List compatible versions with dependencies
 - `GET /mods/untracked` — Discover manually uploaded JARs
 - `POST /mods` — Install mod (with optional version, cross-provider duplicate check)
@@ -23,6 +23,8 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 - `POST /mods/{id}/update` — Update to latest compatible version
 - `POST /mods/{id}/toggle` — Enable/disable via `.disabled` extension
 - `DELETE /mods/{id}` — Remove mod and delete JAR
+- `POST /mods/bulk/update` — Update multiple mods (max 50), returns success/failed arrays
+- `DELETE /mods/bulk` — Delete multiple mods (max 50), returns success/failed arrays
 
 **Model** (`app/Models/ServerMod`)
 - Table: `server_mods`
@@ -33,18 +35,19 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 ### Frontend (React)
 
 **Component** (`resources/scripts/components/server/mods/ModsContainer.tsx`)
-- Single-file orchestrator (1008 lines): search, install, update, toggle, delete
+- Single-file orchestrator (1100+ lines): search, install, update, toggle, delete, bulk operations
 - Two-tab layout: Installed / Browse
-- Modrinth search with sort/filters (relevance, downloads, updated)
+- Multi-provider search with sort/filters (relevance, downloads, updated)
 - Version picker modal with dependency resolution
 - 3-step install progress modal (resolve → download → finish)
 - Cross-provider duplicate conflict resolution
 - Manual JAR tracking and linking
 - Enable/disable toggle
+- Bulk operations: checkboxes for selection, "Update Selected" / "Delete Selected" buttons
 
 **API Client** (`resources/scripts/api/server/mods/mods.ts`)
-- Typed interfaces: `ServerMod`, `ModHit`, `ModVersion`, `ModDependency`, `UntrackedJar`
-- Functions: `getServerMods`, `searchMods`, `getModVersions`, `installMod`, `updateMod`, `deleteMod`, `toggleMod`, `linkMod`, `getUntrackedJars`, `registerJar`
+- Typed interfaces: `ServerMod`, `ModHit`, `ModVersion`, `ModDependency`, `UntrackedJar`, `BulkOperationResult`
+- Functions: `getServerMods`, `searchMods`, `getModVersions`, `installMod`, `updateMod`, `deleteMod`, `toggleMod`, `linkMod`, `getUntrackedJars`, `registerJar`, `bulkUpdateMods`, `bulkDeleteMods`
 
 ## Features
 
@@ -97,6 +100,26 @@ Upload JAR via file manager → auto-discovered and tracked:
 - `fabric.mod.json` — Fabric Loader
 - `quilt.mod.json` — Quilt Loader
 - `META-INF/mods.toml` — Forge/NeoForge (TOML parser via regex)
+
+### Bulk Operations
+
+**Backend** (ModController.php):
+- `POST /mods/bulk/update` — Update up to 50 mods at once
+- `DELETE /mods/bulk` — Delete up to 50 mods at once
+- Both return `{ success: [], failed: [] }` arrays with partial failure support
+- Activity log entries: `server:mod.bulk-update`, `server:mod.bulk-delete`
+
+**Frontend** (ModsContainer.tsx):
+- Checkboxes for non-manual mods in Installed tab
+- "Select All" / "Clear" buttons
+- "Update Selected (N)" / "Delete Selected (N)" buttons
+- Spinner during batch operation
+- Success/failure flash messages with counts
+
+**Validation** (BulkUpdateModsRequest.php, BulkDeleteModsRequest.php):
+- `mod_ids`: array, min 1, max 50 items
+- Each ID: integer, min 1
+- Enforces Permission::ACTION_MOD_MANAGE
 
 ### CurseForge Integration
 
@@ -214,11 +237,11 @@ User installs "Sodium" from Modrinth → tries manual upload of same mod → slu
 
 1. **No real download progress** — Wings pull endpoint is fire-and-forget; fake progress bar eases to 90% then jumps to 100%
 2. **No automatic updates** — User must manually click Update button
-3. **No bulk operations** — Must update/delete one mod at a time (planned feature)
-4. **No version pinning** — Update always pulls latest compatible version
-5. **JAR parsing overhead** — Full JAR downloaded even when only reading metadata
-6. **CurseForge API key required** — Admin must obtain and configure key for CurseForge access
-7. **Complex TOML unsupported** — Forge mods with non-standard TOML may fail to parse
+3. **No version pinning** — Update always pulls latest compatible version
+4. **JAR parsing overhead** — Full JAR downloaded even when only reading metadata
+5. **CurseForge API key required** — Admin must obtain and configure key for CurseForge access
+6. **Complex TOML unsupported** — Forge mods with non-standard TOML may fail to parse
+7. **Bulk operations no rollback** — Partial failures leave some mods updated/deleted; no atomic transaction
 
 ## Testing
 
@@ -233,6 +256,9 @@ No `tests/` directory exists. Manual test coverage:
 - Version picker with dependency chips (required auto-install, optional manual)
 - Loader detection (Fabric/Forge/NeoForge/Quilt)
 - Game version filtering
+- Bulk update selected mods (success/partial failure)
+- Bulk delete selected mods (success/partial failure)
+- CurseForge provider search and install
 
 ## Related Code
 
