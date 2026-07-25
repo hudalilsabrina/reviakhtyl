@@ -19,6 +19,7 @@ import {
     getPluginVersions,
     getServerPlugins,
     installPlugin,
+    linkPlugin,
     PluginDependency,
     PluginHit,
     PluginProvider,
@@ -139,6 +140,7 @@ const PluginsContainer = () => {
     const [installing, setInstalling] = useState<{ title: string; step: number; version?: string } | null>(null);
     const [confirmRemove, setConfirmRemove] = useState<ServerPlugin | null>(null);
     const [versionsFor, setVersionsFor] = useState<PluginHit | null>(null);
+    const [linkingPlugin, setLinkingPlugin] = useState<ServerPlugin | null>(null);
     const [versions, setVersions] = useState<PluginVersion[] | null>(null);
     const [installedRow, setInstalledRow] = useState<string | null>(null);
     const [dependencies, setDependencies] = useState<Record<string, Omit<PluginDependency, 'required'>>>({});
@@ -233,6 +235,39 @@ const PluginsContainer = () => {
     };
 
     const doInstall = (hit: PluginHit, versionId?: string, step = 0, replace = false) => {
+        // If linking a manual plugin, convert it instead of installing
+        if (linkingPlugin) {
+            setBusy(`link:${linkingPlugin.id}`);
+            clearFlashes('server:plugins');
+            getPluginVersions(uuid, provider, hit.id)
+                .then(({ versions: vs }) => {
+                    const version = versionId ? vs.find((v) => v.id === versionId) : vs[0];
+                    if (!version) {
+                        addError({ key: 'server:plugins', message: 'No compatible version found.' });
+                        return;
+                    }
+                    linkPlugin(uuid, linkingPlugin.id, provider, hit.id, hit.title, hit.iconUrl, version.id, version.versionNumber, hit.slug)
+                        .then((plugin) => {
+                            setPlugins((prev) => prev.map((p) => (p.id === plugin.id ? plugin : p)));
+                            setLinkingPlugin(null);
+                            addFlash({
+                                type: 'success',
+                                key: 'server:plugins',
+                                message: t('link_success', { title: plugin.title }) ?? `Linked ${plugin.title}`,
+                            });
+                        })
+                        .catch((error) => {
+                            addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                        })
+                        .finally(() => setBusy(null));
+                })
+                .catch((error) => {
+                    addError({ key: 'server:plugins', message: httpErrorToHuman(error) });
+                    setBusy(null);
+                });
+            return;
+        }
+
         setBusy(`install:${hit.id}`);
         setInstalling({ title: hit.title, step: versionId ? Math.max(step, 1) : step });
         clearFlashes('server:plugins');
@@ -460,6 +495,12 @@ const PluginsContainer = () => {
                 setBusy(null);
                 setConfirmRemove(null);
             });
+    };
+
+    const openLinkSearch = (plugin: ServerPlugin) => {
+        setLinkingPlugin(plugin);
+        setTab('browse');
+        setQuery(plugin.title);
     };
 
     const tabButtonCss = (active: boolean) => css`
@@ -756,6 +797,16 @@ const PluginsContainer = () => {
                                             </Badge>
                                         </p>
                                         <div css={tw`flex gap-2 mt-3 flex-wrap`}>
+                                            {plugin.provider === 'manual' && (
+                                                <Button
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => openLinkSearch(plugin)}
+                                                >
+                                                    {t('link')}
+                                                </Button>
+                                            )}
                                             {!plugin.disabled && plugin.provider !== 'manual' && (
                                                 <Button
                                                     size={Button.Sizes.Small}
@@ -804,6 +855,25 @@ const PluginsContainer = () => {
                 </>
             ) : (
                 <>
+                    {linkingPlugin && (
+                        <div css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-ui flex items-center justify-between`}>
+                            <div>
+                                <p css={tw`text-sm font-semibold text-blue-200`}>
+                                    Linking: {linkingPlugin.title}
+                                </p>
+                                <p css={tw`text-xs text-blue-300/80 mt-0.5`}>
+                                    Select a plugin below to link it to this manual plugin for updates
+                                </p>
+                            </div>
+                            <Button
+                                size={Button.Sizes.Small}
+                                variant={Button.Variants.Secondary}
+                                onClick={() => setLinkingPlugin(null)}
+                            >
+                                Cancel
+                            </Button>
+                        </div>
+                    )}
                     <form
                         css={tw`flex flex-wrap gap-2 mb-4`}
                         onSubmit={(e) => {
