@@ -302,7 +302,7 @@ class DaemonFileRepository extends DaemonRepository
             if ($params['foreground'] ?? false) {
                 $file = rtrim($directory ?? '/', '/').'/'.($params['filename'] ?? basename(parse_url($url, PHP_URL_PATH) ?: 'download'));
                 $expectedName = basename($file);
-                
+
                 // Check up to 3 times with increasing delays
                 foreach ([1, 2, 3] as $attempt) {
                     sleep($attempt);
