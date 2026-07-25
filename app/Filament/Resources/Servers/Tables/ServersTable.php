@@ -8,12 +8,15 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class ServersTable
 {
@@ -173,27 +176,27 @@ class ServersTable
                         ->modalHeading('Extend Server Expiration')
                         ->modalDescription('Extend the expiration date for selected servers by a specified number of days.')
                         ->form([
-                            \Filament\Forms\Components\TextInput::make('days')
+                            TextInput::make('days')
                                 ->label('Days to extend')
                                 ->numeric()
                                 ->required()
                                 ->minValue(1)
                                 ->default(30),
                         ])
-                        ->action(function (array $data, \Illuminate\Support\Collection $records): void {
+                        ->action(function (array $data, Collection $records): void {
                             $days = (int) $data['days'];
                             foreach ($records as $server) {
                                 $currentExpiry = $server->expires_at;
                                 if ($currentExpiry === null) {
                                     $newExpiry = now()->addDays($days);
                                 } else {
-                                    $newExpiry = $currentExpiry->isPast() 
-                                        ? now()->addDays($days) 
+                                    $newExpiry = $currentExpiry->isPast()
+                                        ? now()->addDays($days)
                                         : $currentExpiry->addDays($days);
                                 }
                                 $server->update(['expires_at' => $newExpiry]);
                             }
-                            \Filament\Notifications\Notification::make()
+                            Notification::make()
                                 ->success()
                                 ->title('Expiration Extended')
                                 ->body("Extended expiration for {$records->count()} server(s) by {$days} days.")

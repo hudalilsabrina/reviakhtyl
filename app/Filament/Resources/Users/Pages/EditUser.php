@@ -23,7 +23,7 @@ class EditUser extends EditRecord
     {
         return [
             Action::make('suspend')
-                ->visible(fn (User $record) => !$record->isSuspended())
+                ->visible(fn (User $record) => ! $record->isSuspended())
                 ->requiresConfirmation()
                 ->form([
                     Textarea::make('suspension_reason')
