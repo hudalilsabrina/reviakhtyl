@@ -54,6 +54,7 @@ use Znck\Eloquent\Traits\BelongsToThrough;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $installed_at
+ * @property Carbon|null $expires_at
  * @property Collection|ActivityLog[] $activity
  * @property int|null $activity_count
  * @property Allocation|null $allocation
@@ -197,6 +198,7 @@ class Server extends Model implements Identifiable
         'backup_limit' => 'present|nullable|integer|min:0',
         'parent_id' => 'sometimes|nullable|integer|exists:servers,id',
         'split_limit' => 'sometimes|integer|min:0',
+        'expires_at' => 'sometimes|nullable|date',
     ];
 
     /**
@@ -224,6 +226,8 @@ class Server extends Model implements Identifiable
         self::UPDATED_AT => 'datetime',
         'deleted_at' => 'datetime',
         'installed_at' => 'datetime',
+        'expires_at' => 'datetime',
+        'startup_parts' => 'array',
     ];
 
     /**
@@ -244,6 +248,27 @@ class Server extends Model implements Identifiable
     public function isSuspended(): bool
     {
         return $this->status === self::STATUS_SUSPENDED;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    public function isExpiring(): bool
+    {
+        return $this->expires_at !== null 
+            && $this->expires_at->isFuture() 
+            && $this->expires_at->diffInDays() <= 7;
+    }
+
+    public function getDaysUntilExpiration(): ?int
+    {
+        if ($this->expires_at === null || $this->expires_at->isPast()) {
+            return null;
+        }
+
+        return (int) now()->diffInDays($this->expires_at, false);
     }
 
     public function getResolvedStatus(): ?string
