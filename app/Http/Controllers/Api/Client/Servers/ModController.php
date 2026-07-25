@@ -107,28 +107,11 @@ class ModController extends ClientApiController
     {
         $this->assertEnabled($server);
         $untracked = collect($this->jars->untracked($server))
-            ->map(fn ($jar) => $jar + $this->jars->metadata($server, $jar['file_name'], $jar['size']));
+            ->map(fn ($jar) => $jar + $this->jars->metadata($server, $jar['file_name'], $jar['size']))
+            ->values()
+            ->all();
 
-        foreach ($untracked as $jar) {
-            $exists = $server->mods()->where('provider', 'manual')->where('file_name', $jar['file_name'])->exists();
-
-            if (! $exists) {
-                $server->mods()->create([
-                    'provider' => 'manual',
-                    'project_id' => 'manual:'.$jar['file_name'],
-                    'slug' => $jar['slug'],
-                    'title' => $jar['title'],
-                    'version_id' => $jar['version'],
-                    'version_number' => $jar['version'],
-                    'file_name' => $jar['file_name'],
-                    'icon_url' => null,
-                ]);
-            }
-        }
-
-        Cache::forget(sprintf('server:%d:mods-dir', $server->id));
-
-        return new JsonResponse(['data' => []]);
+        return new JsonResponse(['data' => $untracked]);
     }
 
     /**
