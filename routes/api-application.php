@@ -18,6 +18,8 @@ Route::group(['prefix' => '/users'], function () {
     Route::get('/external/{external_id}', [Application\Users\ExternalUserController::class, 'index'])->name('api.application.users.external');
 
     Route::post('/', [Application\Users\UserController::class, 'store']);
+    Route::post('/{user:id}/suspend', [Application\Users\UserSuspensionController::class, 'suspend'])->name('api.application.users.suspend');
+    Route::post('/{user:id}/unsuspend', [Application\Users\UserSuspensionController::class, 'unsuspend'])->name('api.application.users.unsuspend');
     Route::patch('/{user:id}', [Application\Users\UserController::class, 'update']);
 
     Route::delete('/{user:id}', [Application\Users\UserController::class, 'delete']);
