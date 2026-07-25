@@ -59,6 +59,7 @@ export interface Server {
         backups: number;
     };
     isTransferring: boolean;
+    expiresAt: string | null;
     variables: ServerEggVariable[];
     allocations: Allocation[];
     category: ServerCategory | null;
@@ -90,6 +91,7 @@ export const rawDataToServerObject = ({ attributes: data }: FractalResponseData)
     subdomain: data.subdomain ?? null,
     featureLimits: { ...data.feature_limits },
     isTransferring: data.is_transferring,
+    expiresAt: data.expires_at ?? null,
     variables: ((data.relationships?.variables as FractalResponseList | undefined)?.data || []).map(
         rawDataToServerEggVariable
     ),
