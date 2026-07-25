@@ -26,11 +26,15 @@ class ExpireServersCommand extends Command
         $gracePeriodEnd = $now->copy()->subDays(3);
 
         // Suspend servers that expired recently (within grace period)
+        // Only suspend servers that are not already suspended
         $expiredServers = Server::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', $now)
             ->where('expires_at', '>', $gracePeriodEnd)
-            ->whereNull('status')
+            ->where(function ($query) {
+                $query->whereNull('status')
+                    ->orWhere('status', '!=', Server::STATUS_SUSPENDED);
+            })
             ->get();
 
         foreach ($expiredServers as $server) {
@@ -42,7 +46,7 @@ class ExpireServersCommand extends Command
             }
         }
 
-        // Delete servers past grace period
+        // Delete servers past grace period (regardless of status)
         $serversToDelete = Server::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', $gracePeriodEnd)
@@ -57,7 +61,14 @@ class ExpireServersCommand extends Command
             }
         }
 
-        $this->info("Processed {$expiredServers->count()} expired servers and deleted {$serversToDelete->count()} servers past grace period.");
+        $totalExpired = $expiredServers->count();
+        $totalDeleted = $serversToDelete->count();
+
+        if ($totalExpired > 0 || $totalDeleted > 0) {
+            $this->info("Processed {$totalExpired} expired server(s) and deleted {$totalDeleted} server(s) past grace period.");
+        } else {
+            $this->info('No servers to expire or delete.');
+        }
 
         return self::SUCCESS;
     }
