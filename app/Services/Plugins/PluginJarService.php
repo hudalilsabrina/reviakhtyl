@@ -94,19 +94,21 @@ class PluginJarService
     }
 
     /**
-     * Extract metadata by reading only descriptor files from the jar.
-     * Avoids loading entire jar into memory.
+     * Extract metadata from jar descriptors.
+     * Streams Wings response to a temp file (never holds full jar as PHP string).
+     * ponytail: Wings files/contents has no Range API — still transfers full jar over wire.
      */
     private function extractMetadataStreaming(Server $server, string $fileName, int $size): ?array
     {
-        $contents = $this->fileRepository->setServer($server)->getContent('/plugins/'.$fileName, self::MAX_SIZE);
-
-        // Write to temp file for ZipArchive (no in-memory option in PHP < 8.2)
         $tmp = tempnam(sys_get_temp_dir(), 'jar');
         try {
-            file_put_contents($tmp, $contents);
-            $zip = new \ZipArchive();
+            $this->fileRepository->setServer($server)->streamContentToFile(
+                '/plugins/'.$fileName,
+                $tmp,
+                self::MAX_SIZE
+            );
 
+            $zip = new \ZipArchive();
             if (! $zip->open($tmp)) {
                 return null;
             }

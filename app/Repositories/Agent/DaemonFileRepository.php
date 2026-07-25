@@ -51,6 +51,40 @@ class DaemonFileRepository extends DaemonRepository
     }
 
     /**
+     * Stream a remote file to disk without loading it into a PHP string.
+     * Wings has no Range support; this still transfers the full file but keeps peak memory low.
+     *
+     * @throws TransferException
+     * @throws FileSizeTooLargeException
+     * @throws DaemonConnectionException
+     */
+    public function streamContentToFile(string $path, string $destination, ?int $notLargerThan = null): void
+    {
+        Assert::isInstanceOf($this->server, Server::class);
+
+        try {
+            $response = $this->getHttpClient()->get(
+                sprintf('/api/servers/%s/files/contents', $this->server->uuid),
+                [
+                    'query' => ['file' => $path],
+                    'sink' => $destination,
+                ]
+            );
+        } catch (ClientException|TransferException $exception) {
+            @unlink($destination);
+
+            throw new DaemonConnectionException($exception);
+        }
+
+        $length = (int) Arr::get($response->getHeader('Content-Length'), 0, 0);
+        if ($notLargerThan && $length > $notLargerThan) {
+            @unlink($destination);
+
+            throw new FileSizeTooLargeException();
+        }
+    }
+
+    /**
      * Save new contents to a given file. This works for both creating and updating
      * a file.
      *
