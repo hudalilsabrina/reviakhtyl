@@ -262,12 +262,14 @@ class CloudflareSubdomainService
 
     public function sanitize(string $value): string
     {
-        return Str::of($value)
+        $sanitized = Str::of($value)
             ->lower()
             ->replaceMatches('/[^a-z0-9-]+/', '-')
             ->trim('-')
             ->substr(0, 63)
             ->toString();
+
+        return $sanitized !== '' ? $sanitized : 'server';
     }
 
     /**
