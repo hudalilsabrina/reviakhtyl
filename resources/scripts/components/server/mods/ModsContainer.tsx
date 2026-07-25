@@ -32,6 +32,8 @@ import {
     getUntrackedJars,
     registerJar,
     UntrackedJar,
+    bulkUpdateMods,
+    bulkDeleteMods,
 } from '@/api/server/mods/mods';
 
 const Card = styled.div`
@@ -146,6 +148,8 @@ const ModsContainer = () => {
     const [dependencies, setDependencies] = useState<Record<string, Omit<ModDependency, 'required'>>>({});
     const [untracked, setUntracked] = useState<UntrackedJar[]>([]);
     const [trackJar, setTrackJar] = useState<UntrackedJar | null>(null);
+    const [selectedMods, setSelectedMods] = useState<Set<number>>(new Set());
+    const [bulkOperation, setBulkOperation] = useState<{ type: 'update' | 'delete'; progress: number; total: number } | null>(null);
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
 
@@ -513,6 +517,62 @@ const ModsContainer = () => {
         setQuery(mod.title);
     };
 
+    const toggleSelection = (modId: number) => {
+        setSelectedMods((prev) => {
+            const next = new Set(prev);
+            next.has(modId) ? next.delete(modId) : next.add(modId);
+            return next;
+        });
+    };
+
+    const selectAll = () => {
+        setSelectedMods(new Set(mods.filter((m) => m.provider !== 'manual').map((m) => m.id)));
+    };
+
+    const clearSelection = () => setSelectedMods(new Set());
+
+    const runBulkUpdate = () => {
+        const ids = Array.from(selectedMods);
+        setBulkOperation({ type: 'update', progress: 0, total: ids.length });
+        clearFlashes('server:mods');
+        bulkUpdateMods(uuid, ids)
+            .then((result) => {
+                result.success.forEach((item) => {
+                    setMods((prev) => prev.map((m) => (m.id === item.id ? { ...m, versionNumber: item.version || m.versionNumber } : m)));
+                });
+                if (result.success.length > 0) {
+                    addFlash({ type: 'success', key: 'server:mods', message: t('bulk_update_success', { count: result.success.length }) ?? `Updated ${result.success.length} mods` });
+                }
+                if (result.failed.length > 0) {
+                    addError({ key: 'server:mods', message: t('bulk_update_failed', { count: result.failed.length }) ?? `Failed to update ${result.failed.length} mods` });
+                }
+                clearSelection();
+            })
+            .catch((error) => addError({ key: 'server:mods', message: httpErrorToHuman(error) }))
+            .finally(() => setBulkOperation(null));
+    };
+
+    const runBulkDelete = () => {
+        const ids = Array.from(selectedMods);
+        setBulkOperation({ type: 'delete', progress: 0, total: ids.length });
+        clearFlashes('server:mods');
+        bulkDeleteMods(uuid, ids)
+            .then((result) => {
+                result.success.forEach((item) => {
+                    setMods((prev) => prev.filter((m) => m.id !== item.id));
+                });
+                if (result.success.length > 0) {
+                    addFlash({ type: 'success', key: 'server:mods', message: t('bulk_delete_success', { count: result.success.length }) ?? `Deleted ${result.success.length} mods` });
+                }
+                if (result.failed.length > 0) {
+                    addError({ key: 'server:mods', message: t('bulk_delete_failed', { count: result.failed.length }) ?? `Failed to delete ${result.failed.length} mods` });
+                }
+                clearSelection();
+            })
+            .catch((error) => addError({ key: 'server:mods', message: httpErrorToHuman(error) }))
+            .finally(() => setBulkOperation(null));
+    };
+
     const tabButtonCss = (active: boolean) => css`
         ${tw`px-4 py-2 text-sm font-semibold rounded-ui transition-colors duration-150 border-b-2 -mb-px rounded-b-none`}
         ${active
@@ -770,8 +830,8 @@ const ModsContainer = () => {
                                                 </Button>
                                             </div>
                                         </div>
-                                    </Card>
-                                ))}
+                                </Card>
+                            ))}
                             </div>
                         </div>
                     )}
@@ -781,10 +841,49 @@ const ModsContainer = () => {
                             <p css={tw`text-sm`}>{t('no_mods')}</p>
                         </div>
                     ) : (
-                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
-                            {mods.map((mod) => (
-                                <Card key={mod.id}>
-                                    <ModIcon url={mod.iconUrl} />
+                        <>
+                            {mods.some((m) => m.provider !== 'manual') && (
+                                <div css={tw`mb-4 flex items-center gap-3 flex-wrap`}>
+                                    <Button size={Button.Sizes.Small} onClick={selectAll} disabled={!!busy || !!bulkOperation}>
+                                        Select All
+                                    </Button>
+                                    <Button size={Button.Sizes.Small} onClick={clearSelection} disabled={!!busy || !!bulkOperation}>
+                                        Clear
+                                    </Button>
+                                    {selectedMods.size > 0 && (
+                                        <>
+                                            <Button
+                                                size={Button.Sizes.Small}
+                                                variant={Button.Variants.Secondary}
+                                                onClick={runBulkUpdate}
+                                                disabled={!!busy || !!bulkOperation}
+                                            >
+                                                {bulkOperation?.type === 'update' ? <Spinner size={'small'} /> : `Update Selected (${selectedMods.size})`}
+                                            </Button>
+                                            <Button.Danger
+                                                size={Button.Sizes.Small}
+                                                onClick={runBulkDelete}
+                                                disabled={!!busy || !!bulkOperation}
+                                            >
+                                                {bulkOperation?.type === 'delete' ? <Spinner size={'small'} /> : `Delete Selected (${selectedMods.size})`}
+                                            </Button.Danger>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                            <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                                {mods.map((mod) => (
+                                    <Card key={mod.id}>
+                                        {mod.provider !== 'manual' && (
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedMods.has(mod.id)}
+                                                onChange={() => toggleSelection(mod.id)}
+                                                disabled={!!busy || !!bulkOperation}
+                                                css={tw`w-4 h-4 rounded border-gray-700 bg-gray-800 text-reviactyl focus:ring-reviactyl focus:ring-offset-gray-900 cursor-pointer disabled:opacity-50 flex-shrink-0`}
+                                            />
+                                        )}
+                                        <ModIcon url={mod.iconUrl} />
                                     <div css={tw`flex-1 min-w-0`}>
                                         <div css={tw`flex items-center gap-2 flex-wrap`}>
                                             <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{mod.title}</h3>
@@ -853,6 +952,7 @@ const ModsContainer = () => {
                                 </Card>
                             ))}
                         </div>
+                    </>
                     )}
                 </>
             ) : (
