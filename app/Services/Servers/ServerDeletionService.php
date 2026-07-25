@@ -9,6 +9,7 @@ use App\Repositories\Agent\DaemonServerRepository;
 use App\Services\Databases\DatabaseManagementService;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ServerDeletionService
@@ -43,6 +44,34 @@ class ServerDeletionService
      */
     public function handle(Server $server): void
     {
+        // Block deletion if this server has split children that would be orphaned.
+        if ($server->children()->exists()) {
+            throw new DisplayException('Cannot delete a server with split children. Merge all children first.');
+        }
+
+        // If this is a split child, return resources to parent before deleting.
+        if ($server->isSplitChild() && $server->parent) {
+            $parent = $server->parent;
+            $this->connection->transaction(function () use ($parent, $server) {
+                $locked = DB::table('servers')
+                    ->where('id', $parent->id)
+                    ->lockForUpdate()
+                    ->first(['cpu', 'memory', 'disk']);
+
+                if ($locked) {
+                    app(BuildModificationService::class)->handle($parent, [
+                        'cpu' => $locked->cpu + $server->cpu,
+                        'memory' => $locked->memory + $server->memory,
+                        'disk' => $locked->disk + $server->disk,
+                        'allocation_id' => $parent->allocation_id,
+                        'database_limit' => $parent->database_limit,
+                        'allocation_limit' => $parent->allocation_limit,
+                        'backup_limit' => $parent->backup_limit,
+                    ]);
+                }
+            });
+        }
+
         try {
             $this->daemonServerRepository->setServer($server)->delete();
         } catch (DaemonConnectionException $exception) {
