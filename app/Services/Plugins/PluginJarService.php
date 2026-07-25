@@ -63,36 +63,11 @@ class PluginJarService
         }
 
         try {
-            $contents = $this->fileRepository->setServer($server)->getContent('/plugins/'.$fileName, self::MAX_SIZE);
-            $zip = new \ZipArchive();
-            $tmp = tempnam(sys_get_temp_dir(), 'jar');
-            file_put_contents($tmp, $contents);
-            if (! $zip->open($tmp)) {
-                @unlink($tmp);
-
-                return $fallback;
-            }
-
-            $meta = null;
-            foreach (['plugin.yml', 'paper-plugin.yml', 'bungee.yml'] as $descriptor) {
-                $raw = $zip->getFromName($descriptor);
-                if ($raw !== false) {
-                    $meta = $this->parseYamlDescriptor($raw);
-                    break;
-                }
-            }
-            if (! $meta && ($raw = $zip->getFromName('velocity-plugin.json')) !== false) {
-                $json = json_decode($raw, true);
-                if (is_array($json) && ! empty($json['id'])) {
-                    $meta = ['slug' => $json['id'], 'title' => $json['name'] ?? $json['id'], 'version' => $json['version'] ?? 'unknown'];
-                }
-            }
-            $zip->close();
-            @unlink($tmp);
-
+            // Stream only the descriptor files instead of loading entire jar
+            $meta = $this->extractMetadataStreaming($server, $fileName, $size);
+            
             if (! $meta || empty($meta['slug'])) {
                 Cache::put($cacheKey, $fallback, now()->addHour());
-
                 return $fallback;
             }
 
@@ -106,6 +81,48 @@ class PluginJarService
             return $result;
         } catch (\Exception) {
             return $fallback;
+        }
+    }
+
+    /**
+     * Extract metadata by reading only descriptor files from the jar.
+     * Avoids loading entire jar into memory.
+     */
+    private function extractMetadataStreaming(Server $server, string $fileName, int $size): ?array
+    {
+        $contents = $this->fileRepository->setServer($server)->getContent('/plugins/'.$fileName, self::MAX_SIZE);
+        
+        // Write to temp file for ZipArchive (no in-memory option in PHP < 8.2)
+        $tmp = tempnam(sys_get_temp_dir(), 'jar');
+        try {
+            file_put_contents($tmp, $contents);
+            $zip = new \ZipArchive();
+            
+            if (! $zip->open($tmp)) {
+                return null;
+            }
+
+            $meta = null;
+            foreach (['plugin.yml', 'paper-plugin.yml', 'bungee.yml'] as $descriptor) {
+                $raw = $zip->getFromName($descriptor);
+                if ($raw !== false) {
+                    $meta = $this->parseYamlDescriptor($raw);
+                    break;
+                }
+            }
+            
+            if (! $meta && ($raw = $zip->getFromName('velocity-plugin.json')) !== false) {
+                $json = json_decode($raw, true);
+                if (is_array($json) && ! empty($json['id'])) {
+                    $meta = ['slug' => $json['id'], 'title' => $json['name'] ?? $json['id'], 'version' => $json['version'] ?? 'unknown'];
+                }
+            }
+            
+            $zip->close();
+            
+            return $meta;
+        } finally {
+            @unlink($tmp);
         }
     }
 
