@@ -113,7 +113,7 @@ class PluginController extends ClientApiController
         // Auto-track: automatically register all untracked jars as manual plugins
         foreach ($untracked as $jar) {
             $exists = $server->plugins()->where('provider', 'manual')->where('file_name', $jar['file_name'])->exists();
-            
+
             if (! $exists) {
                 $server->plugins()->create([
                     'provider' => 'manual',
@@ -129,7 +129,7 @@ class PluginController extends ClientApiController
         }
 
         // Clear cache after auto-tracking
-        \Illuminate\Support\Facades\Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
+        Cache::forget(sprintf('server:%d:plugins-dir', $server->id));
 
         return new JsonResponse(['data' => []]);
     }
