@@ -11,6 +11,7 @@ return new class extends Migration
         Schema::create('server_subdomains', function (Blueprint $table) {
             $table->id();
             $table->unsignedInteger('server_id')->unique();
+            $table->unsignedBigInteger('cloudflare_domain_id')->nullable();
             $table->string('subdomain');
             $table->string('domain');
             $table->string('cf_record_id')->nullable();
@@ -18,6 +19,7 @@ return new class extends Migration
 
             $table->unique(['subdomain', 'domain']);
             $table->foreign('server_id')->references('id')->on('servers')->onDelete('cascade');
+            $table->foreign('cloudflare_domain_id')->references('id')->on('cloudflare_domains')->onDelete('set null');
         });
     }
 
