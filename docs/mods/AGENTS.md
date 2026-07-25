@@ -48,12 +48,12 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 
 ## Features
 
-### Modrinth Registry
-Currently supports Modrinth only (extensible architecture allows adding CurseForge later):
-- Fast, modern API
-- Rich metadata (author, downloads, description, icon)
-- Comprehensive dependency graph
-- Multi-loader support
+### Multi-Registry Support
+Two providers with unified interface:
+- **Modrinth** — Fast, modern API; rich metadata; comprehensive dependencies
+- **CurseForge** — Largest mod catalog; requires API key from console.curseforge.com
+
+Both support multi-loader filtering and version compatibility checks.
 
 ### Loader Resolution
 Auto-detects mod loaders from server variables (ModManagerService.php:86-117):
@@ -95,8 +95,22 @@ Upload JAR via file manager → auto-discovered and tracked:
 
 **Supported JAR formats** (ModJarService.php:112-137):
 - `fabric.mod.json` — Fabric Loader
-- `quilt.mod.json` — Quilt Loader  
+- `quilt.mod.json` — Quilt Loader
 - `META-INF/mods.toml` — Forge/NeoForge (TOML parser via regex)
+
+### CurseForge Integration
+
+**Configuration** (Filament Settings → Mods):
+- API key required: Get from [CurseForge for Studios Console](https://console.curseforge.com/)
+- Key stored in `panel:mods:curseforge_api_key` setting
+- Missing key: CurseForge searches return empty (graceful degradation)
+
+**API Details** (CurseForgeService.php):
+- Base URL: `https://api.curseforge.com/v1`
+- Authentication: `x-api-key` header
+- Minecraft game ID: 432, Mods class ID: 6
+- Loader type mapping: Fabric=4, Forge=1, NeoForge=6, Quilt=5
+- Sort field mapping: Featured=1, LastUpdated=2, TotalDownloads=6
 
 ### Enable/Disable Toggle
 No DB column — renames file extension (ModManagerService.php:234-249):
@@ -200,10 +214,10 @@ User installs "Sodium" from Modrinth → tries manual upload of same mod → slu
 
 1. **No real download progress** — Wings pull endpoint is fire-and-forget; fake progress bar eases to 90% then jumps to 100%
 2. **No automatic updates** — User must manually click Update button
-3. **No bulk operations** — Must update/delete one mod at a time
+3. **No bulk operations** — Must update/delete one mod at a time (planned feature)
 4. **No version pinning** — Update always pulls latest compatible version
 5. **JAR parsing overhead** — Full JAR downloaded even when only reading metadata
-6. **Single provider** — Modrinth only (CurseForge not implemented due to API restrictions)
+6. **CurseForge API key required** — Admin must obtain and configure key for CurseForge access
 7. **Complex TOML unsupported** — Forge mods with non-standard TOML may fail to parse
 
 ## Testing
