@@ -95,6 +95,7 @@ class Settings extends Page implements HasSchemas
         'panel:telegram:enabled',
         'panel:telegram:bot_token',
         'panel:telegram:bot_username',
+        'panel:telegram:webhook_secret',
     ];
 
     public function getHeading(): string
@@ -563,6 +564,12 @@ class Settings extends Page implements HasSchemas
                         ->required(fn ($get) => $get('panel:telegram:enabled'))
                         ->visible(fn ($get) => $get('panel:telegram:enabled'))
                         ->columnSpan(1),
+
+                    TextInput::make('panel:telegram:webhook_secret')
+                        ->label('Webhook Secret')
+                        ->helperText('Optional secret token to verify webhook requests. Auto-generated if empty.')
+                        ->visible(fn ($get) => $get('panel:telegram:enabled'))
+                        ->columnSpan(2),
                 ]),
         ];
     }

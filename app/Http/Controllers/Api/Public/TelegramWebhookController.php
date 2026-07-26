@@ -12,8 +12,14 @@ class TelegramWebhookController extends Controller
 
     public function __invoke(Request $request)
     {
-        if (!$this->telegram->isEnabled()) {
+        if (! $this->telegram->isEnabled()) {
             return response()->json(['error' => 'Telegram bot is not enabled'], 403);
+        }
+
+        // Verify webhook signature
+        $expectedToken = $this->telegram->getWebhookSecret();
+        if ($expectedToken && $request->header('X-Telegram-Bot-Api-Secret-Token') !== $expectedToken) {
+            return response()->json(['error' => 'Invalid signature'], 403);
         }
 
         $this->telegram->handleWebhook($request->all());

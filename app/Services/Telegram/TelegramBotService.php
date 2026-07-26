@@ -12,6 +12,9 @@ use Illuminate\Support\Str;
 class TelegramBotService
 {
     protected ?string $token;
+
+    protected ?string $webhookSecret;
+
     protected string $apiUrl;
 
     public function __construct(
@@ -19,24 +22,31 @@ class TelegramBotService
         protected Encrypter $encrypter
     ) {
         $token = $this->settings->get('settings::panel:telegram:bot_token', null);
-        
-        if (!empty($token)) {
+
+        if (! empty($token)) {
             try {
                 $token = $this->encrypter->decrypt($token);
             } catch (\Throwable) {
             }
         }
-        
+
         $this->token = $token;
+        $this->webhookSecret = $this->settings->get('settings::panel:telegram:webhook_secret', null);
         $this->apiUrl = "https://api.telegram.org/bot{$this->token}";
+    }
+
+    public function getWebhookSecret(): ?string
+    {
+        return $this->webhookSecret;
     }
 
     public function isEnabled(): bool
     {
         $enabled = $this->settings->get('settings::panel:telegram:enabled', 'false');
-        return !empty($this->token) && $enabled === 'true';
+
+        return ! empty($this->token) && $enabled === 'true';
     }
-    
+
     public function getBotUsername(): string
     {
         return $this->settings->get('settings::panel:telegram:bot_username', '');
@@ -44,7 +54,7 @@ class TelegramBotService
 
     public function sendMessage(string $chatId, string $text): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
@@ -58,18 +68,19 @@ class TelegramBotService
             return $response->successful();
         } catch (\Exception $e) {
             Log::error('Telegram sendMessage failed', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
 
     public function handleWebhook(array $update): void
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return;
         }
 
         $message = $update['message'] ?? null;
-        if (!$message) {
+        if (! $message) {
             return;
         }
 
@@ -77,7 +88,7 @@ class TelegramBotService
         $text = $message['text'] ?? '';
         $telegramId = (string) $message['from']['id'];
 
-        if (!$chatId) {
+        if (! $chatId) {
             return;
         }
 
@@ -96,6 +107,7 @@ class TelegramBotService
 
         if ($user) {
             $this->sendMessage($chatId, "✅ Your Telegram account is already linked to: *{$user->email}*");
+
             return;
         }
 
@@ -105,27 +117,39 @@ class TelegramBotService
             $linkToken = Str::random(32);
             cache()->put("telegram_link_{$linkToken}", $telegramId, now()->addMinutes(10));
 
-            $linkUrl = config('app.url') . "/account/telegram/link?token={$linkToken}";
+            $linkUrl = config('app.url')."/account/telegram/link?token={$linkToken}";
             $this->sendMessage($chatId, "🔗 To link your Telegram account:\n\n1. Click this link: {$linkUrl}\n2. Log in to your panel account\n3. Confirm the link\n\n⏱ This link expires in 10 minutes.");
+
             return;
         }
 
         $token = trim($parts[1]);
         $userId = cache()->get("telegram_auth_{$token}");
 
-        if (!$userId) {
-            $this->sendMessage($chatId, "❌ Invalid or expired token. Please generate a new link from your panel account settings.");
+        if (! $userId) {
+            $this->sendMessage($chatId, '❌ Invalid or expired token. Please generate a new link from your panel account settings.');
+
             return;
         }
 
         $user = User::find($userId);
-        if (!$user) {
-            $this->sendMessage($chatId, "❌ User not found.");
+        if (! $user) {
+            $this->sendMessage($chatId, '❌ User not found.');
+
             return;
         }
 
         if ($user->telegram_id) {
-            $this->sendMessage($chatId, "❌ Your account is already linked to another Telegram account.");
+            $this->sendMessage($chatId, '❌ Your account is already linked to another Telegram account.');
+
+            return;
+        }
+
+        // Check if telegram_id already linked to another user
+        $existingUser = User::where('telegram_id', $telegramId)->first();
+        if ($existingUser && $existingUser->id !== $user->id) {
+            $this->sendMessage($chatId, '❌ This Telegram account is already linked to another panel account.');
+
             return;
         }
 
@@ -139,8 +163,9 @@ class TelegramBotService
     {
         $user = User::where('telegram_id', $telegramId)->first();
 
-        if (!$user) {
-            $this->sendMessage($chatId, "❌ Your Telegram account is not linked to any panel account.");
+        if (! $user) {
+            $this->sendMessage($chatId, '❌ Your Telegram account is not linked to any panel account.');
+
             return;
         }
 
@@ -148,21 +173,59 @@ class TelegramBotService
         $this->sendMessage($chatId, "✅ Successfully unlinked from: *{$user->email}*");
     }
 
-    public function setWebhook(string $url): bool
+    public function setWebhook(string $url, ?string $secretToken = null): bool
     {
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return false;
         }
 
         try {
-            $response = Http::post("{$this->apiUrl}/setWebhook", [
-                'url' => $url,
-            ]);
+            $params = ['url' => $url];
+            if ($secretToken) {
+                $params['secret_token'] = $secretToken;
+            }
+
+            $response = Http::post("{$this->apiUrl}/setWebhook", $params);
 
             return $response->successful();
         } catch (\Exception $e) {
             Log::error('Telegram setWebhook failed', ['error' => $e->getMessage()]);
+
             return false;
+        }
+    }
+
+    public function getWebhookInfo(): ?array
+    {
+        if (! $this->isEnabled()) {
+            return null;
+        }
+
+        try {
+            $response = Http::get("{$this->apiUrl}/getWebhookInfo");
+
+            return $response->successful() ? $response->json('result') : null;
+        } catch (\Exception $e) {
+            Log::error('Telegram getWebhookInfo failed', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    public function getMe(): ?array
+    {
+        if (! $this->token) {
+            return null;
+        }
+
+        try {
+            $response = Http::get("{$this->apiUrl}/getMe");
+
+            return $response->successful() ? $response->json('result') : null;
+        } catch (\Exception $e) {
+            Log::error('Telegram getMe failed', ['error' => $e->getMessage()]);
+
+            return null;
         }
     }
 }
