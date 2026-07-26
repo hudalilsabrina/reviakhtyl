@@ -7,23 +7,43 @@ return [
     'tab_form' => 'Settings',
     'tab_raw' => 'Raw file',
 
+    'search_label' => 'Search settings',
     'search_placeholder' => 'Search settings...',
     'no_results' => 'No settings match your search.',
+    'expand_all' => 'Expand all',
+    'collapse_all' => 'Collapse all',
+    'group_count_one' => ':count setting',
+    'group_count_other' => ':count settings',
+    'group_changed_one' => ':count changed',
+    'group_changed_other' => ':count changed',
 
     'save' => 'Save changes',
     'saving' => 'Saving...',
     'discard' => 'Discard',
     'saved' => 'Properties saved.',
-    'unsaved' => ':count unsaved change|:count unsaved changes',
+    'unsaved_one' => ':count unsaved change',
+    'unsaved_other' => ':count unsaved changes',
+    'show_changed' => 'Show changed',
     'reset' => 'Reset to default',
+    'reveal' => 'Show value',
+    'hide' => 'Hide value',
+    'invalid' => 'Fix the highlighted settings before saving.',
 
-    'missing_file' => 'This server has no server.properties yet. Saving will create one.',
+    'error_number' => 'Must be a whole number.',
+    'error_min' => 'Must be at least :min.',
+    'error_max' => 'Must be at most :max.',
+
+    'missing_title' => 'No properties file yet',
+    'missing_file' => 'This server has never started, so it has no server.properties. Saving will create one from the defaults below.',
     'locked' => 'Managed by the panel from this server\'s allocation. Changing it here would be overwritten on the next start.',
     'warn' => 'Changing this can affect an existing world. Take a backup first.',
 
     'restart_title' => 'Restart to apply',
     'restart_body' => 'Minecraft only reads server.properties at startup. Restart the server for these changes to take effect.',
     'restart_action' => 'Restart now',
+    'start_action' => 'Start now',
+    'restart_offline' => 'Minecraft only reads server.properties at startup, so this server will pick the changes up the next time it starts.',
+    'restart_disconnected' => 'Waiting for a connection to the server...',
 
     'eula_title' => 'Minecraft EULA not accepted',
     'eula_body' => 'This server will not start until the Minecraft End User Licence Agreement is accepted.',
@@ -31,8 +51,9 @@ return [
     'eula_link' => 'Read the EULA',
     'eula_accepted' => 'EULA accepted.',
 
-    'raw_warning' => 'Saving the raw file overwrites the whole of server.properties, including any unsaved changes on the Settings tab.',
+    'raw_warning' => 'Saving here overwrites the whole of server.properties.',
     'raw_save' => 'Save file',
+    'raw_blocked' => 'Save or discard your changes on the Settings tab first.',
 
     'groups' => [
         'general' => 'General',
