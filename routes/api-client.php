@@ -151,6 +151,16 @@ Route::group([
         Route::delete('/', [Client\Servers\SubdomainController::class, 'delete']);
     });
 
+    Route::group(['prefix' => '/properties'], function () {
+        Route::get('/', [Client\Servers\PropertiesController::class, 'index']);
+        Route::middleware('throttle:api.properties')
+            ->put('/', [Client\Servers\PropertiesController::class, 'update']);
+        Route::middleware('throttle:api.properties')
+            ->put('/raw', [Client\Servers\PropertiesController::class, 'updateRaw']);
+        Route::middleware('throttle:api.properties')
+            ->post('/eula', [Client\Servers\PropertiesController::class, 'acceptEula']);
+    });
+
     Route::group(['prefix' => '/splits'], function () {
         Route::get('/', [Client\Servers\SplitController::class, 'index']);
         Route::post('/', [Client\Servers\SplitController::class, 'store']);

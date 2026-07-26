@@ -19,6 +19,7 @@ return [
         'console' => 'Console',
         'files' => 'Files',
         'startup' => 'Startup',
+        'properties' => 'Properties',
         'network' => 'Network',
         'subdomain' => 'Subdomain',
         'metrics' => 'Metrics',

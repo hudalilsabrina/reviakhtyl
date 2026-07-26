@@ -109,15 +109,15 @@ class ServerPropertiesService
     }
 
     /**
-     * Apply a set of changed properties, leaving everything else untouched.
+     * Apply a set of already normalized properties, leaving everything else in
+     * the file untouched.
      *
-     * @param  array<string, mixed>  $changes
+     * @param  array<string, string>  $normalized  output of normalize()
      * @return array{exists: bool, raw: string, values: array<string, string>}
      */
-    public function update(Server $server, array $changes): array
+    public function apply(Server $server, array $normalized): array
     {
         $current = $this->read($server);
-        $normalized = $this->normalize($changes);
 
         if ($normalized === []) {
             return $current;
