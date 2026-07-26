@@ -54,5 +54,22 @@ return [
         App\Services\Chatbot\Tools\Startup\GetStartupTool::class,
         App\Services\Chatbot\Tools\Startup\UpdateStartupVariableTool::class,
         App\Services\Chatbot\Tools\Startup\UpdateStartupPartsTool::class,
+
+        // Plugin installer. Gated by the egg allowlist in addition to the
+        // tool group, exactly as the plugin page is.
+        App\Services\Chatbot\Tools\Plugins\ListPluginsTool::class,
+        App\Services\Chatbot\Tools\Plugins\SearchPluginsTool::class,
+        App\Services\Chatbot\Tools\Plugins\InstallPluginTool::class,
+        App\Services\Chatbot\Tools\Plugins\UpdatePluginTool::class,
+        App\Services\Chatbot\Tools\Plugins\RemovePluginTool::class,
+        App\Services\Chatbot\Tools\Plugins\TogglePluginTool::class,
+
+        // Mod installer, gated the same way as the plugin installer.
+        App\Services\Chatbot\Tools\Mods\ListModsTool::class,
+        App\Services\Chatbot\Tools\Mods\SearchModsTool::class,
+        App\Services\Chatbot\Tools\Mods\InstallModTool::class,
+        App\Services\Chatbot\Tools\Mods\UpdateModTool::class,
+        App\Services\Chatbot\Tools\Mods\RemoveModTool::class,
+        App\Services\Chatbot\Tools\Mods\ToggleModTool::class,
     ],
 ];
