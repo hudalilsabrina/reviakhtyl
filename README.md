@@ -27,6 +27,25 @@ Manage Game Servers like Never Before!
 * ` 🔋 ` **Batteries Included**: Reviactyl has most of core features built-in, which means there's no need of spending money for basic features.
 * ` 🍀 ` **Open Source & Free**: Reviactyl is the free open-source game server management panel built upon Pterodactyl offering modern codebase, security, & improvements.
 
+## Updating
+
+Some releases add tables or columns, so run the migrations after every update:
+
+```bash
+php artisan migrate --force
+```
+
+`--force` skips the confirmation prompt that `artisan` shows when `APP_ENV=production`.
+
+This release adds five migrations for the AI Assistant — conversation and message
+storage, a column for the chain-of-thought that reasoning models emit, and a rolling
+per-conversation summary. One of them also rewrites assistant messages that were saved
+before reasoning was stored separately, moving their `<think>` blocks out of the reply
+text; it is reversible.
+
+The assistant stays dormant until an administrator fills in a provider under
+**Settings → AI Chatbot**, so updating alone changes nothing for your users.
+
 ## Sponsors
 
 I would like to extend my sincere thanks to the following sponsors for helping fund Reviactyl's development.
