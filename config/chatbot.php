@@ -59,6 +59,7 @@ return [
         // tool group, exactly as the plugin page is.
         App\Services\Chatbot\Tools\Plugins\ListPluginsTool::class,
         App\Services\Chatbot\Tools\Plugins\SearchPluginsTool::class,
+        App\Services\Chatbot\Tools\Plugins\ListPluginVersionsTool::class,
         App\Services\Chatbot\Tools\Plugins\InstallPluginTool::class,
         App\Services\Chatbot\Tools\Plugins\UpdatePluginTool::class,
         App\Services\Chatbot\Tools\Plugins\RemovePluginTool::class,
@@ -67,6 +68,7 @@ return [
         // Mod installer, gated the same way as the plugin installer.
         App\Services\Chatbot\Tools\Mods\ListModsTool::class,
         App\Services\Chatbot\Tools\Mods\SearchModsTool::class,
+        App\Services\Chatbot\Tools\Mods\ListModVersionsTool::class,
         App\Services\Chatbot\Tools\Mods\InstallModTool::class,
         App\Services\Chatbot\Tools\Mods\UpdateModTool::class,
         App\Services\Chatbot\Tools\Mods\RemoveModTool::class,

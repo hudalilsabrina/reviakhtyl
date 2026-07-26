@@ -14,7 +14,7 @@ class InstallPluginTool extends PluginTool
 
     public function description(): string
     {
-        return 'Download and install a plugin onto this server by its project id, which you get from search_plugins. The newest version compatible with the server\'s loader and game version is chosen unless you name one. Installing runs third-party code on the server, so only install what the user actually asked for, and tell them the server must be restarted afterwards.';
+        return 'Download and install a plugin onto this server by its project id, which you get from search_plugins. The newest compatible version is chosen unless you pass a version_id — call list_plugin_versions first when the user needs a particular build, such as one matching an older game version. Installing runs third-party code on the server, so only install what the user actually asked for, and tell them the server must be restarted afterwards.';
     }
 
     public function parameters(): array

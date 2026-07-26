@@ -14,7 +14,7 @@ class InstallModTool extends ModTool
 
     public function description(): string
     {
-        return 'Download a mod from a registry into the server\'s /mods folder and track it for future updates. Takes the project_id from search_mods; do not guess one. The newest build matching the server\'s mod loader and game version is chosen automatically, and installing fails outright if no compatible build exists. Installing again over an existing entry replaces it with a newer version. The server must be restarted before the mod loads, and a mod that needs dependencies will not work until those are installed too.';
+        return 'Download a mod from a registry into the server\'s /mods folder and track it for future updates. Takes the project_id from search_mods; do not guess one. The newest build matching the server\'s mod loader and game version is chosen automatically unless you pass a version_id — call list_mod_versions first when the user needs a particular build, such as one matching an older game version. Installing fails outright if no compatible build exists. Installing again over an existing entry replaces it with a newer version. The server must be restarted before the mod loads, and a mod that needs dependencies will not work until those are installed too.';
     }
 
     public function parameters(): array
