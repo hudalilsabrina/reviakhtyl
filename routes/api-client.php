@@ -222,6 +222,22 @@ Route::group([
         Route::put('/variable', [Client\Servers\StartupController::class, 'update']);
     });
 
+    Route::group(['prefix' => '/chat'], function () {
+        Route::get('/config', [Client\Servers\ChatbotController::class, 'config']);
+        Route::get('/conversations', [Client\Servers\ChatbotController::class, 'index']);
+        Route::post('/conversations', [Client\Servers\ChatbotController::class, 'store']);
+        // The parameter is named for the model so that scopeBindings() resolves it
+        // through Server::chatbotConversations().
+        Route::get('/conversations/{chatbotConversation}', [Client\Servers\ChatbotController::class, 'view']);
+        Route::delete('/conversations/{chatbotConversation}', [Client\Servers\ChatbotController::class, 'delete']);
+
+        // Both of these can trigger several paid provider calls each.
+        Route::middleware('throttle:api.chatbot')->group(function () {
+            Route::post('/conversations/{chatbotConversation}/messages', [Client\Servers\ChatbotController::class, 'message']);
+            Route::post('/conversations/{chatbotConversation}/confirm', [Client\Servers\ChatbotController::class, 'confirm']);
+        });
+    });
+
     Route::group(['prefix' => '/settings'], function () {
         Route::post('/rename', [Client\Servers\SettingsController::class, 'rename']);
         Route::post('/reinstall', [Client\Servers\SettingsController::class, 'reinstall']);

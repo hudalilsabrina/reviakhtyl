@@ -3,14 +3,18 @@
 namespace App\Filament\Pages;
 
 use App\Contracts\Repository\SettingsRepositoryInterface;
+use App\Enum\ChatbotToolGroup;
 use App\Filament\Components\Alert;
 use App\Filament\Components\ImageInput;
 use App\Models\Egg;
 use App\Notifications\MailTested;
+use App\Services\Chatbot\OpenAiClient;
 use App\Services\Telegram\TelegramBotService;
 use App\Traits\Helpers\AvailableLanguages;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
@@ -100,6 +104,19 @@ class Settings extends Page implements HasSchemas
         'panel:telegram:bot_token',
         'panel:telegram:bot_username',
         'panel:telegram:webhook_secret',
+
+        'panel:chatbot:enabled',
+        'panel:chatbot:base_url',
+        'panel:chatbot:api_key',
+        'panel:chatbot:model',
+        'panel:chatbot:temperature',
+        'panel:chatbot:max_tokens',
+        'panel:chatbot:max_iterations',
+        'panel:chatbot:history_limit',
+        'panel:chatbot:timeout',
+        'panel:chatbot:require_confirmation',
+        'panel:chatbot:system_prompt',
+        'panel:chatbot:tool_groups',
     ];
 
     public function getHeading(): string
@@ -133,7 +150,7 @@ class Settings extends Page implements HasSchemas
                 $value = $config->get(Str::replace(':', '.', $key));
             }
 
-            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token'], true) && ! empty($value)) {
+            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token', 'panel:chatbot:api_key'], true) && ! empty($value)) {
                 try {
                     $value = $encrypter->decrypt($value);
                 } catch (\Throwable) {
@@ -153,6 +170,16 @@ class Settings extends Page implements HasSchemas
 
             if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids'], true)) {
                 $value = is_array($value) ? $value : ($value ? (json_decode($value, true) ?: []) : []);
+            }
+
+            if ($key === 'panel:chatbot:tool_groups') {
+                if (! is_array($value)) {
+                    $decoded = $value ? json_decode((string) $value, true) : null;
+                    $value = is_array($decoded) ? $decoded : ChatbotToolGroup::defaults();
+                }
+
+                $valid = array_column(ChatbotToolGroup::cases(), 'value');
+                $value = array_values(array_intersect(array_map('strval', $value), $valid));
             }
 
             $formData[$key] = $value;
@@ -197,6 +224,11 @@ class Settings extends Page implements HasSchemas
                         ->label('Telegram')
                         ->icon('tabler-brand-telegram')
                         ->schema($this->telegramSettings()),
+
+                    Tab::make('chatbot')
+                        ->label('AI Chatbot')
+                        ->icon('tabler-robot')
+                        ->schema($this->chatbotSettings()),
 
                     Tab::make('advanced')
                         ->label(trans('admin/settings.advanced.title'))
@@ -614,6 +646,155 @@ class Settings extends Page implements HasSchemas
         ];
     }
 
+    private function chatbotSettings(): array
+    {
+        $enabled = fn ($get) => (bool) $get('panel:chatbot:enabled');
+
+        $toolGroupDescriptions = [];
+        foreach (ChatbotToolGroup::cases() as $group) {
+            $toolGroupDescriptions[$group->value] = $group->description();
+        }
+
+        return [
+            Section::make('AI Assistant')
+                ->description('Connect an OpenAI-compatible provider to give users an assistant that can act on their servers.')
+                ->columns(2)
+                ->schema([
+                    Toggle::make('panel:chatbot:enabled')
+                        ->label('Enable AI Assistant')
+                        ->helperText('Users get a chat page on each of their servers. The assistant can act on their behalf, and only ever within their own permissions on that server.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
+                        ->live()
+                        ->columnSpan(2),
+
+                    TextInput::make('panel:chatbot:base_url')
+                        ->label('API Base URL')
+                        ->helperText('Root of any OpenAI-compatible API, including the version segment — e.g. https://api.openai.com/v1 or https://your-provider.example/v1')
+                        ->url()
+                        ->maxLength(191)
+                        ->required($enabled)
+                        ->visible($enabled)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:chatbot:api_key')
+                        ->label('API Key')
+                        ->helperText('Stored encrypted in the panel database and never exposed to clients.')
+                        ->password()
+                        ->revealable()
+                        ->required($enabled)
+                        ->visible($enabled)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:chatbot:model')
+                        ->label('Model')
+                        ->helperText('The model identifier as the provider names it, e.g. gpt-4o-mini. It must support tool/function calling.')
+                        ->datalist([
+                            'gpt-4o-mini',
+                            'gpt-4o',
+                            'gpt-4.1-mini',
+                        ])
+                        ->maxLength(191)
+                        ->required($enabled)
+                        ->visible($enabled)
+                        ->columnSpan(1),
+
+                    Actions::make([
+                        Action::make('test-chatbot-connection')
+                            ->label('Test connection')
+                            ->icon('tabler-plug-connected')
+                            ->action('testChatbotConnection')
+                            ->color('success'),
+                    ])
+                        ->fullWidth()
+                        ->visible($enabled)
+                        ->columnSpan(1),
+                ]),
+
+            Section::make('Behaviour')
+                ->columns(4)
+                ->collapsible()
+                ->visible($enabled)
+                ->schema([
+                    TextInput::make('panel:chatbot:temperature')
+                        ->label('Temperature')
+                        ->helperText('Lower values make the assistant more deterministic; higher values more creative.')
+                        ->numeric()
+                        ->minValue(0)
+                        ->maxValue(2)
+                        ->step(0.1)
+                        ->default(0.2)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:chatbot:max_tokens')
+                        ->label('Max Tokens')
+                        ->helperText('Maximum length of a single assistant reply.')
+                        ->numeric()
+                        ->minValue(64)
+                        ->maxValue(32000)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:chatbot:max_iterations')
+                        ->label('Max Tool Iterations')
+                        ->helperText('How many tool calls the assistant may chain before it must answer. Higher values cost more per message.')
+                        ->numeric()
+                        ->minValue(1)
+                        ->maxValue(25)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:chatbot:history_limit')
+                        ->label('History Limit')
+                        ->helperText('How many earlier messages are replayed to the provider as context.')
+                        ->numeric()
+                        ->minValue(2)
+                        ->maxValue(200)
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:chatbot:timeout')
+                        ->label('Request Timeout')
+                        ->helperText('Seconds to wait for the provider before giving up.')
+                        ->numeric()
+                        ->minValue(5)
+                        ->maxValue(600)
+                        ->suffix('s')
+                        ->columnSpan(1),
+
+                    Textarea::make('panel:chatbot:system_prompt')
+                        ->label('Additional Instructions')
+                        ->helperText('Optional. Appended to the built-in system prompt — use it for house rules, e.g. which files users may not edit.')
+                        ->rows(5)
+                        ->columnSpanFull(),
+                ]),
+
+            Section::make('Capabilities')
+                ->visible($enabled)
+                ->columnSpanFull()
+                ->schema([
+                    CheckboxList::make('panel:chatbot:tool_groups')
+                        ->label('Enabled tool groups')
+                        ->helperText('A user can still only use a tool if their own subuser permissions allow it, so these switches only ever reduce what is possible — they never grant access.')
+                        ->options(ChatbotToolGroup::options())
+                        ->descriptions($toolGroupDescriptions)
+                        ->columns(2)
+                        ->bulkToggleable()
+                        ->columnSpanFull(),
+
+                    Toggle::make('panel:chatbot:require_confirmation')
+                        ->label('Require confirmation for destructive actions')
+                        ->helperText('When on, the user must approve actions like power changes, file writes, deletions and subuser changes before they run. Strongly recommended.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
+                        ->columnSpanFull(),
+                ]),
+        ];
+    }
+
     private function advancedSettings(): array
     {
         return [
@@ -787,17 +968,37 @@ class Settings extends Page implements HasSchemas
             }
         }
 
+        // Validate chatbot settings before saving
+        if (! empty($data['panel:chatbot:enabled']) && $data['panel:chatbot:enabled']) {
+            $baseUrl = trim((string) ($data['panel:chatbot:base_url'] ?? ''));
+            $apiKey = trim((string) ($data['panel:chatbot:api_key'] ?? ''));
+            $model = trim((string) ($data['panel:chatbot:model'] ?? ''));
+
+            if ($baseUrl === '' || $apiKey === '' || $model === '') {
+                Notification::make()
+                    ->title('API base URL, API key and model are required when the AI assistant is enabled')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+        }
+
         // Generate webhook secret if not set and Telegram is enabled
         if (! empty($data['panel:telegram:enabled']) && $data['panel:telegram:enabled'] && empty($data['panel:telegram:webhook_secret'])) {
             $data['panel:telegram:webhook_secret'] = Str::random(32);
         }
 
         foreach ($data as $key => $value) {
-            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token'], true) && ! empty($value)) {
+            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token', 'panel:chatbot:api_key'], true) && ! empty($value)) {
                 $value = $encrypter->encrypt($value);
             }
             if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids'], true)) {
                 $value = json_encode(array_map('intval', array_filter((array) $value)));
+            }
+            if ($key === 'panel:chatbot:tool_groups') {
+                $valid = array_column(ChatbotToolGroup::cases(), 'value');
+                $value = json_encode(array_values(array_intersect(array_map('strval', array_filter((array) $value)), $valid)));
             }
             $settings->set(
                 'settings::'.$key,
@@ -852,6 +1053,56 @@ class Settings extends Page implements HasSchemas
                 ->danger()
                 ->send();
         }
+    }
+
+    public function testChatbotConnection(): void
+    {
+        $form = $this->getForm('form');
+        $data = $form?->getState() ?? [];
+
+        $baseUrl = trim((string) ($data['panel:chatbot:base_url'] ?? ''));
+        $apiKey = trim((string) ($data['panel:chatbot:api_key'] ?? ''));
+
+        if ($baseUrl === '' || $apiKey === '') {
+            Notification::make()
+                ->title('API base URL and API key are required')
+                ->body('Fill in both fields before testing the connection.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $result = OpenAiClient::verify($baseUrl, $apiKey, 15);
+
+        if (! $result['ok']) {
+            Notification::make()
+                ->title('Could not reach the AI provider')
+                ->body($result['message'])
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $models = $result['models'];
+        $count = count($models);
+
+        $body = $count === 1
+            ? 'The provider advertises 1 model.'
+            : "The provider advertises {$count} models.";
+
+        $model = trim((string) ($data['panel:chatbot:model'] ?? ''));
+
+        if ($model !== '' && $count > 0 && ! in_array($model, $models, true)) {
+            $body .= " \"{$model}\" is not among them. Some providers do not list every model they serve, so this is not necessarily a problem.";
+        }
+
+        Notification::make()
+            ->title('Connected successfully')
+            ->body($body)
+            ->success()
+            ->send();
     }
 
     protected function getHeaderActions(): array

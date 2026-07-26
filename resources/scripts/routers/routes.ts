@@ -19,6 +19,7 @@ import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer'
 import AccountTelegramContainer from '@/components/dashboard/AccountTelegramContainer';
 import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
+import ChatContainer from '@/components/server/chat/ChatContainer';
 import {
     FaBoltLightning,
     FaBoxArchive,
@@ -39,6 +40,7 @@ import {
     FaTerminal,
     FaUser,
     FaUsers,
+    FaWandMagicSparkles,
 } from 'react-icons/fa6';
 
 // Each of the router files is already code split out appropriately — so
@@ -56,6 +58,9 @@ interface RouteDefinition {
     // If undefined is passed this route is still rendered into the router itself
     // but no navigation link is displayed in the sub-navigation menu.
     name: string | undefined;
+    // Fallback shown in the navigation when the translation key in `name` has not been
+    // defined for the active locale yet.
+    label?: string;
     component: ComponentType;
     end?: boolean;
     icon?: ComponentType<React.SVGProps<SVGSVGElement>>;
@@ -174,6 +179,14 @@ export default {
                 name: 'server.metrics',
                 component: HistoricalGraphsContainer,
                 icon: FaChartLine,
+            },
+            {
+                route: 'chat',
+                permission: null,
+                name: 'server.chat',
+                label: 'Assistant',
+                component: ChatContainer,
+                icon: FaWandMagicSparkles,
             },
         ],
         management: [

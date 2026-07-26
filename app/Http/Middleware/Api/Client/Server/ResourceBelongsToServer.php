@@ -4,6 +4,7 @@ namespace App\Http\Middleware\Api\Client\Server;
 
 use App\Models\Allocation;
 use App\Models\Backup;
+use App\Models\ChatbotConversation;
 use App\Models\Database;
 use App\Models\Schedule;
 use App\Models\Server;
@@ -48,6 +49,7 @@ class ResourceBelongsToServer
                 // they are assigned to, so the logic is identical for them all.
                 case Allocation::class:
                 case Backup::class:
+                case ChatbotConversation::class:
                 case Database::class:
                 case Schedule::class:
                 case Subuser::class:

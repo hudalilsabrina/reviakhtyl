@@ -1,0 +1,84 @@
+import { FaTriangleExclamation } from 'react-icons/fa6';
+import styled from 'styled-components';
+import tw from 'twin.macro';
+import { ChatMessage } from '@/api/server/chat/types';
+import { Button } from '@/reviactyl/elements/button/index';
+
+const Panel = styled.div<{ $destructive: boolean }>`
+    ${tw`rounded-ui border p-4`};
+    ${({ $destructive }) =>
+        $destructive ? tw`bg-red-500/10 border-red-500/50` : tw`bg-amber-500/10 border-amber-500/50`};
+`;
+
+const ActionRow = styled.li<{ $destructive: boolean }>`
+    ${tw`flex items-start gap-2 text-sm rounded-ui border px-3 py-2 bg-gray-900/60`};
+    ${({ $destructive }) => ($destructive ? tw`border-red-500/40 text-red-100` : tw`border-gray-700 text-gray-200`)};
+`;
+
+interface Props {
+    message: ChatMessage;
+    processing: boolean;
+    onDecision: (approved: boolean) => void;
+}
+
+const PendingApproval = ({ message, processing, onDecision }: Props) => {
+    const pending = message.toolCalls.filter((toolCall) => toolCall.status === 'pending');
+    const destructive = pending.some((toolCall) => toolCall.destructive);
+
+    if (pending.length === 0) return null;
+
+    return (
+        <Panel $destructive={destructive}>
+            <div
+                css={[
+                    tw`flex items-center gap-2 font-semibold text-sm mb-1`,
+                    destructive ? tw`text-red-300` : tw`text-amber-300`,
+                ]}
+            >
+                <FaTriangleExclamation css={tw`flex-shrink-0`} />
+                <span>
+                    {destructive
+                        ? 'The assistant wants to make a destructive change'
+                        : 'The assistant needs your permission'}
+                </span>
+            </div>
+            <p css={tw`text-xs text-gray-300 mb-3`}>
+                {destructive
+                    ? 'Nothing has happened yet. Read each action carefully — approving will run them against your server and some of them cannot be undone.'
+                    : 'Nothing has happened yet. Approve to let the assistant run the actions below, or deny to tell it not to.'}
+            </p>
+
+            <ul css={tw`space-y-2`}>
+                {pending.map((toolCall) => (
+                    <ActionRow key={toolCall.id} $destructive={toolCall.destructive}>
+                        <span css={tw`flex-1 min-w-0 break-words`}>{toolCall.summary}</span>
+                        {toolCall.destructive && (
+                            <span
+                                css={tw`flex-shrink-0 text-2xs uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-ui bg-red-500/20 text-red-300 border border-red-500/40`}
+                            >
+                                Destructive
+                            </span>
+                        )}
+                    </ActionRow>
+                ))}
+            </ul>
+
+            <div css={tw`flex flex-wrap items-center justify-end gap-2 mt-4`}>
+                <Button.Text disabled={processing} onClick={() => onDecision(false)}>
+                    Deny
+                </Button.Text>
+                {destructive ? (
+                    <Button.Danger disabled={processing} onClick={() => onDecision(true)}>
+                        Approve &amp; run
+                    </Button.Danger>
+                ) : (
+                    <Button.Success disabled={processing} onClick={() => onDecision(true)}>
+                        Approve &amp; run
+                    </Button.Success>
+                )}
+            </div>
+        </Panel>
+    );
+};
+
+export default PendingApproval;

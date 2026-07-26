@@ -581,6 +581,18 @@ class Server extends Model implements Identifiable
     }
 
     /**
+     * Assistant chat threads on this server.
+     *
+     * The client API registers its routes with scopeBindings(), so this relation
+     * is what resolves `{chatbotConversation}` nested under `{server}` — and it
+     * scopes the lookup to this server for free.
+     */
+    public function chatbotConversations(): HasMany
+    {
+        return $this->hasMany(ChatbotConversation::class);
+    }
+
+    /**
      * Returns all mounts that have this server has mounted.
      *
      * @return HasManyThrough<Mount, MountServer, $this>
