@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\Client;
 
-use App\Models\User;
 use App\Services\Telegram\TelegramBotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,14 +16,14 @@ class TelegramController extends ClientApiController
         $user = $request->user();
 
         return new JsonResponse([
-            'linked' => !empty($user->telegram_id),
+            'linked' => ! empty($user->telegram_id),
             'telegram_id' => $user->telegram_id,
         ]);
     }
 
     public function generateToken(Request $request): JsonResponse
     {
-        if (!$this->telegram->isEnabled()) {
+        if (! $this->telegram->isEnabled()) {
             return new JsonResponse(['error' => 'Telegram bot is not enabled'], 403);
         }
 
@@ -33,6 +32,15 @@ class TelegramController extends ClientApiController
         if ($user->telegram_id) {
             return new JsonResponse(['error' => 'Already linked to Telegram'], 400);
         }
+
+        // ponytail: rate limit 3/min, add when spam observed
+        $rateLimitKey = "telegram_link_rate:{$user->id}";
+        $attempts = cache()->get($rateLimitKey, 0);
+        if ($attempts >= 3) {
+            return new JsonResponse(['error' => 'Rate limit exceeded. Try again in 1 minute.'], 429);
+        }
+
+        cache()->put($rateLimitKey, $attempts + 1, now()->addMinute());
 
         $token = Str::random(32);
         cache()->put("telegram_auth_{$token}", $user->id, now()->addMinutes(10));
@@ -50,7 +58,7 @@ class TelegramController extends ClientApiController
     {
         $user = $request->user();
 
-        if (!$user->telegram_id) {
+        if (! $user->telegram_id) {
             return new JsonResponse(['error' => 'Not linked to Telegram'], 400);
         }
 
