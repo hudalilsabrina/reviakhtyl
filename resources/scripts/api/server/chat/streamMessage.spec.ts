@@ -7,6 +7,7 @@ import streamMessage, {
     handleEvent,
     isStreamUnsupported,
 } from '@/api/server/chat/streamMessage';
+import { ChatMessage } from '@/api/server/chat/types';
 
 /** Feeds the parser a body split at the given offsets, returning everything it dispatched. */
 const parse = (chunks: string[]): ServerSentEvent[] => {
@@ -165,28 +166,56 @@ describe('handleEvent', () => {
         ]);
     });
 
-    it('accepts the camelCase form of a message as well as the snake_case one', () => {
-        const { calls, handlers } = collect();
+    it('transforms a message exactly as the endpoint emits it', () => {
+        const received: ChatMessage[] = [];
+        // Byte for byte what the endpoint writes for a freshly created assistant message,
+        // shaped by the same serialiser as `GET /conversations/{uuid}`.
+        const body =
+            'event: message\n' +
+            'data: {"message":{"uuid":"80e1a0c2-1e5c-4e1a-9f6c-3f2b0a7d5e11","role":"assistant",' +
+            '"content":null,"reasoning":null,"status":"complete",' +
+            '"tool_calls":[{"id":"call_1","name":"read_file","summary":"Read latest.log","status":"executed",' +
+            '"ok":true}],"created_at":"2026-07-27T02:04:31+07:00"}}\n\n';
+
+        const parser = createEventStreamParser((event) => handleEvent(event, { onMessage: (m) => received.push(m) }));
+        parser.push(body);
+        parser.flush();
+
+        expect(received).toEqual([
+            {
+                uuid: '80e1a0c2-1e5c-4e1a-9f6c-3f2b0a7d5e11',
+                role: 'assistant',
+                content: null,
+                reasoning: null,
+                status: 'complete',
+                toolCalls: [
+                    {
+                        id: 'call_1',
+                        name: 'read_file',
+                        summary: 'Read latest.log',
+                        status: 'executed',
+                        ok: true,
+                        destructive: false,
+                    },
+                ],
+                createdAt: new Date('2026-07-27T02:04:31+07:00'),
+            },
+        ]);
+    });
+
+    it('stamps a message that somehow arrives without a timestamp', () => {
+        const received: ChatMessage[] = [];
 
         handleEvent(
             {
                 event: 'message',
-                data: JSON.stringify({
-                    message: {
-                        uuid: 'b',
-                        role: 'assistant',
-                        content: 'hi',
-                        reasoning: null,
-                        status: 'complete',
-                        toolCalls: [{ id: 'call_1', name: 'read_file', summary: 'Read', status: 'executed', ok: true }],
-                        createdAt: '2026-07-26T12:00:00+00:00',
-                    },
-                }),
+                data: '{"message":{"uuid":"b","role":"assistant","content":"hi","reasoning":null,"status":"complete"}}',
             },
-            handlers
+            { onMessage: (m) => received.push(m) }
         );
 
-        expect(calls).toEqual(['message:b:hi']);
+        // Should never happen; it must not reach the row and throw there as an Invalid Date.
+        expect(received[0]!.createdAt.getTime()).not.toBeNaN();
     });
 
     it('drops an event whose payload is not valid JSON', () => {
