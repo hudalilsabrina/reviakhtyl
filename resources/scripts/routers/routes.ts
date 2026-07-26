@@ -11,6 +11,7 @@ import SplitterContainer from '@/components/server/splitter/SplitterContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
 import SubdomainContainer from '@/components/server/subdomain/SubdomainContainer';
+import PropertiesContainer from '@/components/server/properties/PropertiesContainer';
 import FileManagerContainer from '@/components/server/files/FileManagerContainer';
 import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
@@ -34,6 +35,7 @@ import {
     FaKey,
     FaLock,
     FaPlay,
+    FaSliders,
     FaCube,
     FaPuzzlePiece,
     FaTelegram,
@@ -157,6 +159,14 @@ export default {
                 name: 'server.startup',
                 component: StartupContainer,
                 icon: FaPlay,
+            },
+            {
+                route: 'properties/*',
+                permission: 'properties.*',
+                eggFeature: 'properties',
+                name: 'server.properties',
+                component: PropertiesContainer,
+                icon: FaSliders,
             },
             {
                 route: 'network/*',
