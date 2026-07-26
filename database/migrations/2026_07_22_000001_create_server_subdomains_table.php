@@ -19,7 +19,8 @@ return new class extends Migration
 
             $table->unique(['subdomain', 'domain']);
             $table->foreign('server_id')->references('id')->on('servers')->onDelete('cascade');
-            $table->foreign('cloudflare_domain_id')->references('id')->on('cloudflare_domains')->onDelete('set null');
+            // The foreign key for cloudflare_domain_id is added in the migration that
+            // creates the cloudflare_domains table, which runs directly after this one.
         });
     }
 

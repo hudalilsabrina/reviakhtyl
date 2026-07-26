@@ -18,7 +18,10 @@ return new class extends Migration
         });
 
         Schema::table('server_subdomains', function (Blueprint $table) {
-            $table->unsignedBigInteger('cloudflare_domain_id')->nullable()->after('server_id');
+            if (! Schema::hasColumn('server_subdomains', 'cloudflare_domain_id')) {
+                $table->unsignedBigInteger('cloudflare_domain_id')->nullable()->after('server_id');
+            }
+
             $table->foreign('cloudflare_domain_id')->references('id')->on('cloudflare_domains')->onDelete('cascade');
         });
     }
