@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FaComments, FaRobot } from 'react-icons/fa6';
 import styled, { keyframes } from 'styled-components';
 import tw from 'twin.macro';
@@ -132,6 +132,9 @@ const ChatContainer = () => {
     const [busy, setBusy] = useState(false);
     const [creating, setCreating] = useState(false);
     const [listOpen, setListOpen] = useState(false);
+    // Incremented whenever a thread's messages are installed, to trigger the
+    // scroll-to-newest exactly once per opened conversation.
+    const [threadRevision, setThreadRevision] = useState(0);
 
     const threadRef = useRef<HTMLDivElement>(null);
     // Conversations we opened ourselves already have their (empty) state in memory; re-fetching
@@ -140,8 +143,6 @@ const ChatContainer = () => {
     // A request can take minutes, and the user is free to switch conversations while it runs.
     // Responses are matched against this before they are allowed to touch the thread.
     const activeRef = useRef<string | null>(null);
-    // The conversation whose initial scroll-to-bottom has already happened.
-    const pinnedConversationRef = useRef<string | null>(null);
 
     useEffect(() => {
         activeRef.current = active;
@@ -177,7 +178,12 @@ const ChatContainer = () => {
         clearFlashes();
         getConversation(uuid, active)
             .then((conversation) => {
-                if (!cancelled) setMessages(conversation.messages);
+                if (cancelled) return;
+
+                setMessages(conversation.messages);
+                // Signals "a thread's messages just landed", which is the only
+                // moment we can measure where the bottom actually is.
+                setThreadRevision((revision) => revision + 1);
             })
             .catch((error) => {
                 if (!cancelled) clearAndAddHttpError(error);
@@ -191,29 +197,32 @@ const ChatContainer = () => {
         };
     }, [uuid, active]);
 
-    // Opening a thread lands on the newest message — a conversation is read from the
-    // bottom, and starting at the top shows the oldest exchange with no sign that
-    // anything follows. After that, follow new messages only while the user is already
-    // at the bottom, so scrolling up to re-read something is not yanked away.
-    useEffect(() => {
+    // A thread opens on its newest message: a conversation is read from the bottom, and
+    // starting at the top shows the oldest exchange with no sign that anything follows.
+    //
+    // This is driven by the revision counter rather than by `active` changing, because
+    // at the moment `active` changes the messages on screen still belong to the previous
+    // conversation — measuring then scrolls to the bottom of the wrong content, and the
+    // real messages arrive afterwards with nothing left to trigger a scroll. Layout
+    // effect so the jump happens before the browser paints the thread at the top.
+    useLayoutEffect(() => {
         const element = threadRef.current;
         if (!element) return;
 
-        if (pinnedConversationRef.current !== active) {
-            // Wait for the messages themselves before deciding where the bottom is.
-            if (loadingThread) return;
+        element.scrollTop = element.scrollHeight;
+    }, [threadRevision]);
 
-            pinnedConversationRef.current = active;
-            element.scrollTop = element.scrollHeight;
-
-            return;
-        }
+    // Afterwards, follow new messages only while the user is already at the bottom, so
+    // scrolling up to re-read something is not yanked away.
+    useEffect(() => {
+        const element = threadRef.current;
+        if (!element) return;
 
         const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
         if (distanceFromBottom > 120) return;
 
         element.scrollTop = element.scrollHeight;
-    }, [messages, busy, loadingThread, active]);
+    }, [messages, busy]);
 
     const handleCreate = () => {
         setCreating(true);
@@ -262,7 +271,11 @@ const ChatContainer = () => {
 
         try {
             const fresh = await getConversation(uuid, conversation);
-            if (activeRef.current === conversation) setMessages(fresh.messages);
+
+            if (activeRef.current === conversation) {
+                setMessages(fresh.messages);
+                setThreadRevision((revision) => revision + 1);
+            }
         } catch {
             // The error from the original request is the one worth showing.
         }
