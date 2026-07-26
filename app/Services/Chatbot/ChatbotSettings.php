@@ -46,6 +46,8 @@ class ChatbotSettings
             'panel:chatbot:max_tokens',
             'panel:chatbot:max_iterations',
             'panel:chatbot:history_limit',
+            'panel:chatbot:context_tokens',
+            'panel:chatbot:compaction',
             'panel:chatbot:timeout',
             'panel:chatbot:require_confirmation',
             'panel:chatbot:system_prompt',
@@ -110,11 +112,31 @@ class ChatbotSettings
     }
 
     /**
-     * How many stored messages are replayed to the provider as context.
+     * Hard ceiling on how many stored messages may be replayed, regardless of
+     * the token budget. Acts as a backstop, not the primary limit.
      */
     public function historyLimit(): int
     {
         return max(2, (int) $this->get('history_limit', 30));
+    }
+
+    /**
+     * Approximate token budget for the replayed conversation. This is the real
+     * limit: message count is a poor proxy when a single tool result can be
+     * larger than fifty chat turns.
+     */
+    public function contextTokens(): int
+    {
+        return max(2000, (int) $this->get('context_tokens', 24000));
+    }
+
+    /**
+     * Whether messages pushed out of the budget are summarized rather than
+     * silently dropped. Costs one extra provider call when the window rolls.
+     */
+    public function compactionEnabled(): bool
+    {
+        return $this->bool('compaction', true);
     }
 
     public function timeout(): int

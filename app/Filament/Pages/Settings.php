@@ -114,6 +114,8 @@ class Settings extends Page implements HasSchemas
         'panel:chatbot:max_tokens',
         'panel:chatbot:max_iterations',
         'panel:chatbot:history_limit',
+        'panel:chatbot:context_tokens',
+        'panel:chatbot:compaction',
         'panel:chatbot:timeout',
         'panel:chatbot:require_confirmation',
         'panel:chatbot:system_prompt',
@@ -754,6 +756,14 @@ class Settings extends Page implements HasSchemas
                         ->maxValue(200)
                         ->columnSpan(1),
 
+                    TextInput::make('panel:chatbot:context_tokens')
+                        ->label('Context Budget (tokens)')
+                        ->helperText('Approximate size of the conversation history replayed to the provider each message. Older messages are dropped or summarised to stay within it. Larger values give the assistant a longer memory and cost more per message.')
+                        ->numeric()
+                        ->minValue(2000)
+                        ->maxValue(500000)
+                        ->columnSpan(1),
+
                     TextInput::make('panel:chatbot:timeout')
                         ->label('Request Timeout')
                         ->helperText('Seconds to wait for the provider before giving up.')
@@ -767,6 +777,16 @@ class Settings extends Page implements HasSchemas
                         ->label('Additional Instructions')
                         ->helperText('Optional. Appended to the built-in system prompt — use it for house rules, e.g. which files users may not edit.')
                         ->rows(5)
+                        ->columnSpanFull(),
+
+                    Toggle::make('panel:chatbot:compaction')
+                        ->label('Summarise older messages')
+                        ->helperText('When the conversation outgrows the context budget, spend one extra provider call to summarise the messages that no longer fit, so the assistant keeps the gist instead of silently forgetting. Turn this off to simply drop them.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
                         ->columnSpanFull(),
                 ]),
 
