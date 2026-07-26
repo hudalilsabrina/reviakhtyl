@@ -27,9 +27,11 @@ const Avatar = styled.div`
 
 interface Props {
     message: ChatMessage;
+    // The text of this message is still arriving.
+    streaming?: boolean;
 }
 
-const ChatMessageRow = ({ message }: Props) => {
+const ChatMessageRow = ({ message, streaming = false }: Props) => {
     const isUser = message.role === 'user';
     // Pending calls are surfaced by the approval panel instead, so they are skipped here to
     // avoid rendering the same tool call twice.
@@ -66,7 +68,10 @@ const ChatMessageRow = ({ message }: Props) => {
                                 <span>The assistant could not finish this response.</span>
                             </div>
                         )}
-                        <MessageContent content={message.content} />
+                        {/* The cursor is part of the text rather than a sibling element so it
+                            sits at the end of the last line, inside whatever block it landed in,
+                            instead of on a line of its own below the answer. */}
+                        <MessageContent content={streaming ? `${message.content}▋` : message.content} />
                     </Bubble>
                 )}
                 {!message.content && message.status === 'failed' && (
