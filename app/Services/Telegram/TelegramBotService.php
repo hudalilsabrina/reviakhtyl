@@ -2,7 +2,9 @@
 
 namespace App\Services\Telegram;
 
+use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Models\User;
+use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -12,15 +14,32 @@ class TelegramBotService
     protected ?string $token;
     protected string $apiUrl;
 
-    public function __construct()
-    {
-        $this->token = config('services.telegram.bot_token');
+    public function __construct(
+        protected SettingsRepositoryInterface $settings,
+        protected Encrypter $encrypter
+    ) {
+        $token = $this->settings->get('settings::panel:telegram:bot_token', null);
+        
+        if (!empty($token)) {
+            try {
+                $token = $this->encrypter->decrypt($token);
+            } catch (\Throwable) {
+            }
+        }
+        
+        $this->token = $token;
         $this->apiUrl = "https://api.telegram.org/bot{$this->token}";
     }
 
     public function isEnabled(): bool
     {
-        return !empty($this->token) && config('services.telegram.enabled', false);
+        $enabled = $this->settings->get('settings::panel:telegram:enabled', 'false');
+        return !empty($this->token) && $enabled === 'true';
+    }
+    
+    public function getBotUsername(): string
+    {
+        return $this->settings->get('settings::panel:telegram:bot_username', '');
     }
 
     public function sendMessage(string $chatId, string $text): bool

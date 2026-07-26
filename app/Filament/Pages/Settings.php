@@ -93,6 +93,10 @@ class Settings extends Page implements HasSchemas
 
         'panel:plugins:egg_ids',
         'panel:mods:egg_ids',
+
+        'panel:telegram:enabled',
+        'panel:telegram:bot_token',
+        'panel:telegram:bot_username',
     ];
 
     public function getHeading(): string
@@ -126,7 +130,7 @@ class Settings extends Page implements HasSchemas
                 $value = $config->get(Str::replace(':', '.', $key));
             }
 
-            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token'], true) && ! empty($value)) {
+            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token'], true) && ! empty($value)) {
                 try {
                     $value = $encrypter->decrypt($value);
                 } catch (\Throwable) {
@@ -185,6 +189,11 @@ class Settings extends Page implements HasSchemas
                         ->icon('tabler-mail')
                         ->disabled(fn (): bool => config('mail.default') !== 'smtp')
                         ->schema($this->mailSettings()),
+
+                    Tab::make('telegram')
+                        ->label('Telegram')
+                        ->icon('tabler-brand-telegram')
+                        ->schema($this->telegramSettings()),
 
                     Tab::make('advanced')
                         ->label(trans('admin/settings.advanced.title'))
@@ -559,6 +568,43 @@ class Settings extends Page implements HasSchemas
         ];
     }
 
+    private function telegramSettings(): array
+    {
+        return [
+            Section::make('Telegram Bot')
+                ->description('Configure Telegram bot integration for user notifications and server control.')
+                ->columns(2)
+                ->schema([
+                    Toggle::make('panel:telegram:enabled')
+                        ->label('Enable Telegram Bot')
+                        ->helperText('Users can link their Telegram accounts to receive notifications.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
+                        ->live()
+                        ->columnSpan(2),
+
+                    TextInput::make('panel:telegram:bot_token')
+                        ->label('Bot Token')
+                        ->helperText('Get this from @BotFather on Telegram.')
+                        ->password()
+                        ->revealable()
+                        ->required(fn ($get) => $get('panel:telegram:enabled'))
+                        ->visible(fn ($get) => $get('panel:telegram:enabled'))
+                        ->columnSpan(1),
+
+                    TextInput::make('panel:telegram:bot_username')
+                        ->label('Bot Username')
+                        ->helperText('Your bot username without @ (e.g., MyPanelBot)')
+                        ->required(fn ($get) => $get('panel:telegram:enabled'))
+                        ->visible(fn ($get) => $get('panel:telegram:enabled'))
+                        ->columnSpan(1),
+                ]),
+        ];
+    }
+
     private function advancedSettings(): array
     {
         return [
@@ -685,7 +731,7 @@ class Settings extends Page implements HasSchemas
         $data = $form?->getState() ?? [];
 
         foreach ($data as $key => $value) {
-            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token'], true) && ! empty($value)) {
+            if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token'], true) && ! empty($value)) {
                 $value = $encrypter->encrypt($value);
             }
             if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids'], true)) {
