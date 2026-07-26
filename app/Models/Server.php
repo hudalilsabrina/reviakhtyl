@@ -245,6 +245,26 @@ class Server extends Model implements Identifiable
         return $this->status !== self::STATUS_INSTALLING && $this->status !== self::STATUS_INSTALL_FAILED;
     }
 
+    /**
+     * The server's modular startup part choices, keyed by part ID, with the
+     * enabled flag coerced to a real boolean.
+     *
+     * Every reader must go through here. Laravel's `boolean` validation rule
+     * accepts the strings "0" and "1", and `validated()` does not cast them, so
+     * rows written before that was handled can hold a truthy "0" that would
+     * otherwise silently re-enable a part the user turned off.
+     *
+     * @return \Illuminate\Support\Collection<int, bool>
+     */
+    public function startupPartChoices(): \Illuminate\Support\Collection
+    {
+        return collect($this->startup_parts ?? [])
+            ->filter(fn ($choice) => is_array($choice) && isset($choice['part_id']))
+            ->mapWithKeys(fn (array $choice) => [
+                (int) $choice['part_id'] => filter_var($choice['enabled'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            ]);
+    }
+
     public function isSuspended(): bool
     {
         return $this->status === self::STATUS_SUSPENDED;

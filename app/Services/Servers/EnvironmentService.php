@@ -60,6 +60,26 @@ class EnvironmentService
     }
 
     /**
+     * Builds the concatenated string of enabled modular startup parts for the server,
+     * exposed as the {{STARTUP_PARTS}} placeholder in startup commands.
+     */
+    private function buildStartupParts(Server $server): string
+    {
+        $parts = $server->egg->startupParts;
+
+        if ($parts->isEmpty()) {
+            return '';
+        }
+
+        $choices = $server->startupPartChoices();
+
+        return $parts
+            ->filter(fn ($part) => ($choices[$part->id] ?? $part->default_enabled) && trim($part->value) !== '')
+            ->map(fn ($part) => trim($part->value))
+            ->implode(' ');
+    }
+
+    /**
      * Return a mapping of Panel default environment variables.
      */
     private function getEnvironmentMappings(): array

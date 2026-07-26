@@ -44,6 +44,26 @@ class StartupController extends ClientApiController
                 'raw_startup_command' => $server->startup,
             ])
             ->toArray();
+
+        $eggParts = $server->egg->startupParts;
+
+        if ($eggParts->isNotEmpty()) {
+            $choices = $server->startupPartChoices();
+
+            $parts = $this->fractal->collection($eggParts)
+                ->transformWith($this->getTransformer(EggStartupPartTransformer::class))
+                ->toArray();
+
+            foreach ($parts['data'] as &$part) {
+                $part['attributes']['user_enabled'] = $choices[$part['attributes']['id']]
+                    ?? $part['attributes']['default_enabled'];
+            }
+
+            $response['meta']['startup_parts'] = $parts['data'];
+            $response['meta']['has_modular_startup'] = true;
+        }
+
+        return $response;
     }
 
     /**
@@ -98,5 +118,65 @@ class StartupController extends ClientApiController
                 'raw_startup_command' => $server->startup,
             ])
             ->toArray();
+    }
+
+    /**
+     * Updates the enabled/disabled state of the egg's modular startup parts for a server.
+     *
+     * @throws ValidationException
+     */
+    public function updateParts(UpdateStartupPartsRequest $request, Server $server): array
+    {
+        $eggParts = $server->egg->startupParts;
+
+        if ($eggParts->isEmpty()) {
+            throw new BadRequestHttpException('This server does not have configurable startup parts.');
+        }
+
+        // The `boolean` validation rule accepts "0" and "1" without casting them,
+        // and "0" is truthy. Normalize before anything decides what is enabled,
+        // otherwise a required part can be disabled through the guard below.
+        $requested = collect($request->input('parts', []))
+            ->map(fn (array $part) => [
+                'part_id' => (int) $part['part_id'],
+                'enabled' => filter_var($part['enabled'], FILTER_VALIDATE_BOOLEAN),
+            ]);
+
+        $validIds = $eggParts->pluck('id');
+
+        if ($invalid = $requested->pluck('part_id')->diff($validIds)->first()) {
+            throw new BadRequestHttpException("Invalid startup part ID: {$invalid}");
+        }
+
+        foreach ($eggParts->where('required', true) as $part) {
+            $choice = $requested->firstWhere('part_id', $part->id);
+
+            if (! ($choice['enabled'] ?? $part->default_enabled)) {
+                throw new BadRequestHttpException("The startup part '{$part->name}' is required and cannot be disabled.");
+            }
+        }
+
+        // Only persist parts the user explicitly sent; omitted parts fall back to their default state.
+        $server->update([
+            'startup_parts' => $requested->values()->all(),
+        ]);
+
+        $startup = $this->startupCommandService->handle($server->refresh());
+
+        Activity::event('server:startup.edit')
+            ->subject($server)
+            ->property([
+                'variable' => 'startup_parts',
+                'old' => null,
+                'new' => json_encode($server->startup_parts),
+            ])
+            ->log();
+
+        return [
+            'meta' => [
+                'startup_command' => $startup,
+                'raw_startup_command' => $server->startup,
+            ],
+        ];
     }
 }
