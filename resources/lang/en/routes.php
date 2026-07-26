@@ -22,6 +22,7 @@ return [
         'network' => 'Network',
         'subdomain' => 'Subdomain',
         'metrics' => 'Metrics',
+        'chat' => 'Assistant',
         'databases' => 'Databases',
         'schedules' => 'Schedules',
         'backups' => 'Backups',

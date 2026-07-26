@@ -61,7 +61,7 @@ const NavItem = ({ route }: NavItemProps) => {
         >
             <span className='flex items-center'>
                 {route.icon && <route.icon className='w-5 mr-1' />}
-                {route.name ? t(route.name) : null}
+                {route.name ? t(route.name, { defaultValue: route.label ?? route.name }) : null}
             </span>
         </Navigate>
     );

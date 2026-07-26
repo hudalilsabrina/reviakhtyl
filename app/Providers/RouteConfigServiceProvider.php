@@ -106,6 +106,14 @@ class RouteConfigServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($key);
         });
 
+        // Each assistant message can fan out into several paid provider calls,
+        // so it is limited far more tightly than an ordinary client request.
+        RateLimiter::for('api.chatbot', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinute(10)->by($key);
+        });
+
         RateLimiter::for('api.application', function (Request $request) {
             $key = optional($request->user())->uuid ?: $request->ip();
 

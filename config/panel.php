@@ -194,4 +194,34 @@ return [
     'features' => [
         'new_server_identifiers' => (bool) env('PANEL_USE_SERVER_IDENTIFIERS', false),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Chatbot
+    |--------------------------------------------------------------------------
+    |
+    | Defaults for the server assistant. Every value here is overridden by the
+    | matching `settings::panel:chatbot:*` key written from the admin area, so
+    | these only act as a fallback for installations that prefer configuring
+    | the panel entirely through the environment.
+    */
+
+    'chatbot' => [
+        'enabled' => (bool) env('PANEL_CHATBOT_ENABLED', false),
+        'base_url' => env('PANEL_CHATBOT_BASE_URL', 'https://api.openai.com/v1'),
+        'api_key' => env('PANEL_CHATBOT_API_KEY'),
+        'model' => env('PANEL_CHATBOT_MODEL', 'gpt-4o-mini'),
+        'temperature' => (float) env('PANEL_CHATBOT_TEMPERATURE', 0.2),
+        'max_tokens' => (int) env('PANEL_CHATBOT_MAX_TOKENS', 1024),
+        'max_iterations' => (int) env('PANEL_CHATBOT_MAX_ITERATIONS', 8),
+        'history_limit' => (int) env('PANEL_CHATBOT_HISTORY_LIMIT', 30),
+        'timeout' => (int) env('PANEL_CHATBOT_TIMEOUT', 120),
+        'require_confirmation' => (bool) env('PANEL_CHATBOT_REQUIRE_CONFIRMATION', true),
+        'system_prompt' => env('PANEL_CHATBOT_SYSTEM_PROMPT'),
+        // Comma-separated list, e.g. "server,power,files". Left null the panel
+        // falls back to App\Enum\ChatbotToolGroup::defaults().
+        'tool_groups' => ($groups = env('PANEL_CHATBOT_TOOL_GROUPS'))
+            ? array_values(array_filter(array_map('trim', explode(',', (string) $groups))))
+            : null,
+    ],
 ];

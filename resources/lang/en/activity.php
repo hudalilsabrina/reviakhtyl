@@ -50,6 +50,9 @@ return [
         'console' => [
             'command' => 'Executed ":command" on the server',
         ],
+        'chatbot' => [
+            'tool' => 'Used the AI assistant to run :tool',
+        ],
         'power' => [
             'start' => 'Started the server',
             'stop' => 'Stopped the server',
