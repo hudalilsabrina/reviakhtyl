@@ -145,6 +145,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
      */
     protected $fillable = [
         'external_id',
+        'telegram_id',
         'username',
         'email',
         'name_first',

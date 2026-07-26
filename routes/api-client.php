@@ -40,6 +40,12 @@ Route::prefix('/account')->middleware(AccountSubject::class)->group(function () 
     Route::get('/social-logins', [Client\SocialLoginController::class, 'index'])->name('api:client.account.social-logins');
     Route::delete('/social-logins/{provider}', [Client\SocialLoginController::class, 'delete'])->name('api:client.account.social-logins.delete');
 
+    Route::prefix('/telegram')->group(function () {
+        Route::get('/', [Client\TelegramController::class, 'index']);
+        Route::post('/generate-token', [Client\TelegramController::class, 'generateToken']);
+        Route::post('/unlink', [Client\TelegramController::class, 'unlink']);
+    });
+
     Route::get('/api-keys', [Client\ApiKeyController::class, 'index']);
     Route::post('/api-keys', [Client\ApiKeyController::class, 'store']);
     Route::delete('/api-keys/{identifier}', [Client\ApiKeyController::class, 'delete']);
