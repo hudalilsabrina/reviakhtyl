@@ -101,6 +101,8 @@ class Permission extends Model
 
     public const ACTION_MOD_MANAGE = 'mod.manage';
 
+    public const ACTION_PROPERTIES_MANAGE = 'properties.manage';
+
     /**
      * Should timestamps be used on this model.
      */
@@ -261,6 +263,13 @@ class Permission extends Model
             'description' => 'Permissions that control a user\'s access to the mod installer for this server.',
             'keys' => [
                 'manage' => 'Allows a user to search, install, update, and remove Minecraft mods on this server.',
+            ],
+        ],
+
+        'properties' => [
+            'description' => 'Permissions that control a user\'s access to the Minecraft server properties editor.',
+            'keys' => [
+                'manage' => 'Allows a user to view and change the settings in server.properties and accept the Minecraft EULA.',
             ],
         ],
     ];

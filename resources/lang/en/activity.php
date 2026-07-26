@@ -135,6 +135,11 @@ return [
             'update' => 'Updated the server subdomain to :subdomain',
             'delete' => 'Removed the :subdomain subdomain',
         ],
+        'properties' => [
+            'update' => 'Updated server.properties (:properties)',
+            'update-raw' => 'Replaced the contents of server.properties',
+            'eula' => 'Accepted the Minecraft EULA',
+        ],
         'startup' => [
             'edit' => 'Changed the :variable variable from ":old" to ":new"',
             'image' => 'Updated the Docker Image for the server from :old to :new',
