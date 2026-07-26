@@ -62,8 +62,12 @@ Registered in `config/chatbot.php`; each extends `App\Services\Chatbot\Tools\Cha
 | `files` | `list_files`, `read_file`, `write_file`, `create_folder`, `rename_files`, `copy_file`, `delete_files`, `compress_files`, `decompress_file` | write, rename, delete, decompress, copy, compress |
 | `subusers` | `list_subusers`, `list_subuser_permissions`, `create_subuser`, `update_subuser_permissions`, `delete_subuser` | create, update, delete |
 | `startup` | `get_startup`, `update_startup_variable`, `update_startup_parts` | the two updates |
+| `plugins` | `list_plugins`, `search_plugins`, `install_plugin`, `update_plugin`, `remove_plugin`, `toggle_plugin` | install, update, remove, toggle |
+| `mods` | `list_mods`, `search_mods`, `install_mod`, `update_mod`, `remove_mod`, `toggle_mod` | install, update, remove, toggle |
 
-`ChatbotToolGroup::defaults()` enables `server`, `power`, `files` and `startup` on a fresh install — `console` and `subusers` are off by default because they are the groups most easily abused via prompt injection from content the model reads.
+`ChatbotToolGroup::defaults()` enables `server`, `power`, `files` and `startup` on a fresh install. `console` and `subusers` are off because they are the easiest to abuse via prompt injection from content the model reads; `plugins` and `mods` are off because installing one means fetching third-party code from the internet and running it on the game server.
+
+The two registry groups are gated **twice**: by the group toggle and the subuser permission as usual, and then again inside every tool by `isEnabledFor($server)`, which is the egg allowlist (`panel:plugins:egg_ids` / `panel:mods:egg_ids`) that the plugin and mod pages use. A tool that skipped that check would install onto servers where an administrator had switched the feature off, so `PluginTool`/`ModTool` call it first in every `handle()`.
 
 To add a tool: implement the abstract class, list it in `config/chatbot.php`. Permissions must match the equivalent `app/Http/Requests/Api/Client/Servers/**` request class — do not invent new ones.
 

@@ -15,6 +15,8 @@ enum ChatbotToolGroup: string
     case Files = 'files';
     case Subusers = 'subusers';
     case Startup = 'startup';
+    case Plugins = 'plugins';
+    case Mods = 'mods';
 
     public function label(): string
     {
@@ -25,6 +27,8 @@ enum ChatbotToolGroup: string
             self::Files => 'File management',
             self::Subusers => 'Subuser management',
             self::Startup => 'Startup & variables',
+            self::Plugins => 'Plugin management',
+            self::Mods => 'Mod management',
         };
     }
 
@@ -37,14 +41,20 @@ enum ChatbotToolGroup: string
             self::Files => 'Browse, read, write, move, archive and delete files.',
             self::Subusers => 'List, invite, update and remove subusers.',
             self::Startup => 'Read and change startup variables and modular startup parts.',
+            self::Plugins => 'Search, install, update and remove plugins from the configured registries.',
+            self::Mods => 'Search, install, update and remove mods from the configured registries.',
         };
     }
 
     /**
-     * The groups enabled on a fresh installation. Console access and subuser
-     * management are deliberately left off by default: they are the two groups
-     * that can most easily be abused through prompt injection from file or
-     * console content the model reads.
+     * The groups enabled on a fresh installation.
+     *
+     * Console access, subuser management and the two registry groups are
+     * deliberately left off. Console and subuser tools are the easiest to abuse
+     * through prompt injection from file or console content the model reads,
+     * and installing a plugin or mod means fetching third-party code from the
+     * internet and running it on the game server — the highest-consequence
+     * action available, so an administrator opts into it explicitly.
      */
     public static function defaults(): array
     {
