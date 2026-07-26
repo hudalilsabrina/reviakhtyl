@@ -23,7 +23,7 @@ class ServerModTransformer extends BaseClientTransformer
             'version_number' => $mod->version_number,
             'file_name' => $mod->file_name,
             'icon_url' => $mod->icon_url,
-            'disabled' => str_ends_with($mod->file_name, '.disabled'),
+            'disabled' => $mod->disabled,
         ];
     }
 }

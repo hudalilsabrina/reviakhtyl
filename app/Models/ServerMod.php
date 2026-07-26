@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string $version_number
  * @property string $file_name
  * @property string|null $icon_url
+ * @property bool $disabled
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Server $server
@@ -37,6 +38,16 @@ class ServerMod extends Model
         'file_name',
         'icon_url',
     ];
+
+    protected $appends = ['disabled'];
+
+    /**
+     * A mod is disabled by renaming its jar, so the suffix is the state.
+     */
+    public function getDisabledAttribute(): bool
+    {
+        return str_ends_with($this->file_name, '.disabled');
+    }
 
     public function server(): BelongsTo
     {

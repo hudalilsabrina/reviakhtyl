@@ -131,7 +131,7 @@ abstract class ModTool extends ChatbotTool
 
     protected function isDisabled(ServerMod $mod): bool
     {
-        return str_ends_with((string) $mod->file_name, '.disabled');
+        return $mod->disabled;
     }
 
     /**

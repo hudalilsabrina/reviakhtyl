@@ -2,7 +2,7 @@
 
 namespace App\Services\Chatbot\Tools\Plugins;
 
-use App\Exceptions\DisplayException;
+use App\Exceptions\Service\Plugins\PluginUpToDateException;
 use App\Services\Chatbot\ToolContext;
 
 class UpdatePluginTool extends PluginTool
@@ -56,15 +56,11 @@ class UpdatePluginTool extends PluginTool
 
         try {
             $updated = $this->manager->update($context->server, $plugin);
-        } catch (DisplayException $e) {
+        } catch (PluginUpToDateException) {
             // The service signals "nothing to do" by throwing. Reported as a
             // failure the model apologises and retries, so it is turned back
             // into the ordinary outcome it actually is. Other failures — a
             // download error, say — still propagate.
-            if (! str_contains($e->getMessage(), 'up to date')) {
-                throw $e;
-            }
-
             return $this->describe($plugin) + [
                 'changed' => false,
                 'message' => "\"$plugin->title\" is already on the newest compatible version ($before).",

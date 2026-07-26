@@ -4,6 +4,7 @@ namespace App\Services\Mods;
 
 use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Exceptions\DisplayException;
+use App\Exceptions\Service\Mods\ModUpToDateException;
 use App\Models\Server;
 use App\Models\ServerMod;
 use App\Repositories\Agent\DaemonFileRepository;
@@ -207,7 +208,7 @@ class ModManagerService
         );
 
         if (! $latest) {
-            throw new DisplayException('Mod is already up to date.');
+            throw new ModUpToDateException;
         }
 
         $this->pull($server, $latest, $mod);
