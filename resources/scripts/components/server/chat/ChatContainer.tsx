@@ -7,7 +7,8 @@ import createConversation from '@/api/server/chat/createConversation';
 import deleteConversation from '@/api/server/chat/deleteConversation';
 import getConversation from '@/api/server/chat/getConversation';
 import sendMessage from '@/api/server/chat/sendMessage';
-import { ChatMessage, ChatTool } from '@/api/server/chat/types';
+import streamMessage, { ChatStreamHandlers, isStreamUnsupported } from '@/api/server/chat/streamMessage';
+import { ChatMessage, ChatTool, ChatToolCall } from '@/api/server/chat/types';
 import getServerChatConfig from '@/api/swr/getServerChatConfig';
 import getServerChatConversations from '@/api/swr/getServerChatConversations';
 import { httpErrorToHuman } from '@/api/http';
@@ -98,6 +99,28 @@ const mergeMessages = (existing: ChatMessage[], incoming: ChatMessage[]): ChatMe
     return merged.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
 };
 
+/** Appends a streamed fragment to the message it belongs to. */
+const applyDelta = (messages: ChatMessage[], uuid: string, fragment: string): ChatMessage[] =>
+    messages.map((message) =>
+        message.uuid === uuid ? { ...message, content: (message.content ?? '') + fragment } : message
+    );
+
+/** Upserts a tool call by id — a call is announced when proposed and again once it has run. */
+const applyToolCall = (messages: ChatMessage[], uuid: string, call: ChatToolCall): ChatMessage[] =>
+    messages.map((message) => {
+        if (message.uuid !== uuid) return message;
+
+        const index = message.toolCalls.findIndex((existing) => existing.id === call.id);
+
+        return {
+            ...message,
+            toolCalls:
+                index === -1
+                    ? [...message.toolCalls, call]
+                    : message.toolCalls.map((existing, position) => (position === index ? call : existing)),
+        };
+    });
+
 const buildExamples = (tools: ChatTool[]): string[] => {
     const groups = new Set(tools.map((tool) => tool.group));
 
@@ -131,6 +154,8 @@ const ChatContainer = () => {
     const [loadingThread, setLoadingThread] = useState(false);
     const [busy, setBusy] = useState(false);
     const [listOpen, setListOpen] = useState(false);
+    // The message currently receiving text, so its bubble can show a cursor.
+    const [streamingUuid, setStreamingUuid] = useState<string | null>(null);
     // Incremented whenever a thread's messages are installed, to trigger the
     // scroll-to-newest exactly once per opened conversation.
     const [threadRevision, setThreadRevision] = useState(0);
@@ -142,10 +167,24 @@ const ChatContainer = () => {
     // A request can take minutes, and the user is free to switch conversations while it runs.
     // Responses are matched against this before they are allowed to touch the thread.
     const activeRef = useRef<string | null>(null);
+    // The in-flight response stream, so it can be torn down when the user walks away from it.
+    const streamRef = useRef<AbortController | null>(null);
 
     useEffect(() => {
         activeRef.current = active;
     }, [active]);
+
+    // Nothing is listening for the rest of the turn once this page is gone.
+    useEffect(() => () => streamRef.current?.abort(), []);
+
+    /**
+     * Stops reading the response of a turn whose thread is no longer on screen. The turn
+     * itself keeps running server-side; re-opening the conversation reads the result.
+     */
+    const abortStream = () => {
+        streamRef.current?.abort();
+        streamRef.current = null;
+    };
 
     const examples = useMemo(() => buildExamples(config?.tools ?? []), [config]);
 
@@ -228,6 +267,7 @@ const ChatContainer = () => {
      * threads in the list.
      */
     const handleCreate = () => {
+        abortStream();
         setListOpen(false);
         clearFlashes();
         setActive(null);
@@ -235,6 +275,8 @@ const ChatContainer = () => {
     };
 
     const handleSelect = (conversation: string) => {
+        if (conversation !== active) abortStream();
+
         setListOpen(false);
         setActive(conversation);
     };
@@ -244,6 +286,7 @@ const ChatContainer = () => {
         mutateConversations((data) => (data || []).filter((c) => c.uuid !== conversation), false);
 
         if (conversation === active) {
+            abortStream();
             setActive(null);
             setMessages([]);
         }
@@ -286,7 +329,18 @@ const ChatContainer = () => {
         clearFlashes();
         setMessages((current) => [...current, echo]);
 
+        const controller = new AbortController();
+        abortStream();
+        streamRef.current = controller;
+
         let conversation = active;
+        // Set once the server has stored the message. After that, handing the text back to the
+        // composer would show it twice — once in the thread, once in the input.
+        let acknowledged = false;
+        // Only the `done` event makes what is on screen authoritative. Anything short of it —
+        // a dropped connection, a truncated final event — leaves the thread to be re-read.
+        let reconciled = false;
+        let failure: Error | null = null;
 
         try {
             if (!conversation) {
@@ -295,27 +349,76 @@ const ChatContainer = () => {
                 conversation = created.uuid;
                 skipLoadRef.current = created.uuid;
                 setActive(created.uuid);
+                // The effect mirroring `active` into the ref does not run until the next
+                // render, and the first events land well before that — without this the guard
+                // below would reject the events of the conversation it has just opened.
+                activeRef.current = created.uuid;
                 mutateConversations((data) => [created, ...(data || [])], false);
             }
 
-            const incoming = await sendMessage(uuid, conversation, content);
+            const target = conversation;
+            // The user is free to switch conversations while this runs; a late event must
+            // never be merged into whichever thread happens to be open now.
+            const update = (apply: (current: ChatMessage[]) => ChatMessage[]) => {
+                if (activeRef.current === target) setMessages(apply);
+            };
 
-            // The user is free to switch conversations while this runs; a late reply
-            // must never be merged into whichever thread happens to be open now.
-            if (activeRef.current === conversation) {
-                setMessages((current) => mergeMessages(current, incoming));
+            const handlers: ChatStreamHandlers = {
+                onMessage: (message) => {
+                    acknowledged = true;
+                    update((current) => mergeMessages(current, [message]));
+                },
+                onDelta: (messageUuid, fragment) => {
+                    setStreamingUuid(messageUuid);
+                    update((current) => applyDelta(current, messageUuid, fragment));
+                },
+                onTool: (messageUuid, call) => update((current) => applyToolCall(current, messageUuid, call)),
+                onStatus: () => setStreamingUuid(null),
+                onDone: (incoming) => {
+                    reconciled = true;
+                    setStreamingUuid(null);
+                    update((current) => mergeMessages(current, incoming));
+                },
+                // The turn failed after it had started. The message is already in the thread,
+                // so this is reported once the stream closes rather than thrown mid-flight.
+                onError: (problem) => {
+                    failure = new Error(problem);
+                },
+            };
+
+            try {
+                await streamMessage(uuid, target, content, handlers, controller.signal);
+            } catch (error) {
+                if (!isStreamUnsupported(error)) throw error;
+
+                // An older backend, or a proxy that will not carry an event stream. The
+                // blocking endpoint answers the same question, just all at once.
+                const incoming = await sendMessage(uuid, target, content);
+
+                acknowledged = true;
+                reconciled = true;
+                update((current) => mergeMessages(current, incoming));
             }
+
+            if (failure) throw failure;
+            if (!reconciled) await resyncThread(target);
 
             mutateConversations();
         } catch (error) {
-            // Hand the message back so a failed request does not lose what was typed,
-            // and take the echo away so the thread does not claim it was sent.
+            // Walking away from a turn is not a failure; the thread it belonged to is gone.
+            if (controller.signal.aborted) return;
+
+            // Take the echo away so the thread does not claim the message was sent, and hand
+            // the text back so it is not lost — unless the server already stored it.
             setMessages((current) => current.filter((message) => message.uuid !== echo.uuid));
-            setInput((current) => (current.length === 0 ? content : current));
+            if (!acknowledged) setInput((current) => (current.length === 0 ? content : current));
             clearAndAddHttpError(error as Error);
 
             if (conversation) await resyncThread(conversation);
         } finally {
+            if (streamRef.current === controller) streamRef.current = null;
+
+            setStreamingUuid(null);
             setBusy(false);
         }
     };
@@ -440,7 +543,13 @@ const ChatContainer = () => {
                                 </div>
                             </div>
                         ) : (
-                            messages.map((message) => <ChatMessageRow key={message.uuid} message={message} />)
+                            messages.map((message) => (
+                                <ChatMessageRow
+                                    key={message.uuid}
+                                    message={message}
+                                    streaming={message.uuid === streamingUuid}
+                                />
+                            ))
                         )}
 
                         {busy && (
