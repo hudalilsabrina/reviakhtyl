@@ -58,23 +58,14 @@ export class ChatStreamError extends Error {
 export const isStreamUnsupported = (error: unknown): boolean => error instanceof ChatStreamError && error.unsupported;
 
 /**
- * The wire form of a message. The REST endpoints hand back snake_case which
- * `rawDataToChatMessage` converts; the stream contract describes its payload as "the
- * existing Message shape", which does not say which of the two it means. Both are accepted
- * rather than betting on one and finding out in production.
+ * The stream reuses the same shaper as every other chat endpoint, so its `message` and `done`
+ * payloads are ordinary snake_case `RawChatMessage`s and go through the one transformer that
+ * knows that shape. The only thing added here is a guard on the timestamp: an absent
+ * `created_at` would become an Invalid Date, which throws when the row is formatted rather
+ * than when it is parsed — a long way from the cause.
  */
-type WireChatMessage = Omit<RawChatMessage, 'created_at'> & {
-    created_at?: string;
-    createdAt?: string;
-    toolCalls?: RawChatToolCall[] | null;
-};
-
-const toChatMessage = (data: WireChatMessage): ChatMessage =>
-    rawDataToChatMessage({
-        ...data,
-        tool_calls: data.tool_calls ?? data.toolCalls ?? null,
-        created_at: data.created_at ?? data.createdAt ?? new Date().toISOString(),
-    });
+const toChatMessage = (data: RawChatMessage): ChatMessage =>
+    rawDataToChatMessage(data.created_at ? data : { ...data, created_at: new Date().toISOString() });
 
 /**
  * Incrementally turns raw response chunks into SSE events.
