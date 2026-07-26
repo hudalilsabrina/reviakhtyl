@@ -13,7 +13,7 @@ class SearchPluginsTool extends PluginTool
 
     public function description(): string
     {
-        return 'Search a plugin registry for plugins compatible with this server\'s loader and game version. Results include the project id needed to install one, and the version already installed if there is one. Searching installs nothing on its own.';
+        return 'Search a plugin registry for plugins compatible with this server\'s loader and game version. Results include the project id needed to install one, and the version already installed if there is one. Searching installs nothing on its own. To see which builds of a particular result are available, call list_plugin_versions with its project id — search results say nothing about what versions exist.';
     }
 
     public function parameters(): array

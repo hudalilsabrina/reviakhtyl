@@ -14,7 +14,7 @@ class SearchModsTool extends ModTool
 
     public function description(): string
     {
-        return 'Search a mod registry for mods this server can actually run. The search is filtered automatically to the server\'s mod loader and game version, so results that come back are compatible; a mod the user names but that does not appear here has no build for this server. Each result carries the project_id that install_mod needs, and an installed_version telling you which version of it is already on the server, if any. This only searches — it installs nothing.';
+        return 'Search a mod registry for mods this server can actually run. The search is filtered automatically to the server\'s mod loader and game version, so results that come back are compatible; a mod the user names but that does not appear here has no build for this server. Each result carries the project_id that install_mod needs, and an installed_version telling you which version of it is already on the server, if any. This only searches — it installs nothing, and it says nothing about which builds of a result exist; call list_mod_versions with a project_id for that.';
     }
 
     public function parameters(): array
