@@ -56,7 +56,7 @@ Registered in `config/chatbot.php`; each extends `App\Services\Chatbot\Tools\Cha
 
 | Group | Tools | Destructive |
 |-------|-------|-------------|
-| `server` | `get_server_details`, `get_server_resources` | — |
+| `server` | `get_server_details`, `get_server_resources`, `get_resource_history`, `get_activity_log` | — |
 | `power` | `power_action` | yes |
 | `console` | `send_console_command` | yes |
 | `files` | `list_files`, `read_file`, `write_file`, `create_folder`, `rename_files`, `copy_file`, `delete_files`, `compress_files`, `decompress_file` | write, rename, delete, decompress, copy, compress |
@@ -92,6 +92,8 @@ To add a tool: implement the abstract class, list it in `config/chatbot.php`. Pe
 - **Turns are serialized per conversation** by a `Cache::lock` (`withTurnLock()`), and a confirmation decision is claimed with a conditional `UPDATE … WHERE status = 'awaiting_confirmation'`. Both exist because the read-then-write version let two concurrent approvals execute the same destructive batch twice. The lock is never waited on — a second request means a double submit.
 - **Copying and archiving are destructive.** They consume disk in proportion to what they are pointed at, and `compress_files` holds a 15-minute daemon timeout, so injected instructions could otherwise fill a node without the user ever being asked.
 - **A single model response may execute at most `MAX_CALLS_PER_TURN` (8) tool calls.** Each call is a daemon request; the surplus is dropped and the model is told why so it narrows its next attempt.
+- **`get_resource_history` summarises rather than dumps.** It returns SQL-computed averages and peaks over the whole window (accurate regardless of sample count), when each peak occurred, and a trend downsampled to 12 points from at most 400 rows. Handing a model 28 raw rows costs context and answers the question worse.
+- **`get_activity_log` never returns IP addresses.** The panel shows an IP only to the actor themselves; rather than reproduce that rule the field is dropped outright, along with `useragent`. It otherwise mirrors `ActivityLogController`: `ActivityLog::DISABLED_EVENTS` excluded, and `config('activity.hide_admin_activity')` honoured by rejecting root-admin actors who are not the owner or a subuser.
 - **Tool results are permission-shaped, not just permission-gated.** `get_server_details` mirrors `ServerTransformer`: without `allocation.read` it returns only the primary allocation with `notes` nulled. When adding a tool, check what the equivalent *transformer* hides, not only what the request class requires.
 - **Activity log**: `server:chatbot.tool`, with `tool`, `group` and `arguments` properties — argument values over 512 characters are replaced with a placeholder, because activity properties are readable by anyone with `activity.read` and a `write_file` body would otherwise be exposed to a user without `file.read-content`. Translation in `resources/lang/en/activity.php`. Log failures never break a conversation.
 
