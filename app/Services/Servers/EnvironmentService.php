@@ -73,12 +73,10 @@ class EnvironmentService
             return '';
         }
 
-        $choices = collect($server->startup_parts ?? [])
-            ->filter(fn ($choice) => is_array($choice) && isset($choice['part_id']))
-            ->keyBy('part_id');
+        $choices = $server->startupPartChoices();
 
         return $parts
-            ->filter(fn ($part) => ($choices[$part->id]['enabled'] ?? $part->default_enabled) && trim($part->value) !== '')
+            ->filter(fn ($part) => ($choices[$part->id] ?? $part->default_enabled) && trim($part->value) !== '')
             ->map(fn ($part) => trim($part->value))
             ->implode(' ');
     }

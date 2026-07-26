@@ -50,16 +50,14 @@ class StartupController extends ClientApiController
         $eggParts = $server->egg->startupParts;
 
         if ($eggParts->isNotEmpty()) {
-            $choices = collect($server->startup_parts ?? [])
-                ->filter(fn ($choice) => is_array($choice) && isset($choice['part_id']))
-                ->keyBy('part_id');
+            $choices = $server->startupPartChoices();
 
             $parts = $this->fractal->collection($eggParts)
                 ->transformWith($this->getTransformer(EggStartupPartTransformer::class))
                 ->toArray();
 
             foreach ($parts['data'] as &$part) {
-                $part['attributes']['user_enabled'] = $choices[$part['attributes']['id']]['enabled']
+                $part['attributes']['user_enabled'] = $choices[$part['attributes']['id']]
                     ?? $part['attributes']['default_enabled'];
             }
 
@@ -137,7 +135,15 @@ class StartupController extends ClientApiController
             throw new BadRequestHttpException('This server does not have configurable startup parts.');
         }
 
-        $requested = collect($request->input('parts', []));
+        // The `boolean` validation rule accepts "0" and "1" without casting them,
+        // and "0" is truthy. Normalize before anything decides what is enabled,
+        // otherwise a required part can be disabled through the guard below.
+        $requested = collect($request->input('parts', []))
+            ->map(fn (array $part) => [
+                'part_id' => (int) $part['part_id'],
+                'enabled' => filter_var($part['enabled'], FILTER_VALIDATE_BOOLEAN),
+            ]);
+
         $validIds = $eggParts->pluck('id');
 
         if ($invalid = $requested->pluck('part_id')->diff($validIds)->first()) {
@@ -154,10 +160,7 @@ class StartupController extends ClientApiController
 
         // Only persist parts the user explicitly sent; omitted parts fall back to their default state.
         $server->update([
-            'startup_parts' => $requested
-                ->map(fn ($part) => ['part_id' => $part['part_id'], 'enabled' => $part['enabled']])
-                ->values()
-                ->all(),
+            'startup_parts' => $requested->values()->all(),
         ]);
 
         $startup = $this->startupCommandService->handle($server->refresh());
