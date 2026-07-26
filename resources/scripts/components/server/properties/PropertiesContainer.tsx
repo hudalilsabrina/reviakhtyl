@@ -3,11 +3,10 @@ import tw from 'twin.macro';
 import styled from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
-import { FaArrowsRotate, FaMagnifyingGlass, FaScroll } from 'react-icons/fa6';
+import { FaArrowsRotate, FaFileCirclePlus, FaMagnifyingGlass, FaScroll } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Card from '@/reviactyl/ui/Card';
 import Spinner from '@/reviactyl/elements/Spinner';
-import SpinnerOverlay from '@/reviactyl/elements/SpinnerOverlay';
 import Input from '@/reviactyl/elements/Input';
 import { Button } from '@/reviactyl/elements/button/index';
 import { ServerContext } from '@/state/server';
@@ -22,9 +21,10 @@ import {
     PropertyDefinition,
     ServerProperties,
 } from '@/api/server/properties/properties';
-import PropertyField from './PropertyField';
+import PropertyGroupCard from './PropertyGroupCard';
 import RawEditorTab from './RawEditorTab';
 import Banner from './Banner';
+import { validateProperty } from './validation';
 
 const FLASH_KEY = 'server:properties';
 
@@ -34,6 +34,13 @@ const Tab = styled.button<{ $active: boolean }>`
         $active
             ? tw`bg-cyan-500/20 text-cyan-300 border-cyan-500/50`
             : tw`bg-gray-800/60 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200`};
+    &:disabled {
+        ${tw`opacity-50 cursor-not-allowed hover:border-gray-700 hover:text-gray-400`};
+    }
+`;
+
+const SaveBar = styled(Card)`
+    ${tw`flex items-center justify-end gap-3 flex-wrap shadow-lg border-cyan-500/40 bg-gray-900`};
 `;
 
 /**
@@ -71,6 +78,7 @@ const PropertiesContainer = () => {
     const { t } = useTranslation('server/properties');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const status = ServerContext.useStoreState((state) => state.status.value);
+    const connected = ServerContext.useStoreState((state) => state.socket.connected);
     const instance = ServerContext.useStoreState((state) => state.socket.instance);
     const { addError, addFlash, clearFlashes } = useStoreActions(
         (actions: Actions<ApplicationStore>) => actions.flashes
@@ -80,8 +88,10 @@ const PropertiesContainer = () => {
     const [saving, setSaving] = useState(false);
     const [tab, setTab] = useState<'form' | 'raw'>('form');
     const [query, setQuery] = useState('');
+    const [expandedIds, setExpandedIds] = useState<string[]>([]);
     const [data, setData] = useState<ServerProperties | null>(null);
     const [values, setValues] = useState<Record<string, string>>({});
+    const [saveError, setSaveError] = useState<string | null>(null);
     const [needsRestart, setNeedsRestart] = useState(false);
 
     const load = (state: ServerProperties) => {
@@ -113,6 +123,30 @@ const PropertiesContainer = () => {
 
     const changeCount = Object.keys(changes).length;
 
+    const invalid = useMemo(
+        () =>
+            (data?.groups || []).some((group) =>
+                group.properties.some(
+                    (definition) => validateProperty(definition, values[definition.key] ?? definition.default) !== null
+                )
+            ),
+        [data, values]
+    );
+
+    // Losing a page of edits to a stray refresh is the one failure this form
+    // cannot undo, so warn on unload while anything is pending.
+    useEffect(() => {
+        if (changeCount === 0) return;
+
+        const listener = (e: BeforeUnloadEvent) => e.preventDefault();
+
+        window.addEventListener('beforeunload', listener);
+
+        return () => window.removeEventListener('beforeunload', listener);
+    }, [changeCount]);
+
+    const searching = query.trim().length > 0;
+
     const groups = useMemo(
         () =>
             (data?.groups || [])
@@ -121,10 +155,28 @@ const PropertiesContainer = () => {
         [data, query]
     );
 
+    const allExpanded = groups.length > 0 && groups.every((group) => expandedIds.includes(group.id));
+
+    const toggleGroup = (id: string) =>
+        setExpandedIds((current) =>
+            current.includes(id) ? current.filter((value) => value !== id) : [...current, id]
+        );
+
+    /** Pull hidden edits back into view: drop the search, open every group holding one. */
+    const revealChanges = () => {
+        setQuery('');
+        setExpandedIds(
+            (data?.groups || [])
+                .filter((group) => group.properties.some((p) => changes[p.key] !== undefined))
+                .map((group) => group.id)
+        );
+    };
+
     const save = () => {
-        if (changeCount === 0) return;
+        if (changeCount === 0 || invalid) return;
 
         setSaving(true);
+        setSaveError(null);
         clearFlashes(FLASH_KEY);
         updateProperties(uuid, changes)
             .then((state) => {
@@ -132,12 +184,13 @@ const PropertiesContainer = () => {
                 setNeedsRestart(true);
                 addFlash({ type: 'success', key: FLASH_KEY, message: t('saved') });
             })
-            .catch((error) => addError({ key: FLASH_KEY, message: httpErrorToHuman(error) }))
+            .catch((error) => setSaveError(httpErrorToHuman(error)))
             .finally(() => setSaving(false));
     };
 
     const saveRaw = (content: string) => {
         setSaving(true);
+        setSaveError(null);
         clearFlashes(FLASH_KEY);
         updateRawProperties(uuid, content)
             .then((state) => {
@@ -145,7 +198,7 @@ const PropertiesContainer = () => {
                 setNeedsRestart(true);
                 addFlash({ type: 'success', key: FLASH_KEY, message: t('saved') });
             })
-            .catch((error) => addError({ key: FLASH_KEY, message: httpErrorToHuman(error) }))
+            .catch((error) => setSaveError(httpErrorToHuman(error)))
             .finally(() => setSaving(false));
     };
 
@@ -161,8 +214,12 @@ const PropertiesContainer = () => {
             .finally(() => setSaving(false));
     };
 
+    const offline = status === 'offline' || status === null;
+
     const restart = () => {
-        instance?.send(SocketRequest.SET_STATE, status === 'offline' ? 'start' : 'restart');
+        if (!instance) return;
+
+        instance.send(SocketRequest.SET_STATE, offline ? 'start' : 'restart');
         setNeedsRestart(false);
     };
 
@@ -171,8 +228,7 @@ const PropertiesContainer = () => {
             {loading || !data ? (
                 <Spinner size={'large'} centered />
             ) : (
-                <div css={tw`space-y-4 relative`}>
-                    <SpinnerOverlay visible={saving} />
+                <div css={tw`space-y-4`}>
                     <p css={tw`text-sm text-gray-400`}>{t('subtitle')}</p>
 
                     {!data.eulaAccepted && (
@@ -198,46 +254,84 @@ const PropertiesContainer = () => {
                         </Banner>
                     )}
 
+                    {!data.exists && (
+                        <Banner tone={'warning'} icon={<FaFileCirclePlus />} title={t('missing_title')}>
+                            {t('missing_file')}
+                        </Banner>
+                    )}
+
                     {needsRestart && (
                         <Banner
                             tone={'info'}
                             icon={<FaArrowsRotate />}
                             title={t('restart_title')}
                             action={
-                                <Button size={Button.Sizes.Small} onClick={restart}>
-                                    {t('restart_action')}
+                                <Button
+                                    size={Button.Sizes.Small}
+                                    disabled={!connected || !instance}
+                                    title={!connected ? t('restart_disconnected') : undefined}
+                                    onClick={restart}
+                                >
+                                    {offline ? t('start_action') : t('restart_action')}
                                 </Button>
                             }
                         >
-                            {t('restart_body')}
+                            {offline ? t('restart_offline') : t('restart_body')}
                         </Banner>
                     )}
 
-                    {!data.exists && <p css={tw`text-xs text-gray-400`}>{t('missing_file')}</p>}
-
-                    <div css={tw`flex items-center gap-2`}>
-                        <Tab type={'button'} $active={tab === 'form'} onClick={() => setTab('form')}>
+                    <div role={'tablist'} css={tw`flex items-center gap-2`}>
+                        <Tab
+                            type={'button'}
+                            role={'tab'}
+                            aria-selected={tab === 'form'}
+                            $active={tab === 'form'}
+                            onClick={() => setTab('form')}
+                        >
                             {t('tab_form')}
                         </Tab>
-                        <Tab type={'button'} $active={tab === 'raw'} onClick={() => setTab('raw')}>
+                        <Tab
+                            type={'button'}
+                            role={'tab'}
+                            aria-selected={tab === 'raw'}
+                            $active={tab === 'raw'}
+                            // The raw editor renders the saved file, so switching with pending
+                            // form edits would quietly write them away.
+                            disabled={changeCount > 0}
+                            title={changeCount > 0 ? t('raw_blocked') : undefined}
+                            onClick={() => setTab('raw')}
+                        >
                             {t('tab_raw')}
                         </Tab>
                     </div>
 
                     {tab === 'raw' ? (
-                        <RawEditorTab content={data.raw} saving={saving} onSave={saveRaw} />
+                        <>
+                            {saveError && <p css={tw`text-sm text-red-400`}>{saveError}</p>}
+                            <RawEditorTab content={data.raw} saving={saving} onSave={saveRaw} />
+                        </>
                     ) : (
                         <>
-                            <div css={tw`relative`}>
-                                <FaMagnifyingGlass
-                                    css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm`}
-                                />
-                                <Input
-                                    value={query}
-                                    onChange={(e) => setQuery(e.currentTarget.value)}
-                                    placeholder={t('search_placeholder')}
-                                    css={tw`pl-9`}
-                                />
+                            <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                <div css={tw`relative flex-1 min-w-[12rem]`}>
+                                    <FaMagnifyingGlass
+                                        css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm`}
+                                        aria-hidden={'true'}
+                                    />
+                                    <Input
+                                        value={query}
+                                        onChange={(e) => setQuery(e.currentTarget.value)}
+                                        placeholder={t('search_placeholder')}
+                                        aria-label={t('search_label')}
+                                        css={tw`pl-9`}
+                                    />
+                                </div>
+                                <Button.Text
+                                    type={'button'}
+                                    onClick={() => setExpandedIds(allExpanded ? [] : groups.map((g) => g.id))}
+                                >
+                                    {allExpanded ? t('collapse_all') : t('expand_all')}
+                                </Button.Text>
                             </div>
 
                             {groups.length === 0 ? (
@@ -246,41 +340,52 @@ const PropertiesContainer = () => {
                                 </Card>
                             ) : (
                                 groups.map((group) => (
-                                    <Card key={group.id}>
-                                        <h2 css={tw`text-sm font-semibold uppercase tracking-wider text-gray-300`}>
-                                            {group.label}
-                                        </h2>
-                                        <div css={tw`divide-y divide-gray-800`}>
-                                            {group.properties.map((definition) => (
-                                                <PropertyField
-                                                    key={definition.key}
-                                                    definition={definition}
-                                                    value={values[definition.key] ?? definition.default}
-                                                    onChange={(key, value) =>
-                                                        setValues((current) => ({ ...current, [key]: value }))
-                                                    }
-                                                />
-                                            ))}
-                                        </div>
-                                    </Card>
+                                    <PropertyGroupCard
+                                        key={group.id}
+                                        group={group}
+                                        values={values}
+                                        changed={changes}
+                                        expanded={searching || expandedIds.includes(group.id)}
+                                        onToggle={toggleGroup}
+                                        onChange={(key, value) =>
+                                            setValues((current) => ({ ...current, [key]: value }))
+                                        }
+                                    />
                                 ))
                             )}
 
-                            <div css={tw`flex items-center justify-end gap-3`}>
-                                {changeCount > 0 && (
-                                    <>
-                                        <span css={tw`text-xs text-gray-400`}>
+                            {changeCount > 0 && (
+                                <div css={tw`sticky bottom-4 z-10`}>
+                                    <SaveBar>
+                                        {saveError && (
+                                            <span css={tw`flex-1 min-w-full sm:min-w-0 text-xs text-red-400`}>
+                                                {saveError}
+                                            </span>
+                                        )}
+                                        {invalid && !saveError && (
+                                            <span css={tw`flex-1 min-w-full sm:min-w-0 text-xs text-red-400`}>
+                                                {t('invalid')}
+                                            </span>
+                                        )}
+                                        <Button.Text type={'button'} onClick={revealChanges}>
                                             {t('unsaved', { count: changeCount })}
-                                        </span>
-                                        <Button.Text type={'button'} onClick={() => setValues(baseline)}>
+                                        </Button.Text>
+                                        <Button.Text
+                                            type={'button'}
+                                            disabled={saving}
+                                            onClick={() => {
+                                                setValues(baseline);
+                                                setSaveError(null);
+                                            }}
+                                        >
                                             {t('discard')}
                                         </Button.Text>
-                                    </>
-                                )}
-                                <Button disabled={changeCount === 0 || saving} onClick={save}>
-                                    {saving ? t('saving') : t('save')}
-                                </Button>
-                            </div>
+                                        <Button disabled={saving || invalid} onClick={save}>
+                                            {saving ? t('saving') : t('save')}
+                                        </Button>
+                                    </SaveBar>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
