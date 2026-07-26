@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import streamMessage, {
+import streamConfirmation from '@/api/server/chat/streamConfirmation';
+import streamMessage from '@/api/server/chat/streamMessage';
+import streamRequest, {
     ChatStreamError,
     ChatStreamHandlers,
     ServerSentEvent,
     createEventStreamParser,
     handleEvent,
     isStreamUnsupported,
-} from '@/api/server/chat/streamMessage';
+} from '@/api/server/chat/streamRequest';
 import { ChatMessage } from '@/api/server/chat/types';
+import { applyDelta, applyToolCall, mergeMessages } from '@/components/server/chat/thread';
 
 /** Feeds the parser a body split at the given offsets, returning everything it dispatched. */
 const parse = (chunks: string[]): ServerSentEvent[] => {
@@ -166,6 +169,16 @@ describe('handleEvent', () => {
         ]);
     });
 
+    it('reports a turn that ended in a refusal', () => {
+        const { calls, handlers } = collect();
+
+        // Only a confirmation can close this way. It is a state of the turn like any other and
+        // must reach the client, which is what stops the cursor blinking on a message.
+        handleEvent({ event: 'status', data: '{"status":"denied"}' }, handlers);
+
+        expect(calls).toEqual(['status:denied']);
+    });
+
     it('transforms a message exactly as the endpoint emits it', () => {
         const received: ChatMessage[] = [];
         // Byte for byte what the endpoint writes for a freshly created assistant message,
@@ -256,30 +269,40 @@ const streamingResponse = (chunks: string[]): Response => {
     } as unknown as Response;
 };
 
-describe('streamMessage', () => {
-    afterEach(() => {
-        vi.unstubAllGlobals();
-        document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-    });
+const stubStream = (chunks: string[]) => {
+    const fetchMock = vi.fn(() => Promise.resolve(streamingResponse(chunks)));
+    vi.stubGlobal('fetch', fetchMock);
 
+    return fetchMock;
+};
+
+const requestOf = (fetchMock: ReturnType<typeof stubStream>): [string, RequestInit] =>
+    fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+
+const stubFailure = (status: number, body = '') =>
+    vi.stubGlobal(
+        'fetch',
+        vi.fn(() => Promise.resolve({ ok: false, status, text: () => Promise.resolve(body) } as Response))
+    );
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+    document.cookie = 'XSRF-TOKEN=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+});
+
+describe('streamRequest', () => {
     it('posts with the panel credentials and reports the turn as it arrives', async () => {
         document.cookie = `XSRF-TOKEN=${encodeURIComponent('token/with+padding=')}`;
 
-        const fetchMock = vi.fn(() =>
-            Promise.resolve(
-                streamingResponse([
-                    `event: message\ndata: ${JSON.stringify({ message: message('a', 'user', 'hi') })}\n\nevent: del`,
-                    `ta\ndata: {"uuid":"b","content":"hey"}\n\nevent: done\ndata: {"messages":[]}\n\n`,
-                ])
-            )
-        );
-        vi.stubGlobal('fetch', fetchMock);
+        const fetchMock = stubStream([
+            `event: message\ndata: ${JSON.stringify({ message: message('a', 'user', 'hi') })}\n\nevent: del`,
+            `ta\ndata: {"uuid":"b","content":"hey"}\n\nevent: done\ndata: {"messages":[]}\n\n`,
+        ]);
 
         const calls: string[] = [];
-        await streamMessage(
-            'server-uuid',
-            'conversation-uuid',
-            'hi',
+        await streamRequest(
+            '/api/client/servers/server-uuid/chat/conversations/conversation-uuid/messages/stream',
+            { content: 'hi' },
             {
                 onMessage: (m) => calls.push(`message:${m.uuid}`),
                 onDelta: (uuid, content) => calls.push(`delta:${uuid}:${content}`),
@@ -290,7 +313,7 @@ describe('streamMessage', () => {
 
         expect(calls).toEqual(['message:a', 'delta:b:hey', 'done:0']);
 
-        const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        const [url, init] = requestOf(fetchMock);
         expect(url).toBe('/api/client/servers/server-uuid/chat/conversations/conversation-uuid/messages/stream');
         expect(init.method).toBe('POST');
         expect(init.credentials).toBe('include');
@@ -304,18 +327,9 @@ describe('streamMessage', () => {
     });
 
     it('throws an error the http layer can render, and flags 404 as unsupported', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(() =>
-                Promise.resolve({
-                    ok: false,
-                    status: 404,
-                    text: () => Promise.resolve('{"errors":[{"detail":"Not Found"}]}'),
-                } as unknown as Response)
-            )
-        );
+        stubFailure(404, '{"errors":[{"detail":"Not Found"}]}');
 
-        const error = await streamMessage('a', 'b', 'hi', {}).catch((e: unknown) => e);
+        const error = await streamRequest('/stream', {}, {}).catch((e: unknown) => e);
 
         expect(error).toBeInstanceOf(ChatStreamError);
         expect((error as ChatStreamError).response.data).toEqual({ errors: [{ detail: 'Not Found' }] });
@@ -329,20 +343,220 @@ describe('streamMessage', () => {
             vi.fn(() => Promise.resolve({ ok: true, status: 200, body: null } as Response))
         );
 
-        const error = await streamMessage('a', 'b', 'hi', {}).catch((e: unknown) => e);
+        const error = await streamRequest('/stream', {}, {}).catch((e: unknown) => e);
 
         expect(isStreamUnsupported(error)).toBe(true);
     });
 
     it('does not flag a server error as unsupported', async () => {
-        vi.stubGlobal(
-            'fetch',
-            vi.fn(() => Promise.resolve({ ok: false, status: 500, text: () => Promise.resolve('') } as Response))
-        );
+        stubFailure(500);
 
-        const error = await streamMessage('a', 'b', 'hi', {}).catch((e: unknown) => e);
+        const error = await streamRequest('/stream', {}, {}).catch((e: unknown) => e);
 
         expect(isStreamUnsupported(error)).toBe(false);
         expect((error as ChatStreamError).message).toBe('Request failed with status code 500');
+    });
+});
+
+describe('streamMessage', () => {
+    it('sends the content to the message stream of the conversation', async () => {
+        const fetchMock = stubStream([frame('done', { messages: [] })]);
+
+        await streamMessage('server-uuid', 'conversation-uuid', 'restart it', {});
+
+        const [url, init] = requestOf(fetchMock);
+        expect(url).toBe('/api/client/servers/server-uuid/chat/conversations/conversation-uuid/messages/stream');
+        expect(init.method).toBe('POST');
+        expect(init.body).toBe('{"content":"restart it"}');
+    });
+});
+
+describe('streamConfirmation', () => {
+    /** The assistant message the thread is holding, stopped on a destructive call. */
+    const awaiting = (): ChatMessage => ({
+        uuid: 'assistant-1',
+        role: 'assistant',
+        content: 'I can restart the server for you.',
+        reasoning: null,
+        status: 'awaiting_confirmation',
+        toolCalls: [
+            {
+                id: 'call_1',
+                name: 'power_action',
+                summary: 'Restart the server',
+                status: 'pending',
+                ok: null,
+                destructive: true,
+            },
+        ],
+        createdAt: new Date('2026-07-26T12:00:00+00:00'),
+    });
+
+    /** The same message as the stream returns it, with the decision applied to it. */
+    const resolved = (status: 'complete' | 'denied', call: 'pending' | 'executed' | 'denied') => ({
+        uuid: 'assistant-1',
+        role: 'assistant',
+        content: 'I can restart the server for you.',
+        reasoning: null,
+        status,
+        tool_calls: [
+            {
+                id: 'call_1',
+                name: 'power_action',
+                summary: 'Restart the server',
+                status: call,
+                ok: call === 'executed',
+                destructive: true,
+            },
+        ],
+        created_at: '2026-07-26T12:00:00+00:00',
+    });
+
+    const continuation = (content: string) => ({
+        uuid: 'assistant-2',
+        role: 'assistant',
+        content,
+        reasoning: null,
+        status: 'complete',
+        tool_calls: [],
+        created_at: '2026-07-26T12:00:09+00:00',
+    });
+
+    /**
+     * Reads a confirmation stream into a thread the way the container does, returning both what
+     * is left on screen and how the decided message read after every event along the way.
+     */
+    const play = async (approved: boolean): Promise<{ thread: ChatMessage[]; trace: string[] }> => {
+        let thread = [awaiting()];
+        const trace: string[] = [];
+        const record = () => trace.push(`${thread[0]!.status}/${thread[0]!.toolCalls[0]!.status}`);
+
+        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', approved, {
+            onMessage: (m) => {
+                thread = mergeMessages(thread, [m]);
+                record();
+            },
+            onDelta: (uuid, fragment) => {
+                thread = applyDelta(thread, uuid, fragment);
+            },
+            onTool: (uuid, call) => {
+                thread = applyToolCall(thread, uuid, call);
+                record();
+            },
+            onDone: (messages) => {
+                thread = mergeMessages(thread, messages);
+                record();
+            },
+        });
+
+        return { thread, trace };
+    };
+
+    it('posts the decision to the confirmation stream of the conversation', async () => {
+        const fetchMock = stubStream([frame('done', { messages: [] })]);
+
+        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', true, {});
+
+        const [url, init] = requestOf(fetchMock);
+        expect(url).toBe('/api/client/servers/server-uuid/chat/conversations/conversation-uuid/confirm/stream');
+        expect(init.method).toBe('POST');
+        expect(init.body).toBe('{"message_uuid":"assistant-1","approved":true}');
+        expect(init.headers).toMatchObject({ Accept: 'text/event-stream' });
+    });
+
+    it('resolves the message it was asked about in place rather than adding a second copy', async () => {
+        stubStream([
+            // The stream opens with the message the approval panel was showing, same uuid: the
+            // decision has been recorded, but the calls it approved have not run yet.
+            frame('message', { message: resolved('complete', 'pending') }),
+            frame('tool', {
+                uuid: 'assistant-1',
+                call: {
+                    id: 'call_1',
+                    name: 'power_action',
+                    summary: 'Restart the server',
+                    status: 'executed',
+                    ok: true,
+                    destructive: true,
+                },
+            }),
+            frame('message', { message: continuation('') }),
+            frame('delta', { uuid: 'assistant-2', content: 'Restarted' }),
+            frame('delta', { uuid: 'assistant-2', content: ' it for you.' }),
+            frame('status', { status: 'complete' }),
+            frame('done', { messages: [resolved('complete', 'executed'), continuation('Restarted it for you.')] }),
+        ]);
+
+        const { thread, trace } = await play(true);
+
+        expect(thread).toHaveLength(2);
+        expect(thread[0]!.uuid).toBe('assistant-1');
+        // The panel comes off the screen on the first event, and the action it was asking about
+        // reports separately once it has actually run.
+        expect(trace).toEqual(['complete/pending', 'complete/executed', 'complete/executed', 'complete/executed']);
+        expect(thread[0]!.status).toBe('complete');
+        expect(thread[0]!.toolCalls).toEqual([
+            {
+                id: 'call_1',
+                name: 'power_action',
+                summary: 'Restart the server',
+                status: 'executed',
+                ok: true,
+                destructive: true,
+            },
+        ]);
+        expect(thread[1]!.content).toBe('Restarted it for you.');
+    });
+
+    it('keeps streaming the assistant reply after a refusal', async () => {
+        stubStream([
+            frame('message', { message: resolved('denied', 'pending') }),
+            frame('tool', {
+                uuid: 'assistant-1',
+                call: {
+                    id: 'call_1',
+                    name: 'power_action',
+                    summary: 'Restart the server',
+                    status: 'denied',
+                    ok: false,
+                    destructive: true,
+                },
+            }),
+            frame('message', { message: continuation('') }),
+            frame('delta', { uuid: 'assistant-2', content: 'Understood — ' }),
+            frame('delta', { uuid: 'assistant-2', content: 'I have not touched the server.' }),
+            frame('status', { status: 'denied' }),
+            frame('done', {
+                messages: [resolved('denied', 'denied'), continuation('Understood — I have not touched the server.')],
+            }),
+        ]);
+
+        const { thread } = await play(false);
+
+        expect(thread).toHaveLength(2);
+        expect(thread[0]!.status).toBe('denied');
+        expect(thread[0]!.toolCalls[0]!.status).toBe('denied');
+        expect(thread[0]!.toolCalls[0]!.ok).toBe(false);
+        // A refusal is not the end of the turn: the assistant still answers in words.
+        expect(thread[1]!.content).toBe('Understood — I have not touched the server.');
+    });
+
+    it('flags a backend without the confirmation stream so the caller can fall back', async () => {
+        stubFailure(404);
+
+        const error = await streamConfirmation('a', 'b', 'c', true, {}).catch((e: unknown) => e);
+
+        // The signal `handleDecision` reads before quietly posting to the blocking `/confirm`.
+        expect(isStreamUnsupported(error)).toBe(true);
+    });
+
+    it('does not fall back when the decision itself was refused', async () => {
+        stubFailure(409, '{"errors":[{"detail":"This message is no longer awaiting a decision."}]}');
+
+        const error = await streamConfirmation('a', 'b', 'c', true, {}).catch((e: unknown) => e);
+
+        // Replaying that against the blocking endpoint would fail the same way and hide why.
+        expect(isStreamUnsupported(error)).toBe(false);
+        expect((error as ChatStreamError).message).toBe('This message is no longer awaiting a decision.');
     });
 });

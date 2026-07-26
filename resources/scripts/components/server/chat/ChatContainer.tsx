@@ -7,8 +7,10 @@ import createConversation from '@/api/server/chat/createConversation';
 import deleteConversation from '@/api/server/chat/deleteConversation';
 import getConversation from '@/api/server/chat/getConversation';
 import sendMessage from '@/api/server/chat/sendMessage';
-import streamMessage, { ChatStreamHandlers, isStreamUnsupported } from '@/api/server/chat/streamMessage';
-import { ChatMessage, ChatTool, ChatToolCall } from '@/api/server/chat/types';
+import streamConfirmation from '@/api/server/chat/streamConfirmation';
+import streamMessage from '@/api/server/chat/streamMessage';
+import { ChatStreamHandlers, isStreamUnsupported } from '@/api/server/chat/streamRequest';
+import { ChatMessage, ChatTool } from '@/api/server/chat/types';
 import getServerChatConfig from '@/api/swr/getServerChatConfig';
 import getServerChatConversations from '@/api/swr/getServerChatConversations';
 import { httpErrorToHuman } from '@/api/http';
@@ -16,6 +18,7 @@ import ChatMessageRow from '@/components/server/chat/ChatMessage';
 import ConversationList from '@/components/server/chat/ConversationList';
 import MessageComposer from '@/components/server/chat/MessageComposer';
 import PendingApproval from '@/components/server/chat/PendingApproval';
+import { applyDelta, applyToolCall, mergeMessages, optimisticMessage } from '@/components/server/chat/thread';
 import { useFlashKey } from '@/plugins/useFlash';
 import { Button } from '@/reviactyl/elements/button/index';
 import { ServerError } from '@/reviactyl/elements/ScreenBlock';
@@ -66,60 +69,32 @@ const EXAMPLE_PROMPTS: { group: string | null; prompt: string }[] = [
 ];
 
 /**
- * The local echo of a message the user has sent but the server has not yet
- * confirmed. Without it the composer clears and nothing appears until the whole
- * turn returns — which can take a minute — so it looks like nothing was sent.
+ * What the thread is currently waiting on. Drives the indicator that has to stay on screen
+ * from the click to the final word: a confirmed action goes through the same minutes-long
+ * turn as a message, and the approval panel it came from disappears as soon as the decision
+ * lands, so something has to say what is happening in its place.
  */
-const optimisticMessage = (content: string): ChatMessage => ({
-    uuid: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    pending: true,
-    role: 'user',
-    content,
-    reasoning: null,
-    status: 'complete',
-    toolCalls: [],
-    createdAt: new Date(),
-});
+type Activity = 'idle' | 'sending' | 'approving' | 'denying';
 
-const mergeMessages = (existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] => {
-    // Local echoes are dropped wholesale: the server returns the real message
-    // with its own uuid, so keeping them would show the text twice.
-    const merged = existing.filter((message) => !message.pending);
+/**
+ * What a streamed turn told us about itself, filled in as its events arrive. A turn started by
+ * a message and one resumed by a confirmation are read the same way once they close, so both
+ * fill in the same record.
+ */
+interface TurnOutcome {
+    /** The server has stored something for this turn, so the text is no longer ours to hand back. */
+    acknowledged: boolean;
+    /** `done` arrived, so what is on screen is authoritative and needs no re-read. */
+    reconciled: boolean;
+    /** The turn failed after it had started, reported once the stream closes rather than thrown mid-flight. */
+    failure: Error | null;
+}
 
-    incoming.forEach((message) => {
-        const index = merged.findIndex((m) => m.uuid === message.uuid);
-
-        if (index === -1) {
-            merged.push(message);
-        } else {
-            merged[index] = message;
-        }
-    });
-
-    return merged.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+const ACTIVITY_LABEL: Record<Exclude<Activity, 'idle'>, string> = {
+    sending: 'The assistant is working — this can take a moment.',
+    approving: 'Running the approved actions — this can take a moment.',
+    denying: 'Telling the assistant not to run them…',
 };
-
-/** Appends a streamed fragment to the message it belongs to. */
-const applyDelta = (messages: ChatMessage[], uuid: string, fragment: string): ChatMessage[] =>
-    messages.map((message) =>
-        message.uuid === uuid ? { ...message, content: (message.content ?? '') + fragment } : message
-    );
-
-/** Upserts a tool call by id — a call is announced when proposed and again once it has run. */
-const applyToolCall = (messages: ChatMessage[], uuid: string, call: ChatToolCall): ChatMessage[] =>
-    messages.map((message) => {
-        if (message.uuid !== uuid) return message;
-
-        const index = message.toolCalls.findIndex((existing) => existing.id === call.id);
-
-        return {
-            ...message,
-            toolCalls:
-                index === -1
-                    ? [...message.toolCalls, call]
-                    : message.toolCalls.map((existing, position) => (position === index ? call : existing)),
-        };
-    });
 
 const buildExamples = (tools: ChatTool[]): string[] => {
     const groups = new Set(tools.map((tool) => tool.group));
@@ -152,13 +127,15 @@ const ChatContainer = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
     const [loadingThread, setLoadingThread] = useState(false);
-    const [busy, setBusy] = useState(false);
+    const [activity, setActivity] = useState<Activity>('idle');
     const [listOpen, setListOpen] = useState(false);
     // The message currently receiving text, so its bubble can show a cursor.
     const [streamingUuid, setStreamingUuid] = useState<string | null>(null);
     // Incremented whenever a thread's messages are installed, to trigger the
     // scroll-to-newest exactly once per opened conversation.
     const [threadRevision, setThreadRevision] = useState(0);
+
+    const busy = activity !== 'idle';
 
     const threadRef = useRef<HTMLDivElement>(null);
     // Conversations we opened ourselves already have their (empty) state in memory; re-fetching
@@ -318,13 +295,48 @@ const ChatContainer = () => {
         }
     };
 
+    /**
+     * Applies a change to the thread it was computed for. The user is free to switch
+     * conversations while a turn runs, and a late event must never be merged into whichever
+     * thread happens to be open now.
+     */
+    const updateThread = (target: string, apply: (current: ChatMessage[]) => ChatMessage[]) => {
+        if (activeRef.current === target) setMessages(apply);
+    };
+
+    /**
+     * The handlers every streamed turn is read with. Sending and confirming produce the same
+     * events in the same order — a confirmation merely opens with a message already on screen,
+     * which upserts by uuid like any other — so they are read by the same code.
+     */
+    const streamHandlers = (target: string, outcome: TurnOutcome): ChatStreamHandlers => ({
+        onMessage: (message) => {
+            outcome.acknowledged = true;
+            updateThread(target, (current) => mergeMessages(current, [message]));
+        },
+        onDelta: (messageUuid, fragment) => {
+            setStreamingUuid(messageUuid);
+            updateThread(target, (current) => applyDelta(current, messageUuid, fragment));
+        },
+        onTool: (messageUuid, call) => updateThread(target, (current) => applyToolCall(current, messageUuid, call)),
+        onStatus: () => setStreamingUuid(null),
+        onDone: (incoming) => {
+            outcome.reconciled = true;
+            setStreamingUuid(null);
+            updateThread(target, (current) => mergeMessages(current, incoming));
+        },
+        onError: (problem) => {
+            outcome.failure = new Error(problem);
+        },
+    });
+
     const handleSend = async () => {
         const content = input.trim();
         if (content.length === 0 || busy || awaitingConfirmation || loadingThread) return;
 
         const echo = optimisticMessage(content);
 
-        setBusy(true);
+        setActivity('sending');
         setInput('');
         clearFlashes();
         setMessages((current) => [...current, echo]);
@@ -334,13 +346,9 @@ const ChatContainer = () => {
         streamRef.current = controller;
 
         let conversation = active;
-        // Set once the server has stored the message. After that, handing the text back to the
-        // composer would show it twice — once in the thread, once in the input.
-        let acknowledged = false;
         // Only the `done` event makes what is on screen authoritative. Anything short of it —
         // a dropped connection, a truncated final event — leaves the thread to be re-read.
-        let reconciled = false;
-        let failure: Error | null = null;
+        const outcome: TurnOutcome = { acknowledged: false, reconciled: false, failure: null };
 
         try {
             if (!conversation) {
@@ -357,37 +365,9 @@ const ChatContainer = () => {
             }
 
             const target = conversation;
-            // The user is free to switch conversations while this runs; a late event must
-            // never be merged into whichever thread happens to be open now.
-            const update = (apply: (current: ChatMessage[]) => ChatMessage[]) => {
-                if (activeRef.current === target) setMessages(apply);
-            };
-
-            const handlers: ChatStreamHandlers = {
-                onMessage: (message) => {
-                    acknowledged = true;
-                    update((current) => mergeMessages(current, [message]));
-                },
-                onDelta: (messageUuid, fragment) => {
-                    setStreamingUuid(messageUuid);
-                    update((current) => applyDelta(current, messageUuid, fragment));
-                },
-                onTool: (messageUuid, call) => update((current) => applyToolCall(current, messageUuid, call)),
-                onStatus: () => setStreamingUuid(null),
-                onDone: (incoming) => {
-                    reconciled = true;
-                    setStreamingUuid(null);
-                    update((current) => mergeMessages(current, incoming));
-                },
-                // The turn failed after it had started. The message is already in the thread,
-                // so this is reported once the stream closes rather than thrown mid-flight.
-                onError: (problem) => {
-                    failure = new Error(problem);
-                },
-            };
 
             try {
-                await streamMessage(uuid, target, content, handlers, controller.signal);
+                await streamMessage(uuid, target, content, streamHandlers(target, outcome), controller.signal);
             } catch (error) {
                 if (!isStreamUnsupported(error)) throw error;
 
@@ -395,13 +375,13 @@ const ChatContainer = () => {
                 // blocking endpoint answers the same question, just all at once.
                 const incoming = await sendMessage(uuid, target, content);
 
-                acknowledged = true;
-                reconciled = true;
-                update((current) => mergeMessages(current, incoming));
+                outcome.acknowledged = true;
+                outcome.reconciled = true;
+                updateThread(target, (current) => mergeMessages(current, incoming));
             }
 
-            if (failure) throw failure;
-            if (!reconciled) await resyncThread(target);
+            if (outcome.failure) throw outcome.failure;
+            if (!outcome.reconciled) await resyncThread(target);
 
             mutateConversations();
         } catch (error) {
@@ -411,7 +391,7 @@ const ChatContainer = () => {
             // Take the echo away so the thread does not claim the message was sent, and hand
             // the text back so it is not lost — unless the server already stored it.
             setMessages((current) => current.filter((message) => message.uuid !== echo.uuid));
-            if (!acknowledged) setInput((current) => (current.length === 0 ? content : current));
+            if (!outcome.acknowledged) setInput((current) => (current.length === 0 ? content : current));
             clearAndAddHttpError(error as Error);
 
             if (conversation) await resyncThread(conversation);
@@ -419,34 +399,71 @@ const ChatContainer = () => {
             if (streamRef.current === controller) streamRef.current = null;
 
             setStreamingUuid(null);
-            setBusy(false);
+            setActivity('idle');
         }
     };
 
+    /**
+     * Answers the pending confirmation. Approving re-enters the same loop a message does, and
+     * takes just as long, so it is streamed for the same reason: the alternative is a click
+     * followed by minutes of nothing.
+     */
     const handleDecision = async (approved: boolean) => {
         if (!active || !awaitingConfirmation || busy) return;
 
         const conversation = active;
+        const decided = awaitingConfirmation.uuid;
 
-        setBusy(true);
+        setActivity(approved ? 'approving' : 'denying');
         clearFlashes();
 
-        try {
-            const incoming = await confirmToolCalls(uuid, conversation, awaitingConfirmation.uuid, approved);
+        const controller = new AbortController();
+        abortStream();
+        streamRef.current = controller;
 
-            if (activeRef.current === conversation) {
-                setMessages((current) => mergeMessages(current, incoming));
+        const outcome: TurnOutcome = { acknowledged: false, reconciled: false, failure: null };
+
+        try {
+            try {
+                await streamConfirmation(
+                    uuid,
+                    conversation,
+                    decided,
+                    approved,
+                    streamHandlers(conversation, outcome),
+                    controller.signal
+                );
+            } catch (error) {
+                if (!isStreamUnsupported(error)) throw error;
+
+                // An older backend, or a proxy that will not carry an event stream. The
+                // blocking endpoint records the same decision, just all at once.
+                const incoming = await confirmToolCalls(uuid, conversation, decided, approved);
+
+                outcome.reconciled = true;
+                updateThread(conversation, (current) => mergeMessages(current, incoming));
             }
+
+            if (outcome.failure) throw outcome.failure;
+            // Short of `done` the thread is still showing a decision we only half saw — and the
+            // half we did not see may be the one that cleared the pending state.
+            if (!outcome.reconciled) await resyncThread(conversation);
 
             mutateConversations();
         } catch (error) {
+            // Walking away mid-turn is not a failure; the decision stands server-side either way.
+            if (controller.signal.aborted) return;
+
             clearAndAddHttpError(error as Error);
 
             // The decision may have been recorded even though we never saw the response.
             // Re-reading is the only way out of a thread stuck on a stale pending state.
             await resyncThread(conversation);
         } finally {
-            setBusy(false);
+            if (streamRef.current === controller) streamRef.current = null;
+
+            setStreamingUuid(null);
+            setActivity('idle');
         }
     };
 
@@ -552,12 +569,15 @@ const ChatContainer = () => {
                             ))
                         )}
 
-                        {busy && (
-                            <div css={tw`flex items-center gap-2 text-xs text-gray-400 px-1`}>
+                        {/* The one thing on screen for the whole of a turn: it is already showing
+                            when the approval panel takes itself away on the decision landing, and
+                            stays until the last word of the reply has streamed in. */}
+                        {activity !== 'idle' && (
+                            <div css={tw`flex items-center gap-2 text-xs text-gray-400 px-1`} role={'status'}>
                                 <Dot $delay={'0s'} />
                                 <Dot $delay={'0.2s'} />
                                 <Dot $delay={'0.4s'} />
-                                <span>The assistant is working — this can take a moment.</span>
+                                <span>{ACTIVITY_LABEL[activity]}</span>
                             </div>
                         )}
                     </Thread>
