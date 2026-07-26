@@ -59,13 +59,13 @@ export const BrowseTab = ({
                     css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-ui flex items-center justify-between`}
                 >
                     <div>
-                        <p css={tw`text-sm font-semibold text-blue-200`}>Linking: {linkingPlugin.title}</p>
-                        <p css={tw`text-xs text-blue-300/80 mt-0.5`}>
-                            Select a plugin below to link it to this manual plugin for updates
+                        <p css={tw`text-sm font-semibold text-blue-200`}>
+                            {t('linking', { title: linkingPlugin.title })}
                         </p>
+                        <p css={tw`text-xs text-blue-300/80 mt-0.5`}>{t('linking_help')}</p>
                     </div>
                     <Button size={Button.Sizes.Small} variant={Button.Variants.Secondary} onClick={onCancelLink}>
-                        Cancel
+                        {t('cancel')}
                     </Button>
                 </div>
             )}
@@ -78,13 +78,14 @@ export const BrowseTab = ({
             >
                 <div css={tw`relative flex-1 flex items-center`} style={{ minWidth: '200px' }}>
                     <FaMagnifyingGlass
-                        css={tw`absolute left-3 text-gray-500 text-sm pointer-events-none`}
-                        style={{ top: '50%', transform: 'translateY(-50%)' }}
+                        css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none`}
+                        aria-hidden={'true'}
                     />
                     <input
                         value={query}
                         onChange={(e) => onQueryChange(e.target.value)}
                         placeholder={t('search_placeholder') ?? ''}
+                        aria-label={t('search_label') ?? ''}
                         css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
                     />
                 </div>
@@ -113,7 +114,11 @@ export const BrowseTab = ({
                 </div>
             </form>
 
-            {!searching && hits.length === 0 ? (
+            {searching && hits.length === 0 ? (
+                <div css={tw`py-16`}>
+                    <Spinner centered />
+                </div>
+            ) : hits.length === 0 ? (
                 <div css={tw`text-center py-16 text-gray-500`}>
                     <FaMagnifyingGlass css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
                     <p css={tw`text-sm`}>{t('no_results')}</p>

@@ -98,18 +98,19 @@ const PluginsContainer = () => {
             .finally(() => id === searchId.current && setSearching(false));
     };
 
-    useEffect(() => {
-        if (tab !== 'browse') return;
-        setHits([]);
-        doSearch(0);
-    }, [tab, provider, sort]);
+    // Drop stale hits immediately on a registry change: their install buttons
+    // would otherwise install from the newly selected provider.
+    useEffect(() => setHits([]), [provider, sort]);
 
+    // One debounced effect for every search input. Split into a mount effect
+    // plus a query effect, it fired two identical searches on open.
     useEffect(() => {
         if (tab !== 'browse') return;
+        setSearching(true); // during the debounce too, or the empty state flashes first
         const timer = setTimeout(() => doSearch(0), 350);
 
         return () => clearTimeout(timer);
-    }, [query]);
+    }, [tab, provider, sort, query]);
 
     useEffect(() => {
         if (tab !== 'installed') return;
