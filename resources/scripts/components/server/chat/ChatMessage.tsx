@@ -32,6 +32,13 @@ const ChatMessageRow = ({ message }: Props) => {
     // avoid rendering the same tool call twice.
     const resolvedToolCalls = message.toolCalls.filter((toolCall) => toolCall.status !== 'pending');
 
+    // A turn that was nothing but tool calls has no content of its own, and those calls are drawn
+    // by the approval panel — rendering the row anyway leaves a stray avatar and timestamp with no
+    // bubble beside them.
+    if (!message.content && !message.reasoning && resolvedToolCalls.length === 0 && message.status !== 'failed') {
+        return null;
+    }
+
     return (
         <div css={[tw`flex items-start gap-2 w-full`, isUser && tw`flex-row-reverse`]}>
             {!isUser && (

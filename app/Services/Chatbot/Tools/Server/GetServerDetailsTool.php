@@ -3,6 +3,7 @@
 namespace App\Services\Chatbot\Tools\Server;
 
 use App\Enum\ChatbotToolGroup;
+use App\Models\Permission;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 
@@ -56,13 +57,30 @@ class GetServerDetailsTool extends ChatbotTool
                 'allocations' => $server->allocation_limit,
                 'backups' => $server->backup_limit,
             ],
-            'allocations' => $server->allocations->map(fn ($allocation) => [
-                'id' => $allocation->id,
-                'ip' => $allocation->alias ?? $allocation->ip,
-                'port' => $allocation->port,
-                'primary' => $allocation->id === $server->allocation_id,
-                'notes' => $allocation->notes,
-            ])->values()->all(),
+            'allocations' => $this->allocations($context),
         ];
+    }
+
+    /**
+     * Mirrors ServerTransformer::getRelationshipAllocations(): a user without
+     * allocation.read sees only the primary allocation, with its notes hidden.
+     * Returning the full list here would hand a subuser addresses, ports and
+     * operator notes they cannot reach through the rest of the API.
+     */
+    private function allocations(ToolContext $context): array
+    {
+        $server = $context->server;
+
+        $allocations = $context->can(Permission::ACTION_ALLOCATION_READ)
+            ? $server->allocations
+            : collect(array_filter([$server->allocation]));
+
+        return $allocations->map(fn ($allocation) => [
+            'id' => $allocation->id,
+            'ip' => $allocation->alias ?? $allocation->ip,
+            'port' => $allocation->port,
+            'primary' => $allocation->id === $server->allocation_id,
+            'notes' => $context->can(Permission::ACTION_ALLOCATION_READ) ? $allocation->notes : null,
+        ])->values()->all();
     }
 }

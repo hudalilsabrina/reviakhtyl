@@ -61,12 +61,23 @@ class CompressFilesTool extends ChatbotTool
         return [Permission::ACTION_FILE_ARCHIVE];
     }
 
+    /**
+     * Archiving writes a potentially large file and holds a long daemon
+     * timeout, so it is gated. Left ungated, a model steered by injected text
+     * could archive a world directory repeatedly and fill the node's disk
+     * without the user ever being asked.
+     */
+    public function isDestructive(): bool
+    {
+        return true;
+    }
+
     public function summarize(array $arguments): string
     {
         $files = $arguments['files'] ?? [];
 
-        return 'Create an archive in '.($arguments['root'] ?? '/').' containing '
-            .count($files).' item(s): '.implode(', ', $files);
+        return 'Create an archive in '.($arguments['root'] ?? '/').' containing '.count($files).' item(s): '
+            .implode(', ', array_slice($files, 0, 10)).(count($files) > 10 ? '…' : '');
     }
 
     public function handle(ToolContext $context, array $arguments): array

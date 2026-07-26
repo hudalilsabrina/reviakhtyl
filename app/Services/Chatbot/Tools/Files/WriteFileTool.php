@@ -64,11 +64,25 @@ class WriteFileTool extends ChatbotTool
         return true;
     }
 
+    /**
+     * Includes the start of what would be written. Approving a write blind is
+     * the weak point in the confirmation gate: a model steered by injected text
+     * in a file it just read can propose a hostile edit that is indistinguishable
+     * from a legitimate one when the prompt says only "overwrite X with N bytes".
+     */
     public function summarize(array $arguments): string
     {
-        $bytes = strlen((string) ($arguments['content'] ?? ''));
+        $content = (string) ($arguments['content'] ?? '');
+        $bytes = strlen($content);
+        $summary = 'Overwrite '.($arguments['path'] ?? 'a file')." with $bytes bytes";
 
-        return 'Overwrite '.($arguments['path'] ?? 'a file')." with $bytes bytes";
+        $preview = trim(preg_replace('/\s+/', ' ', mb_substr($content, 0, 160)) ?? '');
+
+        if ($preview === '') {
+            return $summary;
+        }
+
+        return $summary.', starting: '.$preview.(mb_strlen($content) > 160 ? '…' : '');
     }
 
     public function handle(ToolContext $context, array $arguments): array

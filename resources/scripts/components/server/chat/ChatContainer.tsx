@@ -102,6 +102,7 @@ const ChatContainer = () => {
 
     const {
         data: conversations,
+        error: conversationsError,
         isValidating: conversationsValidating,
         mutate: mutateConversations,
     } = getServerChatConversations(uuid, enabled);
@@ -118,6 +119,13 @@ const ChatContainer = () => {
     // Conversations we opened ourselves already have their (empty) state in memory; re-fetching
     // them would race with the response of the message that is being sent right now.
     const skipLoadRef = useRef<string | null>(null);
+    // A request can take minutes, and the user is free to switch conversations while it runs.
+    // Responses are matched against this before they are allowed to touch the thread.
+    const activeRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        activeRef.current = active;
+    }, [active]);
 
     const examples = useMemo(() => buildExamples(config?.tools ?? []), [config]);
 
@@ -163,10 +171,14 @@ const ChatContainer = () => {
         };
     }, [uuid, active]);
 
-    // Keep the newest message in view, including while we are waiting on a reply.
+    // Keep the newest message in view, including while we are waiting on a reply — but
+    // leave the scroll alone if the user has deliberately scrolled up to re-read something.
     useEffect(() => {
         const element = threadRef.current;
         if (!element) return;
+
+        const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+        if (distanceFromBottom > 120) return;
 
         element.scrollTop = element.scrollHeight;
     }, [messages, busy, loadingThread]);
@@ -207,17 +219,34 @@ const ChatContainer = () => {
         });
     };
 
+    /**
+     * Pulls the thread back from the server after a request we could not observe the
+     * result of. A send that times out client-side is still running server-side, so the
+     * turn — including a pending approval — may have been committed without us seeing it.
+     * Without this the thread silently desyncs and every retry fails.
+     */
+    const resyncThread = async (conversation: string) => {
+        if (activeRef.current !== conversation) return;
+
+        try {
+            const fresh = await getConversation(uuid, conversation);
+            if (activeRef.current === conversation) setMessages(fresh.messages);
+        } catch {
+            // The error from the original request is the one worth showing.
+        }
+    };
+
     const handleSend = async () => {
         const content = input.trim();
-        if (content.length === 0 || busy || awaitingConfirmation) return;
+        if (content.length === 0 || busy || awaitingConfirmation || loadingThread) return;
 
         setBusy(true);
         setInput('');
         clearFlashes();
 
-        try {
-            let conversation = active;
+        let conversation = active;
 
+        try {
             if (!conversation) {
                 const created = await createConversation(uuid);
 
@@ -228,12 +257,20 @@ const ChatContainer = () => {
             }
 
             const incoming = await sendMessage(uuid, conversation, content);
-            setMessages((current) => mergeMessages(current, incoming));
+
+            // The user is free to switch conversations while this runs; a late reply
+            // must never be merged into whichever thread happens to be open now.
+            if (activeRef.current === conversation) {
+                setMessages((current) => mergeMessages(current, incoming));
+            }
+
             mutateConversations();
         } catch (error) {
             // Hand the message back so a failed request does not lose what was typed.
             setInput((current) => (current.length === 0 ? content : current));
             clearAndAddHttpError(error as Error);
+
+            if (conversation) await resyncThread(conversation);
         } finally {
             setBusy(false);
         }
@@ -242,15 +279,25 @@ const ChatContainer = () => {
     const handleDecision = async (approved: boolean) => {
         if (!active || !awaitingConfirmation || busy) return;
 
+        const conversation = active;
+
         setBusy(true);
         clearFlashes();
 
         try {
-            const incoming = await confirmToolCalls(uuid, active, awaitingConfirmation.uuid, approved);
-            setMessages((current) => mergeMessages(current, incoming));
+            const incoming = await confirmToolCalls(uuid, conversation, awaitingConfirmation.uuid, approved);
+
+            if (activeRef.current === conversation) {
+                setMessages((current) => mergeMessages(current, incoming));
+            }
+
             mutateConversations();
         } catch (error) {
             clearAndAddHttpError(error as Error);
+
+            // The decision may have been recorded even though we never saw the response.
+            // Re-reading is the only way out of a thread stuck on a stale pending state.
+            await resyncThread(conversation);
         } finally {
             setBusy(false);
         }
@@ -302,15 +349,27 @@ const ChatContainer = () => {
 
                 <div css={[listOpen ? tw`block` : tw`hidden`, tw`lg:block lg:w-72 lg:flex-shrink-0`]}>
                     <Card>
-                        <ConversationList
-                            conversations={conversations ?? []}
-                            activeUuid={active}
-                            loading={!conversations && conversationsValidating}
-                            creating={creating}
-                            onSelect={handleSelect}
-                            onCreate={handleCreate}
-                            onDelete={handleDelete}
-                        />
+                        {/* Without this the list renders its "no conversations yet" state on a failed
+                            request, telling the user their history is empty when it merely failed to load. */}
+                        {conversationsError && !conversations ? (
+                            <div css={tw`p-4 text-center`}>
+                                <p css={tw`text-sm text-gray-300 mb-1`}>Could not load your conversations.</p>
+                                <p css={tw`text-xs text-gray-500 mb-3`}>{httpErrorToHuman(conversationsError)}</p>
+                                <Button.Text size={Button.Sizes.Small} onClick={() => mutateConversations()}>
+                                    Try again
+                                </Button.Text>
+                            </div>
+                        ) : (
+                            <ConversationList
+                                conversations={conversations ?? []}
+                                activeUuid={active}
+                                loading={!conversations && conversationsValidating}
+                                creating={creating}
+                                onSelect={handleSelect}
+                                onCreate={handleCreate}
+                                onDelete={handleDelete}
+                            />
+                        )}
                     </Card>
                 </div>
 
@@ -323,8 +382,10 @@ const ChatContainer = () => {
                                 <FaRobot css={tw`w-8 h-8 mx-auto text-gray-600 mb-3`} />
                                 <h2 css={tw`text-lg text-gray-100 mb-1`}>Ask me about this server</h2>
                                 <p css={tw`text-sm text-gray-400 max-w-md mx-auto mb-5`}>
-                                    I can look things up for you and, with your say-so, act on this server. Anything
-                                    that changes the server is shown to you for approval first.
+                                    I can look things up for you and act on this server.{' '}
+                                    {config.requiresConfirmation
+                                        ? 'Anything that changes the server is shown to you for approval first.'
+                                        : 'This panel is configured to let me make changes without asking first, so be specific about what you want.'}
                                 </p>
                                 <div css={tw`grid gap-2 sm:grid-cols-2 max-w-xl mx-auto`}>
                                     {examples.map((example) => (

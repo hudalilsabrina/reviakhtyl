@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { FaTriangleExclamation } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
@@ -22,13 +23,31 @@ interface Props {
 }
 
 const PendingApproval = ({ message, processing, onDecision }: Props) => {
-    const pending = message.toolCalls.filter((toolCall) => toolCall.status === 'pending');
-    const destructive = pending.some((toolCall) => toolCall.destructive);
+    const panelRef = useRef<HTMLDivElement>(null);
 
-    if (pending.length === 0) return null;
+    const pending = message.toolCalls.filter((toolCall) => toolCall.status === 'pending');
+    // The thread is blocked on the message status, not on the individual call statuses. If the
+    // two ever disagree, showing nothing here would leave the conversation stuck with a disabled
+    // composer and no way to answer, so fall back to describing every call on the message.
+    const actions = pending.length > 0 ? pending : message.toolCalls;
+    const destructive = actions.some((toolCall) => toolCall.destructive);
+
+    // Whatever had focus in the composer is disabled the moment this appears, which drops focus
+    // onto <body>. Pull it here instead so keyboard and screen reader users are told a decision
+    // is waiting. The container is focused rather than a button — a stray Enter must not approve.
+    useEffect(() => {
+        panelRef.current?.focus();
+    }, []);
 
     return (
-        <Panel $destructive={destructive}>
+        <Panel
+            ref={panelRef}
+            $destructive={destructive}
+            tabIndex={-1}
+            role='group'
+            aria-label='Action awaiting your approval'
+            aria-live='assertive'
+        >
             <div
                 css={[
                     tw`flex items-center gap-2 font-semibold text-sm mb-1`,
@@ -49,7 +68,7 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
             </p>
 
             <ul css={tw`space-y-2`}>
-                {pending.map((toolCall) => (
+                {actions.map((toolCall) => (
                     <ActionRow key={toolCall.id} $destructive={toolCall.destructive}>
                         <span css={tw`flex-1 min-w-0 break-words`}>{toolCall.summary}</span>
                         {toolCall.destructive && (

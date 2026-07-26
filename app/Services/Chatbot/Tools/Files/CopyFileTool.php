@@ -52,6 +52,21 @@ class CopyFileTool extends ChatbotTool
         return [Permission::ACTION_FILE_CREATE];
     }
 
+    /**
+     * Copying a directory duplicates its whole tree, so this consumes disk in
+     * proportion to what it is pointed at and is gated for the same reason as
+     * compress_files.
+     */
+    public function isDestructive(): bool
+    {
+        return true;
+    }
+
+    public function summarize(array $arguments): string
+    {
+        return 'Duplicate '.($arguments['location'] ?? 'a file').' in place';
+    }
+
     public function handle(ToolContext $context, array $arguments): array
     {
         $this->repository->setServer($context->server)->copyFile($arguments['location']);
