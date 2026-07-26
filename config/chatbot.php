@@ -25,6 +25,8 @@ return [
         // is currently performing.
         App\Services\Chatbot\Tools\Server\GetServerDetailsTool::class,
         App\Services\Chatbot\Tools\Server\GetServerResourcesTool::class,
+        App\Services\Chatbot\Tools\Server\GetResourceHistoryTool::class,
+        App\Services\Chatbot\Tools\Server\GetActivityLogTool::class,
 
         // Power state control.
         App\Services\Chatbot\Tools\Power\PowerActionTool::class,

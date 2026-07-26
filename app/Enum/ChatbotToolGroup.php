@@ -35,7 +35,7 @@ enum ChatbotToolGroup: string
     public function description(): string
     {
         return match ($this) {
-            self::Server => 'Read the server state, resource usage and allocations.',
+            self::Server => 'Read the server state, resource usage, usage history, activity log and allocations.',
             self::Power => 'Start, stop, restart and kill the server.',
             self::Console => 'Send commands to the server console.',
             self::Files => 'Browse, read, write, move, archive and delete files.',
