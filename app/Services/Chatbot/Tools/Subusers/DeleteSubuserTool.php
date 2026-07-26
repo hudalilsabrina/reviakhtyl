@@ -93,7 +93,7 @@ class DeleteSubuserTool extends ChatbotTool
             throw new ChatbotException('You cannot remove your own access to this server.');
         }
 
-        if (strcasecmp($email, (string) $server->user?->email) === 0) {
+        if (strcasecmp($email, (string) $server->user->email) === 0) {
             throw new ChatbotException('That email address belongs to the owner of this server, who cannot be removed.');
         }
 

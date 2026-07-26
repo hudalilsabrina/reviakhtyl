@@ -134,7 +134,7 @@ class UpdateSubuserPermissionsTool extends ChatbotTool
             throw new ChatbotException('You cannot change your own permissions on this server.');
         }
 
-        if (strcasecmp($email, (string) $server->user?->email) === 0) {
+        if (strcasecmp($email, (string) $server->user->email) === 0) {
             throw new ChatbotException('That email address belongs to the owner of this server, whose access cannot be changed.');
         }
 

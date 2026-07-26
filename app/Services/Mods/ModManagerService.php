@@ -208,7 +208,7 @@ class ModManagerService
         );
 
         if (! $latest) {
-            throw new ModUpToDateException;
+            throw new ModUpToDateException();
         }
 
         $this->pull($server, $latest, $mod);

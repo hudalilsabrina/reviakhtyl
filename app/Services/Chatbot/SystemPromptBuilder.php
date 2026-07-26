@@ -64,11 +64,11 @@ class SystemPromptBuilder
 
     private function eggName(ToolContext $context): string
     {
-        return $context->server->egg?->name ?? 'unknown';
+        return $context->server->egg->name ?? 'unknown';
     }
 
     private function nodeName(ToolContext $context): string
     {
-        return $context->server->node?->name ?? 'unknown';
+        return $context->server->node->name ?? 'unknown';
     }
 }

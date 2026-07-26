@@ -193,7 +193,7 @@ class PluginManagerService
         );
 
         if (! $latest) {
-            throw new PluginUpToDateException;
+            throw new PluginUpToDateException();
         }
 
         $this->pull($server, $latest, $plugin);

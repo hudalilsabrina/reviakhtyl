@@ -64,6 +64,9 @@ class ChatbotConversation extends Model
         return $this->belongsTo(User::class);
     }
 
+    /**
+     * @return HasMany<ChatbotMessage, $this>
+     */
     public function messages(): HasMany
     {
         return $this->hasMany(ChatbotMessage::class, 'conversation_id')->orderBy('id');
