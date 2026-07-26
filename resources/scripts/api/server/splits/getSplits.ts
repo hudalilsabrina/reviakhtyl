@@ -38,6 +38,7 @@ export interface SplitsState {
     reason: 'child' | 'limit' | 'max' | null;
     used: number;
     remaining: SplitResources;
+    total: SplitResources;
     defaults: SplitDefaults | null;
     children: SplitChild[];
 }
@@ -51,6 +52,11 @@ export const rawDataToSplitsState = (data: any): SplitsState => ({
         cpu: data.remaining?.cpu ?? 0,
         memory: data.remaining?.memory ?? 0,
         disk: data.remaining?.disk ?? 0,
+    },
+    total: {
+        cpu: data.total?.cpu ?? data.remaining?.cpu ?? 0,
+        memory: data.total?.memory ?? data.remaining?.memory ?? 0,
+        disk: data.total?.disk ?? data.remaining?.disk ?? 0,
     },
     defaults: data.defaults
         ? {

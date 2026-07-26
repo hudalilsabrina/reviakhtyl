@@ -42,6 +42,18 @@ class SplitController extends ClientApiController
             default => null,
         };
 
+        $childTotal = [
+            'cpu' => $children->sum('cpu'),
+            'memory' => $children->sum('memory'),
+            'disk' => $children->sum('disk'),
+        ];
+
+        $originalTotal = [
+            'cpu' => $server->cpu + $childTotal['cpu'],
+            'memory' => $server->memory + $childTotal['memory'],
+            'disk' => $server->disk + $childTotal['disk'],
+        ];
+
         return [
             'split_limit' => $server->split_limit,
             'can_split' => $server->canSplit(),
@@ -51,6 +63,7 @@ class SplitController extends ClientApiController
                 'memory' => $server->memory,
                 'disk' => $server->disk,
             ],
+            'total' => $originalTotal,
             'defaults' => [
                 'name' => $server->name.' (split)',
                 'startup' => $server->startup,
