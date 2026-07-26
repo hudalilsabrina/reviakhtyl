@@ -3,13 +3,17 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
+         cacheDirectory="storage/framework/cache/phpunit"
+         beStrictAboutOutputDuringTests="true"
+         failOnWarning="true"
+         failOnRisky="true"
 >
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>
         </testsuite>
-        <testsuite name="Integration">
-            <directory>tests/Integration</directory>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
         </testsuite>
     </testsuites>
     <source>
@@ -21,13 +25,38 @@
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
-        <env name="CACHE_STORE" value="array"/>
+
+        <!--
+            The panel's real database holds live user data, so the suite is
+            pointed at a throwaway in-memory SQLite database that is never
+            migrated. Nothing in tests/ needs a schema: every test either runs
+            against plain objects or fakes its collaborators. Tests\TestCase
+            additionally aborts on any query executed during a test body.
+        -->
         <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value="database/testing.sqlite"/>
-        <env name="MAIL_MAILER" value="array"/>
-        <env name="PULSE_ENABLED" value="false"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        <env name="DB_FOREIGN_KEYS" value="false"/>
+
+        <!--
+            The MySQL credentials are deliberately broken as well, so that even
+            an explicit ->connection('mysql') in a future test fails loudly
+            instead of quietly reaching the production database.
+        -->
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="1"/>
+        <env name="DB_USERNAME" value="testing-must-not-connect"/>
+        <env name="DB_PASSWORD" value=""/>
+        <env name="DB_SOCKET" value=""/>
+
+        <env name="CACHE_STORE" value="array"/>
+        <env name="CACHE_DRIVER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="QUEUE_DRIVER" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
+        <env name="MAIL_MAILER" value="array"/>
+        <env name="MAIL_DRIVER" value="array"/>
+        <env name="LOG_CHANNEL" value="single"/>
+        <env name="LOG_STACK" value="single"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
     </php>
 </phpunit>

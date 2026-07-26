@@ -2,53 +2,34 @@
 
 namespace Tests;
 
-use Carbon\Carbon;
-use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\DB;
 
+/**
+ * Base case for tests that need a booted application.
+ *
+ * The panel this suite runs against uses a live database, so no test is ever
+ * allowed to reach it. Two guards enforce that:
+ *
+ *  1. phpunit.xml points the default connection at an in-memory SQLite
+ *     database that is deliberately never migrated.
+ *  2. setUp() installs a query listener that fails the test outright if
+ *     anything issues a query, so a test that quietly grows a database
+ *     dependency is caught immediately rather than passing against SQLite.
+ *
+ * Nothing here migrates, seeds or truncates anything.
+ */
 abstract class TestCase extends BaseTestCase
 {
-    /**
-     * Setup tests.
-     */
     protected function setUp(): void
     {
         parent::setUp();
 
-        $now = Carbon::now()->startOfSecond();
+        $this->assertSame('sqlite', config('database.default'), 'Tests must not run against the real database.');
+        $this->assertSame(':memory:', config('database.connections.sqlite.database'));
 
-        Carbon::setTestNow($now);
-        CarbonImmutable::setTestNow($now);
-
-        // Why, you ask? If we don't force this to false it is possible for certain exceptions
-        // to show their error message properly in the integration test output, but not actually
-        // be setup correctly to display their message in production.
-        //
-        // If we expect a message in a test, and it isn't showing up (rather, showing the generic
-        // "an error occurred" message), we can probably assume that the exception isn't one that
-        // is recognized as being user viewable.
-        config()->set('app.debug', false);
-
-        $this->setKnownUuidFactory();
-    }
-
-    /**
-     * Tear down tests.
-     */
-    protected function tearDown(): void
-    {
-        parent::tearDown();
-
-        Carbon::setTestNow();
-        CarbonImmutable::setTestNow();
-    }
-
-    /**
-     * Handles the known UUID handling in certain unit tests. Use the "KnownUuid" trait
-     * in order to enable this ability.
-     */
-    public function setKnownUuidFactory()
-    {
-        // do nothing
+        DB::listen(function ($query) {
+            $this->fail('A test executed a database query, which is forbidden in this suite: '.$query->sql);
+        });
     }
 }
