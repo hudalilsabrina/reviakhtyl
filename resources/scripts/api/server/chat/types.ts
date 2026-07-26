@@ -15,6 +15,9 @@ export interface ChatToolCall {
 
 export interface ChatMessage {
     uuid: string;
+    // Set on the local echo of a message that has been typed but not yet
+    // acknowledged by the server. Never present on anything the API returns.
+    pending?: boolean;
     role: ChatMessageRole;
     content: string | null;
     // Chain-of-thought from reasoning models. Hidden behind a disclosure — it is
