@@ -74,6 +74,7 @@ const ConversationList = ({ conversations, activeUuid, loading, creating, onSele
                             <button
                                 type={'button'}
                                 title={'Delete conversation'}
+                                aria-label={'Delete conversation'}
                                 onClick={() => setPendingDelete(conversation)}
                                 css={tw`flex-shrink-0 p-1.5 rounded-ui text-gray-500 hover:text-red-400 transition-colors duration-150`}
                             >

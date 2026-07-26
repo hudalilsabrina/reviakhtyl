@@ -22,6 +22,13 @@ class ToolExecutor
      */
     private const MAX_RESULT_LENGTH = 12000;
 
+    /**
+     * Argument values longer than this are replaced by a placeholder in the
+     * activity log. Long enough for a path or a console command, far too short
+     * for a file body.
+     */
+    private const MAX_LOGGED_VALUE_LENGTH = 512;
+
     public function __construct(private ToolRegistry $registry) {}
 
     /**
@@ -65,10 +72,12 @@ class ToolExecutor
                 'exception' => $e,
             ]);
 
-            // Only messages that were written to be shown to a user are passed
-            // on. Anything else — a daemon connection error, a database
-            // failure — can carry node addresses or query fragments, and would
-            // end up both in the model's context and on the user's screen.
+            // Only messages written to be shown to a user are passed on; a raw
+            // database or filesystem error would otherwise land in both the
+            // model's context and the user's chat window. DisplayException
+            // subclasses are expected to keep their messages presentable —
+            // DaemonConnectionException, for instance, sanitizes the node
+            // address out before it ever reaches here.
             return $this->error($e instanceof DisplayException
                 ? $e->getMessage()
                 : 'The action could not be completed because of an internal error. It has been logged for the panel administrator.');
@@ -92,13 +101,36 @@ class ToolExecutor
                 ->property([
                     'tool' => $tool->name(),
                     'group' => $tool->group()->value,
-                    'arguments' => $arguments,
+                    'arguments' => $this->redact($arguments),
                 ])
                 ->log();
         } catch (\Throwable $e) {
             // Never let an audit-log failure break the conversation.
             Log::warning('Failed to log chatbot activity', ['error' => $e->getMessage()]);
         }
+    }
+
+    /**
+     * Trims bulky argument values before they are written to the activity log.
+     *
+     * Activity properties are returned in full to anyone holding activity.read,
+     * so logging arguments verbatim would put the entire body of a written file
+     * in front of a subuser who does not even have file.read-content. The
+     * panel's own file endpoints log the path and never the contents.
+     */
+    private function redact(array $arguments): array
+    {
+        return array_map(function ($value) {
+            if (is_string($value) && strlen($value) > self::MAX_LOGGED_VALUE_LENGTH) {
+                return '('.strlen($value).' characters omitted)';
+            }
+
+            if (is_array($value)) {
+                return $this->redact($value);
+            }
+
+            return $value;
+        }, $arguments);
     }
 
     private function error(string $message): array

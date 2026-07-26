@@ -59,7 +59,7 @@ Registered in `config/chatbot.php`; each extends `App\Services\Chatbot\Tools\Cha
 | `server` | `get_server_details`, `get_server_resources` | — |
 | `power` | `power_action` | yes |
 | `console` | `send_console_command` | yes |
-| `files` | `list_files`, `read_file`, `write_file`, `create_folder`, `rename_files`, `copy_file`, `delete_files`, `compress_files`, `decompress_file` | write, rename, delete, decompress |
+| `files` | `list_files`, `read_file`, `write_file`, `create_folder`, `rename_files`, `copy_file`, `delete_files`, `compress_files`, `decompress_file` | write, rename, delete, decompress, copy, compress |
 | `subusers` | `list_subusers`, `list_subuser_permissions`, `create_subuser`, `update_subuser_permissions`, `delete_subuser` | create, update, delete |
 | `startup` | `get_startup`, `update_startup_variable`, `update_startup_parts` | the two updates |
 
@@ -83,7 +83,11 @@ To add a tool: implement the abstract class, list it in `config/chatbot.php`. Pe
 - **Result truncation** (`ToolExecutor::truncate()`): results over ~12 KB are trimmed, preferring keys named `content`, `output`, `files` or `entries` — name large payloads accordingly.
 - **Internal exceptions are not shown to the model.** Only `DisplayException` messages are passed through; anything else becomes a generic string, because a `DaemonConnectionException` carries node addresses.
 - **`max_tokens` fallback.** Newer OpenAI models reject `max_tokens` and require `max_completion_tokens`; `OpenAiClient::chat()` retries once with the other key rather than making the administrator know which is which.
-- **Activity log**: `server:chatbot.tool`, with `tool`, `group` and `arguments` properties. Translation in `resources/lang/en/activity.php`. Log failures never break a conversation.
+- **Turns are serialized per conversation** by a `Cache::lock` (`withTurnLock()`), and a confirmation decision is claimed with a conditional `UPDATE … WHERE status = 'awaiting_confirmation'`. Both exist because the read-then-write version let two concurrent approvals execute the same destructive batch twice. The lock is never waited on — a second request means a double submit.
+- **Copying and archiving are destructive.** They consume disk in proportion to what they are pointed at, and `compress_files` holds a 15-minute daemon timeout, so injected instructions could otherwise fill a node without the user ever being asked.
+- **A single model response may execute at most `MAX_CALLS_PER_TURN` (8) tool calls.** Each call is a daemon request; the surplus is dropped and the model is told why so it narrows its next attempt.
+- **Tool results are permission-shaped, not just permission-gated.** `get_server_details` mirrors `ServerTransformer`: without `allocation.read` it returns only the primary allocation with `notes` nulled. When adding a tool, check what the equivalent *transformer* hides, not only what the request class requires.
+- **Activity log**: `server:chatbot.tool`, with `tool`, `group` and `arguments` properties — argument values over 512 characters are replaced with a placeholder, because activity properties are readable by anyone with `activity.read` and a `write_file` body would otherwise be exposed to a user without `file.read-content`. Translation in `resources/lang/en/activity.php`. Log failures never break a conversation.
 
 ## Gotchas
 

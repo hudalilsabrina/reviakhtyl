@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\Chatbot\Data\ToolCall;
 use App\Services\Chatbot\Tools\ChatbotTool;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
@@ -19,6 +20,13 @@ use Illuminate\Support\Str;
  */
 class ChatbotService
 {
+    /**
+     * How many tool calls a single model response may have executed. Each call
+     * is a request to the daemon, so an unbounded batch turns one chat message
+     * into a flood — exactly what injected instructions would aim for.
+     */
+    private const MAX_CALLS_PER_TURN = 8;
+
     public function __construct(
         private ChatbotSettings $settings,
         private OpenAiClient $client,
@@ -48,22 +56,24 @@ class ChatbotService
     {
         $this->assertEnabled();
 
-        if ($this->pendingConfirmation($conversation)) {
-            throw new ChatbotException('The assistant is waiting for you to approve or deny its last proposed action.');
-        }
+        return $this->withTurnLock($conversation, function () use ($conversation, $content) {
+            if ($this->pendingConfirmation($conversation)) {
+                throw new ChatbotException('The assistant is waiting for you to approve or deny its last proposed action.');
+            }
 
-        $created = collect([
-            $this->store($conversation, [
-                'role' => ChatbotMessage::ROLE_USER,
-                'content' => $content,
-            ]),
-        ]);
+            $created = collect([
+                $this->store($conversation, [
+                    'role' => ChatbotMessage::ROLE_USER,
+                    'content' => $content,
+                ]),
+            ]);
 
-        if (! $conversation->title) {
-            $conversation->update(['title' => $conversation->titleFrom($content)]);
-        }
+            if (! $conversation->title) {
+                $conversation->update(['title' => $conversation->titleFrom($content)]);
+            }
 
-        return $created->concat($this->run($conversation));
+            return $created->concat($this->run($conversation));
+        });
     }
 
     /**
@@ -75,9 +85,32 @@ class ChatbotService
     {
         $this->assertEnabled();
 
-        if (! $message->isAwaitingConfirmation() || $message->conversation_id !== $conversation->id) {
+        return $this->withTurnLock($conversation, fn () => $this->runConfirmation($conversation, $message, $approved));
+    }
+
+    /**
+     * @return Collection<int, ChatbotMessage>
+     */
+    private function runConfirmation(ChatbotConversation $conversation, ChatbotMessage $message, bool $approved): Collection
+    {
+        if ($message->conversation_id !== $conversation->id) {
             throw new ChatbotException('That action is no longer waiting for a decision.');
         }
+
+        // Claim the decision with a conditional update rather than a read
+        // followed by a write. Two approvals arriving together would otherwise
+        // both pass the check and run the tools twice — deleting the same files
+        // or restarting the server a second time.
+        $claimed = ChatbotMessage::query()
+            ->whereKey($message->getKey())
+            ->where('status', ChatbotMessage::STATUS_AWAITING_CONFIRMATION)
+            ->update(['status' => $approved ? ChatbotMessage::STATUS_COMPLETE : ChatbotMessage::STATUS_DENIED]);
+
+        if ($claimed !== 1) {
+            throw new ChatbotException('That action is no longer waiting for a decision.');
+        }
+
+        $message->refresh();
 
         $context = $this->contextFor($conversation);
         $created = collect();
@@ -108,10 +141,8 @@ class ChatbotService
             ]));
         }
 
-        $message->update([
-            'tool_calls' => $calls,
-            'status' => $approved ? ChatbotMessage::STATUS_COMPLETE : ChatbotMessage::STATUS_DENIED,
-        ]);
+        // The status was already set when the decision was claimed above.
+        $message->update(['tool_calls' => $calls]);
 
         return $created->concat($this->run($conversation));
     }
@@ -179,14 +210,20 @@ class ChatbotService
                 ]));
             }
 
+            // A single response can request any number of calls, and each one is a
+            // request to the daemon. Cap the batch so one turn cannot be turned into
+            // hundreds of file reads — a plausible outcome of injected instructions.
+            $toolCalls = array_slice($completion->toolCalls, 0, self::MAX_CALLS_PER_TURN);
+            $dropped = count($completion->toolCalls) - count($toolCalls);
+
             $needsApproval = $this->settings->requiresConfirmation()
-                && $this->containsDestructiveCall($context, $completion->toolCalls);
+                && $this->containsDestructiveCall($context, $toolCalls);
 
             $assistant = $this->store($conversation, [
                 'role' => ChatbotMessage::ROLE_ASSISTANT,
                 'content' => $completion->content,
                 'reasoning' => $completion->reasoning,
-                'tool_calls' => $this->describeCalls($context, $completion->toolCalls, $needsApproval ? 'pending' : null),
+                'tool_calls' => $this->describeCalls($context, $toolCalls, $needsApproval ? 'pending' : null),
                 'status' => $needsApproval ? ChatbotMessage::STATUS_AWAITING_CONFIRMATION : ChatbotMessage::STATUS_COMPLETE,
             ]);
 
@@ -199,8 +236,15 @@ class ChatbotService
 
             $calls = $assistant->tool_calls;
 
-            foreach ($completion->toolCalls as $index => $call) {
+            foreach ($toolCalls as $index => $call) {
                 $result = $this->executor->execute($context, $call->name, $call->arguments);
+
+                if ($dropped > 0) {
+                    // Tell the model why the rest went missing, so it narrows its
+                    // next attempt instead of silently working from partial results.
+                    $result['note'] = "Only the first ".self::MAX_CALLS_PER_TURN.' tool calls of this turn were run; '
+                        ."$dropped more were discarded. Ask for fewer things at once.";
+                }
 
                 $calls[$index]['status'] = ($result['ok'] ?? false) ? 'executed' : 'failed';
                 $calls[$index]['ok'] = (bool) ($result['ok'] ?? false);
@@ -340,6 +384,43 @@ class ChatbotService
         }
 
         return $messages;
+    }
+
+    /**
+     * Serializes turns within one conversation.
+     *
+     * A turn writes an assistant message, runs its tools and writes their
+     * results as separate rows. Two turns running concurrently would interleave
+     * those rows, and the resulting history — an assistant message whose tool
+     * results are separated from it — is rejected outright by the provider on
+     * the next request.
+     *
+     * The lock is deliberately not waited on: a second request means the user
+     * double-submitted, and a turn can legitimately take minutes.
+     *
+     * @template T
+     *
+     * @param  \Closure(): T  $callback
+     * @return T
+     *
+     * @throws ChatbotException
+     */
+    private function withTurnLock(ChatbotConversation $conversation, \Closure $callback): mixed
+    {
+        // The TTL bounds the damage if the worker is killed mid-turn: the lock
+        // frees itself rather than stranding the conversation. It still sits
+        // well above the longest legitimate turn.
+        $lock = Cache::lock("chatbot:conversation:{$conversation->id}", 300);
+
+        if (! $lock->get()) {
+            throw new ChatbotException('The assistant is still working on your previous message. Please wait for it to finish.');
+        }
+
+        try {
+            return $callback();
+        } finally {
+            $lock->release();
+        }
     }
 
     private function contextFor(ChatbotConversation $conversation): ToolContext
