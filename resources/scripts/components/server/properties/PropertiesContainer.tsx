@@ -171,7 +171,8 @@ const PropertiesContainer = () => {
             {loading || !data ? (
                 <Spinner size={'large'} centered />
             ) : (
-                <div css={tw`space-y-4`}>
+                <div css={tw`space-y-4 relative`}>
+                    <SpinnerOverlay visible={saving} />
                     <p css={tw`text-sm text-gray-400`}>{t('subtitle')}</p>
 
                     {!data.eulaAccepted && (
@@ -245,8 +246,7 @@ const PropertiesContainer = () => {
                                 </Card>
                             ) : (
                                 groups.map((group) => (
-                                    <Card key={group.id} css={tw`relative`}>
-                                        <SpinnerOverlay visible={saving} />
+                                    <Card key={group.id}>
                                         <h2 css={tw`text-sm font-semibold uppercase tracking-wider text-gray-300`}>
                                             {group.label}
                                         </h2>

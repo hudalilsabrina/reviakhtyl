@@ -33,6 +33,7 @@ Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
 - [`docs/modular-startup/AGENTS.md`](docs/modular-startup/AGENTS.md) — Egg-defined toggle-able startup command fragments (`{{STARTUP_PARTS}}` placeholder).
 - [`docs/mods/AGENTS.md`](docs/mods/AGENTS.md) — Minecraft client-side mod installer (Modrinth integration, Fabric/Forge/NeoForge/Quilt).
 - [`docs/plugins/AGENTS.md`](docs/plugins/AGENTS.md) — Minecraft server plugin installer (Modrinth/Hangar/SpigotMC, multi-registry support).
+- [`docs/properties/AGENTS.md`](docs/properties/AGENTS.md) — Minecraft `server.properties` form editor (file-backed, no DB table).
 
 ## Gotchas
 
