@@ -3,6 +3,7 @@
 namespace App\Services\Chatbot\Tools\Subusers;
 
 use App\Enum\ChatbotToolGroup;
+use App\Enum\ResourceLimit;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Exceptions\Service\Subuser\ServerSubuserExistsException;
 use App\Exceptions\Service\Subuser\UserIsServerOwnerException;
@@ -84,6 +85,14 @@ class CreateSubuserTool extends ChatbotTool
     public function handle(ToolContext $context, array $arguments): array
     {
         $requested = $arguments['permissions'];
+
+        // The HTTP endpoint carries ResourceLimit::Subuser; without this the
+        // assistant would be a way around the per-server creation allowance.
+        if (! ResourceLimit::Subuser->hit($context->server)) {
+            throw new ChatbotException(
+                'This server has reached its limit for adding subusers in a short period. Try again in a few minutes.'
+            );
+        }
 
         $this->assertCanBeAssigned($context, $requested);
 

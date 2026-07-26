@@ -1,5 +1,43 @@
 <?php
 
+use App\Services\Chatbot\Tools\Console\SendConsoleCommandTool;
+use App\Services\Chatbot\Tools\Files\CompressFilesTool;
+use App\Services\Chatbot\Tools\Files\CopyFileTool;
+use App\Services\Chatbot\Tools\Files\CreateFolderTool;
+use App\Services\Chatbot\Tools\Files\DecompressFileTool;
+use App\Services\Chatbot\Tools\Files\DeleteFilesTool;
+use App\Services\Chatbot\Tools\Files\ListFilesTool;
+use App\Services\Chatbot\Tools\Files\ReadFileTool;
+use App\Services\Chatbot\Tools\Files\RenameFilesTool;
+use App\Services\Chatbot\Tools\Files\WriteFileTool;
+use App\Services\Chatbot\Tools\Mods\InstallModTool;
+use App\Services\Chatbot\Tools\Mods\ListModsTool;
+use App\Services\Chatbot\Tools\Mods\ListModVersionsTool;
+use App\Services\Chatbot\Tools\Mods\RemoveModTool;
+use App\Services\Chatbot\Tools\Mods\SearchModsTool;
+use App\Services\Chatbot\Tools\Mods\ToggleModTool;
+use App\Services\Chatbot\Tools\Mods\UpdateModTool;
+use App\Services\Chatbot\Tools\Plugins\InstallPluginTool;
+use App\Services\Chatbot\Tools\Plugins\ListPluginsTool;
+use App\Services\Chatbot\Tools\Plugins\ListPluginVersionsTool;
+use App\Services\Chatbot\Tools\Plugins\RemovePluginTool;
+use App\Services\Chatbot\Tools\Plugins\SearchPluginsTool;
+use App\Services\Chatbot\Tools\Plugins\TogglePluginTool;
+use App\Services\Chatbot\Tools\Plugins\UpdatePluginTool;
+use App\Services\Chatbot\Tools\Power\PowerActionTool;
+use App\Services\Chatbot\Tools\Server\GetActivityLogTool;
+use App\Services\Chatbot\Tools\Server\GetResourceHistoryTool;
+use App\Services\Chatbot\Tools\Server\GetServerDetailsTool;
+use App\Services\Chatbot\Tools\Server\GetServerResourcesTool;
+use App\Services\Chatbot\Tools\Startup\GetStartupTool;
+use App\Services\Chatbot\Tools\Startup\UpdateStartupPartsTool;
+use App\Services\Chatbot\Tools\Startup\UpdateStartupVariableTool;
+use App\Services\Chatbot\Tools\Subusers\CreateSubuserTool;
+use App\Services\Chatbot\Tools\Subusers\DeleteSubuserTool;
+use App\Services\Chatbot\Tools\Subusers\ListPermissionsTool;
+use App\Services\Chatbot\Tools\Subusers\ListSubusersTool;
+use App\Services\Chatbot\Tools\Subusers\UpdateSubuserPermissionsTool;
+
 /*
 |--------------------------------------------------------------------------
 | Chatbot Tool Registry
@@ -23,57 +61,57 @@ return [
     'tools' => [
         // Read-only information about how the server is configured and how it
         // is currently performing.
-        App\Services\Chatbot\Tools\Server\GetServerDetailsTool::class,
-        App\Services\Chatbot\Tools\Server\GetServerResourcesTool::class,
-        App\Services\Chatbot\Tools\Server\GetResourceHistoryTool::class,
-        App\Services\Chatbot\Tools\Server\GetActivityLogTool::class,
+        GetServerDetailsTool::class,
+        GetServerResourcesTool::class,
+        GetResourceHistoryTool::class,
+        GetActivityLogTool::class,
 
         // Power state control.
-        App\Services\Chatbot\Tools\Power\PowerActionTool::class,
+        PowerActionTool::class,
 
         // Console access.
-        App\Services\Chatbot\Tools\Console\SendConsoleCommandTool::class,
+        SendConsoleCommandTool::class,
 
         // Filesystem browsing and modification.
-        App\Services\Chatbot\Tools\Files\ListFilesTool::class,
-        App\Services\Chatbot\Tools\Files\ReadFileTool::class,
-        App\Services\Chatbot\Tools\Files\WriteFileTool::class,
-        App\Services\Chatbot\Tools\Files\CreateFolderTool::class,
-        App\Services\Chatbot\Tools\Files\RenameFilesTool::class,
-        App\Services\Chatbot\Tools\Files\CopyFileTool::class,
-        App\Services\Chatbot\Tools\Files\CompressFilesTool::class,
-        App\Services\Chatbot\Tools\Files\DecompressFileTool::class,
-        App\Services\Chatbot\Tools\Files\DeleteFilesTool::class,
+        ListFilesTool::class,
+        ReadFileTool::class,
+        WriteFileTool::class,
+        CreateFolderTool::class,
+        RenameFilesTool::class,
+        CopyFileTool::class,
+        CompressFilesTool::class,
+        DecompressFileTool::class,
+        DeleteFilesTool::class,
 
         // Subuser access management.
-        App\Services\Chatbot\Tools\Subusers\ListSubusersTool::class,
-        App\Services\Chatbot\Tools\Subusers\ListPermissionsTool::class,
-        App\Services\Chatbot\Tools\Subusers\CreateSubuserTool::class,
-        App\Services\Chatbot\Tools\Subusers\UpdateSubuserPermissionsTool::class,
-        App\Services\Chatbot\Tools\Subusers\DeleteSubuserTool::class,
+        ListSubusersTool::class,
+        ListPermissionsTool::class,
+        CreateSubuserTool::class,
+        UpdateSubuserPermissionsTool::class,
+        DeleteSubuserTool::class,
 
         // Startup command, egg variables and modular startup parts.
-        App\Services\Chatbot\Tools\Startup\GetStartupTool::class,
-        App\Services\Chatbot\Tools\Startup\UpdateStartupVariableTool::class,
-        App\Services\Chatbot\Tools\Startup\UpdateStartupPartsTool::class,
+        GetStartupTool::class,
+        UpdateStartupVariableTool::class,
+        UpdateStartupPartsTool::class,
 
         // Plugin installer. Gated by the egg allowlist in addition to the
         // tool group, exactly as the plugin page is.
-        App\Services\Chatbot\Tools\Plugins\ListPluginsTool::class,
-        App\Services\Chatbot\Tools\Plugins\SearchPluginsTool::class,
-        App\Services\Chatbot\Tools\Plugins\ListPluginVersionsTool::class,
-        App\Services\Chatbot\Tools\Plugins\InstallPluginTool::class,
-        App\Services\Chatbot\Tools\Plugins\UpdatePluginTool::class,
-        App\Services\Chatbot\Tools\Plugins\RemovePluginTool::class,
-        App\Services\Chatbot\Tools\Plugins\TogglePluginTool::class,
+        ListPluginsTool::class,
+        SearchPluginsTool::class,
+        ListPluginVersionsTool::class,
+        InstallPluginTool::class,
+        UpdatePluginTool::class,
+        RemovePluginTool::class,
+        TogglePluginTool::class,
 
         // Mod installer, gated the same way as the plugin installer.
-        App\Services\Chatbot\Tools\Mods\ListModsTool::class,
-        App\Services\Chatbot\Tools\Mods\SearchModsTool::class,
-        App\Services\Chatbot\Tools\Mods\ListModVersionsTool::class,
-        App\Services\Chatbot\Tools\Mods\InstallModTool::class,
-        App\Services\Chatbot\Tools\Mods\UpdateModTool::class,
-        App\Services\Chatbot\Tools\Mods\RemoveModTool::class,
-        App\Services\Chatbot\Tools\Mods\ToggleModTool::class,
+        ListModsTool::class,
+        SearchModsTool::class,
+        ListModVersionsTool::class,
+        InstallModTool::class,
+        UpdateModTool::class,
+        RemoveModTool::class,
+        ToggleModTool::class,
     ],
 ];

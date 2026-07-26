@@ -62,27 +62,28 @@ class ChatbotService
      *
      * @return Collection<int, ChatbotMessage>
      */
-    public function sendMessage(ChatbotConversation $conversation, string $content): Collection
+    public function sendMessage(ChatbotConversation $conversation, string $content, ?callable $emit = null): Collection
     {
         $this->assertEnabled();
 
-        return $this->withTurnLock($conversation, function () use ($conversation, $content) {
+        return $this->withTurnLock($conversation, function () use ($conversation, $content, $emit) {
             if ($this->pendingConfirmation($conversation)) {
                 throw new ChatbotException('The assistant is waiting for you to approve or deny its last proposed action.');
             }
 
-            $created = collect([
-                $this->store($conversation, [
-                    'role' => ChatbotMessage::ROLE_USER,
-                    'content' => $content,
-                ]),
+            $user = $this->store($conversation, [
+                'role' => ChatbotMessage::ROLE_USER,
+                'content' => $content,
             ]);
+
+            $created = collect([$user]);
+            $emit && $emit('message', ['message' => $user]);
 
             if (! $conversation->title) {
                 $conversation->update(['title' => $conversation->titleFrom($content)]);
             }
 
-            return $created->concat($this->run($conversation));
+            return $created->concat($this->run($conversation, $emit));
         });
     }
 
@@ -190,7 +191,7 @@ class ChatbotService
      *
      * @return Collection<int, ChatbotMessage>
      */
-    private function run(ChatbotConversation $conversation): Collection
+    private function run(ChatbotConversation $conversation, ?callable $emit = null): Collection
     {
         $context = $this->contextFor($conversation);
         $tools = $this->registry->availableFor($context);
@@ -199,25 +200,50 @@ class ChatbotService
         $created = collect();
 
         for ($iteration = 0; $iteration < $this->settings->maxIterations(); $iteration++) {
-            try {
-                $completion = $this->client->chat(
-                    $this->buildProviderMessages($conversation, $context, $tools),
-                    $definitions,
-                );
-            } catch (ChatbotException $e) {
-                return $created->push($this->store($conversation, [
+            $providerMessages = $this->buildProviderMessages($conversation, $context, $tools);
+
+            // Streaming needs somewhere to put the text before the turn is
+            // finished, so the row is written first and filled in as it arrives.
+            $placeholder = null;
+
+            if ($emit) {
+                $placeholder = $this->store($conversation, [
                     'role' => ChatbotMessage::ROLE_ASSISTANT,
+                    'content' => null,
+                ]);
+
+                $created->push($placeholder);
+                $emit('message', ['message' => $placeholder]);
+            }
+
+            try {
+                $completion = $emit
+                    ? $this->client->stream(
+                        $providerMessages,
+                        $definitions,
+                        fn (string $text) => $emit('delta', ['uuid' => $placeholder->uuid, 'content' => $text]),
+                    )
+                    : $this->client->chat($providerMessages, $definitions);
+            } catch (ChatbotException $e) {
+                $failed = $this->persistAssistant($conversation, $placeholder, [
                     'content' => $e->getMessage(),
                     'status' => ChatbotMessage::STATUS_FAILED,
-                ]));
+                ]);
+
+                $emit && $emit('message', ['message' => $failed]);
+
+                return $placeholder ? $created : $created->push($failed);
             }
 
             if (! $completion->hasToolCalls()) {
-                return $created->push($this->store($conversation, [
-                    'role' => ChatbotMessage::ROLE_ASSISTANT,
+                $answer = $this->persistAssistant($conversation, $placeholder, [
                     'content' => $completion->content ?? 'I could not produce a response to that. Please rephrase and try again.',
                     'reasoning' => $completion->reasoning,
-                ]));
+                ]);
+
+                $emit && $emit('message', ['message' => $answer]);
+
+                return $placeholder ? $created : $created->push($answer);
             }
 
             // A single response can request any number of calls, and each one is a
@@ -229,15 +255,18 @@ class ChatbotService
             $needsApproval = $this->settings->requiresConfirmation()
                 && $this->containsDestructiveCall($context, $toolCalls);
 
-            $assistant = $this->store($conversation, [
-                'role' => ChatbotMessage::ROLE_ASSISTANT,
+            $assistant = $this->persistAssistant($conversation, $placeholder, [
                 'content' => $completion->content,
                 'reasoning' => $completion->reasoning,
                 'tool_calls' => $this->describeCalls($context, $toolCalls, $needsApproval ? 'pending' : null),
                 'status' => $needsApproval ? ChatbotMessage::STATUS_AWAITING_CONFIRMATION : ChatbotMessage::STATUS_COMPLETE,
             ]);
 
-            $created->push($assistant);
+            if (! $placeholder) {
+                $created->push($assistant);
+            }
+
+            $emit && $emit('message', ['message' => $assistant]);
 
             // Hand control back to the user; resolveConfirmation() resumes here.
             if ($needsApproval) {
@@ -252,12 +281,14 @@ class ChatbotService
                 if ($dropped > 0) {
                     // Tell the model why the rest went missing, so it narrows its
                     // next attempt instead of silently working from partial results.
-                    $result['note'] = "Only the first ".self::MAX_CALLS_PER_TURN.' tool calls of this turn were run; '
+                    $result['note'] = 'Only the first '.self::MAX_CALLS_PER_TURN.' tool calls of this turn were run; '
                         ."$dropped more were discarded. Ask for fewer things at once.";
                 }
 
                 $calls[$index]['status'] = ($result['ok'] ?? false) ? 'executed' : 'failed';
                 $calls[$index]['ok'] = (bool) ($result['ok'] ?? false);
+
+                $emit && $emit('tool', ['uuid' => $assistant->uuid, 'call' => $calls[$index]]);
 
                 $created->push($this->store($conversation, [
                     'role' => ChatbotMessage::ROLE_TOOL,
@@ -270,10 +301,34 @@ class ChatbotService
             $assistant->update(['tool_calls' => $calls]);
         }
 
-        return $created->push($this->store($conversation, [
+        $exhausted = $this->store($conversation, [
             'role' => ChatbotMessage::ROLE_ASSISTANT,
             'content' => 'I stopped after taking too many steps in a row without reaching an answer. Tell me what to focus on and I will try a narrower approach.',
-        ]));
+        ]);
+
+        $emit && $emit('message', ['message' => $exhausted]);
+
+        return $created->push($exhausted);
+    }
+
+    /**
+     * Writes the assistant's turn, filling in the row streaming already created
+     * rather than adding a second one.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function persistAssistant(
+        ChatbotConversation $conversation,
+        ?ChatbotMessage $placeholder,
+        array $attributes,
+    ): ChatbotMessage {
+        if (! $placeholder) {
+            return $this->store($conversation, ['role' => ChatbotMessage::ROLE_ASSISTANT] + $attributes);
+        }
+
+        $placeholder->update($attributes);
+
+        return $placeholder;
     }
 
     /**
