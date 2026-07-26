@@ -92,18 +92,26 @@ class ChatbotService
      *
      * @return Collection<int, ChatbotMessage>
      */
-    public function resolveConfirmation(ChatbotConversation $conversation, ChatbotMessage $message, bool $approved): Collection
-    {
+    public function resolveConfirmation(
+        ChatbotConversation $conversation,
+        ChatbotMessage $message,
+        bool $approved,
+        ?callable $emit = null,
+    ): Collection {
         $this->assertEnabled();
 
-        return $this->withTurnLock($conversation, fn () => $this->runConfirmation($conversation, $message, $approved));
+        return $this->withTurnLock($conversation, fn () => $this->runConfirmation($conversation, $message, $approved, $emit));
     }
 
     /**
      * @return Collection<int, ChatbotMessage>
      */
-    private function runConfirmation(ChatbotConversation $conversation, ChatbotMessage $message, bool $approved): Collection
-    {
+    private function runConfirmation(
+        ChatbotConversation $conversation,
+        ChatbotMessage $message,
+        bool $approved,
+        ?callable $emit = null,
+    ): Collection {
         if ($message->conversation_id !== $conversation->id) {
             throw new ChatbotException('That action is no longer waiting for a decision.');
         }
@@ -123,7 +131,12 @@ class ChatbotService
 
         $message->refresh();
 
+        // The decision itself is news: the client is still showing this message
+        // as pending, and the tools below may take a while to run.
+        $emit && $emit('message', ['message' => $message]);
+
         $context = $this->contextFor($conversation);
+        /** @var Collection<int, ChatbotMessage> $created */
         $created = collect();
         $calls = $message->tool_calls ?? [];
 
@@ -142,6 +155,8 @@ class ChatbotService
                 $calls[$index]['ok'] = false;
             }
 
+            $emit && $emit('tool', ['uuid' => $message->uuid, 'call' => $calls[$index]]);
+
             // Every tool call must be answered by a tool message, otherwise the
             // provider rejects the next request as an unresolved call.
             $created->push($this->store($conversation, [
@@ -155,7 +170,7 @@ class ChatbotService
         // The status was already set when the decision was claimed above.
         $message->update(['tool_calls' => $calls]);
 
-        return $created->concat($this->run($conversation));
+        return $created->concat($this->run($conversation, $emit));
     }
 
     /**
@@ -197,6 +212,7 @@ class ChatbotService
         $tools = $this->registry->availableFor($context);
         $definitions = array_values(array_map(fn (ChatbotTool $tool) => $tool->definition(), $tools));
 
+        /** @var Collection<int, ChatbotMessage> $created */
         $created = collect();
 
         for ($iteration = 0; $iteration < $this->settings->maxIterations(); $iteration++) {
@@ -436,6 +452,7 @@ class ChatbotService
         // Never let the reservation starve the history entirely: a verbose
         // system prompt should shrink the window, not empty it.
         $budget = max(1000, $this->settings->contextTokens() - $reserved);
+        /** @var Collection<int, ChatbotMessage> $selected */
         $selected = collect();
 
         foreach ($candidates as $message) {

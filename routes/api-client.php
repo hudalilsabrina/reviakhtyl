@@ -246,6 +246,7 @@ Route::group([
             Route::post('/conversations/{chatbotConversation}/messages', [Client\Servers\ChatbotController::class, 'message']);
             Route::post('/conversations/{chatbotConversation}/messages/stream', [Client\Servers\ChatbotController::class, 'stream']);
             Route::post('/conversations/{chatbotConversation}/confirm', [Client\Servers\ChatbotController::class, 'confirm']);
+            Route::post('/conversations/{chatbotConversation}/confirm/stream', [Client\Servers\ChatbotController::class, 'confirmStream']);
         });
     });
 
