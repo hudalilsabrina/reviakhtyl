@@ -57,7 +57,11 @@ export const InstalledTab = ({
                                             disabled={!!busy}
                                             onClick={() => onTrack(jar)}
                                         >
-                                            {busy === `track:${jar.file_name}` ? <Spinner size={'small'} /> : t('track')}
+                                            {busy === `track:${jar.file_name}` ? (
+                                                <Spinner size={'small'} />
+                                            ) : (
+                                                t('track')
+                                            )}
                                         </Button>
                                     </div>
                                 </div>
