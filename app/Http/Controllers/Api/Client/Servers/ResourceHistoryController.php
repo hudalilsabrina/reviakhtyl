@@ -8,6 +8,7 @@ use App\Models\Server;
 use App\Models\ServerStatsHistory;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ResourceHistoryController extends ClientApiController
 {
@@ -85,5 +86,52 @@ class ResourceHistoryController extends ClientApiController
                 'network_tx_bytes' => (int) $stat->avg_network_tx,
             ]),
         ];
+    }
+
+    /**
+     * Export historical resource data in CSV or JSON format.
+     */
+    public function export(GetServerRequest $request, Server $server): StreamedResponse
+    {
+        $days = (int) $request->query('days', 1);
+        $format = $request->query('format', 'csv');
+
+        $startDate = Carbon::now()->subDays($days);
+        $stats = ServerStatsHistory::query()
+            ->where('server_id', $server->id)
+            ->where('created_at', '>=', $startDate)
+            ->orderBy('created_at', 'asc')
+            ->get(['created_at', 'cpu_usage', 'memory_bytes', 'disk_bytes', 'network_rx_bytes', 'network_tx_bytes']);
+
+        $filename = sprintf('%s-metrics-%dd-%s.%s', $server->uuidShort, $days, now()->format('Ymd-His'), $format);
+
+        return response()->streamDownload(function () use ($stats, $format) {
+            $out = fopen('php://output', 'w');
+
+            if ($format === 'csv') {
+                fputcsv($out, ['Timestamp', 'CPU %', 'Memory MB', 'Disk MB', 'Network RX MB', 'Network TX MB']);
+                foreach ($stats as $stat) {
+                    fputcsv($out, [
+                        $stat->created_at->toIso8601String(),
+                        $stat->cpu_usage,
+                        round($stat->memory_bytes / 1024 / 1024, 2),
+                        round($stat->disk_bytes / 1024 / 1024, 2),
+                        round($stat->network_rx_bytes / 1024 / 1024, 2),
+                        round($stat->network_tx_bytes / 1024 / 1024, 2),
+                    ]);
+                }
+            } else {
+                echo json_encode($stats->map(fn ($stat) => [
+                    'timestamp' => $stat->created_at->toIso8601String(),
+                    'cpu_absolute' => $stat->cpu_usage,
+                    'memory_bytes' => $stat->memory_bytes,
+                    'disk_bytes' => $stat->disk_bytes,
+                    'network_rx_bytes' => $stat->network_rx_bytes,
+                    'network_tx_bytes' => $stat->network_tx_bytes,
+                ]), JSON_PRETTY_PRINT);
+            }
+
+            fclose($out);
+        }, $filename, ['Content-Type' => $format === 'csv' ? 'text/csv' : 'application/json']);
     }
 }

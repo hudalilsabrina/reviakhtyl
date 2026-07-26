@@ -21,6 +21,7 @@ import { ServerError } from '@/reviactyl/elements/ScreenBlock';
 import tw from 'twin.macro';
 import { useTranslation } from 'react-i18next';
 import Select from '@/reviactyl/elements/Select';
+import Button from '@/reviactyl/elements/Button';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -38,11 +39,18 @@ interface StatsResponse {
 }
 
 type TimeRange = '1' | '3' | '7';
+type ExportFormat = 'csv' | 'json';
 
 export default () => {
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const [days, setDays] = useState<TimeRange>('1');
+    const [exportFormat, setExportFormat] = useState<ExportFormat>('csv');
     const { t } = useTranslation('server/metrics');
+
+    const handleExport = () => {
+        const url = `/api/client/servers/${uuid}/resources/history/export?days=${days}&format=${exportFormat}`;
+        window.location.href = url;
+    };
 
     const { data, error, isValidating } = useSWR<StatsResponse>(
         [uuid, '/resources/history', days],
@@ -163,7 +171,14 @@ export default () => {
     return (
         <ServerContentBlock title={t('title')}>
             <FlashMessageRender byKey={'server:metrics'} />
-            <div css={tw`mb-4 flex justify-end space-x-2`}>
+            <div css={tw`mb-4 flex justify-between items-center`}>
+                <div css={tw`flex space-x-2`}>
+                    <Select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ExportFormat)} className={'!w-auto'}>
+                        <option value="csv">{t('export.csv')}</option>
+                        <option value="json">{t('export.json')}</option>
+                    </Select>
+                    <Button onClick={handleExport}>{t('export.button')}</Button>
+                </div>
                 <Select value={days} onChange={(e) => setDays(e.target.value as TimeRange)} className={'!w-auto'}>
                     <option value={1}>{t('time_range.last_24_hours')}</option>
                     <option value={3}>{t('time_range.last_3_days')}</option>
