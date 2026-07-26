@@ -34,6 +34,7 @@ Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
 - [`docs/mods/AGENTS.md`](docs/mods/AGENTS.md) — Minecraft client-side mod installer (Modrinth integration, Fabric/Forge/NeoForge/Quilt).
 - [`docs/plugins/AGENTS.md`](docs/plugins/AGENTS.md) — Minecraft server plugin installer (Modrinth/Hangar/SpigotMC, multi-registry support).
 - [`docs/properties/AGENTS.md`](docs/properties/AGENTS.md) — Minecraft `server.properties` form editor (file-backed, no DB table).
+- [`docs/chatbot/AGENTS.md`](docs/chatbot/AGENTS.md) — AI assistant with tool calling (OpenAI-compatible provider, per-tool subuser permissions, destructive-action confirmation).
 
 ## Gotchas
 
