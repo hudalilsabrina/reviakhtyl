@@ -178,19 +178,19 @@ const ModsContainer = () => {
             .finally(() => id === searchId.current && setSearching(false));
     };
 
-    useEffect(() => {
-        if (tab !== 'browse') return;
-        setHits([]);
-        doSearch(0);
-    }, [tab, provider, sort]);
+    // Drop stale hits immediately on a registry change: their install buttons
+    // would otherwise install from the newly selected provider.
+    useEffect(() => setHits([]), [provider, sort]);
 
-    // Debounced live search while typing.
+    // One debounced effect for every search input. Split into a mount effect
+    // plus a query effect, it fired two identical searches on open.
     useEffect(() => {
         if (tab !== 'browse') return;
+        setSearching(true); // during the debounce too, or the empty state flashes first
         const timer = setTimeout(() => doSearch(0), 350);
 
         return () => clearTimeout(timer);
-    }, [query]);
+    }, [tab, provider, sort, query]);
 
     // Scan for manually-uploaded jars when opening the Installed tab.
     useEffect(() => {
@@ -1019,7 +1019,11 @@ const ModsContainer = () => {
                         </div>
                     </form>
 
-                    {!searching && hits.length === 0 ? (
+                    {searching && hits.length === 0 ? (
+                        <div css={tw`py-16`}>
+                            <Spinner centered />
+                        </div>
+                    ) : hits.length === 0 ? (
                         <div css={tw`text-center py-16 text-gray-500`}>
                             <FaMagnifyingGlass css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
                             <p css={tw`text-sm`}>{t('no_results')}</p>
