@@ -16,6 +16,7 @@ import SettingsContainer from '@/components/server/settings/SettingsContainer';
 import AccountOverviewContainer from '@/components/dashboard/AccountOverviewContainer';
 import AccountApiContainer from '@/components/dashboard/AccountApiContainer';
 import AccountSSHContainer from '@/components/dashboard/ssh/AccountSSHContainer';
+import AccountTelegramContainer from '@/components/dashboard/AccountTelegramContainer';
 import ActivityLogContainer from '@/components/dashboard/activity/ActivityLogContainer';
 import ServerActivityLogContainer from '@/components/server/ServerActivityLogContainer';
 import {
@@ -34,6 +35,7 @@ import {
     FaPlay,
     FaCube,
     FaPuzzlePiece,
+    FaTelegram,
     FaTerminal,
     FaUser,
     FaUsers,
@@ -100,6 +102,12 @@ export default {
             name: 'account.ssh',
             icon: FaKey,
             component: AccountSSHContainer,
+        },
+        {
+            route: 'telegram',
+            name: 'account.telegram',
+            icon: FaTelegram,
+            component: AccountTelegramContainer,
         },
         {
             route: 'activity',
