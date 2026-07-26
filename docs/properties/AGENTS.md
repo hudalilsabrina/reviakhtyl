@@ -39,11 +39,20 @@ All three writes are behind `throttle:api.properties` (30/min, `RouteConfigServi
 
 **Frontend** — `resources/scripts/components/server/properties/`
 
-- `PropertiesContainer.tsx` — orchestrator: tabs, search, dirty tracking, banners.
-- `PropertyField.tsx` — control per `type`, reset-to-default button, locked/warn markers.
+- `PropertiesContainer.tsx` — orchestrator: tabs, search, dirty tracking, banners, sticky save bar.
+- `PropertyGroupCard.tsx` — collapsible group, "N changed" badge, field count.
+- `PropertyField.tsx` — control per `type`, reset-to-default, reveal toggle for `sensitive`, locked/warn markers, inline error.
+- `validation.ts` — client mirror of the service's `int` range checks; returns a translation key, the field translates it.
 - `RawEditorTab.tsx` — reuses `CodemirrorEditor`/`MonacoEditor` per the user's `fileEditor` preference, mode `text/x-properties`.
-- `Banner.tsx` — shared EULA / restart banner.
+- `Banner.tsx` — shared EULA / missing-file / restart banner.
 - API module: `resources/scripts/api/server/properties/properties.ts`.
+
+**UI decisions that exist because the page is ~63 fields tall**
+
+- Groups default to **collapsed**, so the page opens as an eight-row index rather than a wall. They auto-expand while a search is active (`searching || expandedIds.includes(id)`).
+- The save bar is `sticky bottom-4` and only mounts while dirty. Save errors render **in that bar**, not through the top-of-page flash — the button that caused them is at the bottom of a long page.
+- Anything that can hide a pending edit compensates for it: a dot on the field, a badge on the collapsed group, and a change count in the save bar that clears the search and opens every group holding an edit.
+- The raw tab is **disabled while the form is dirty**. It renders the last saved file, so switching would silently write pending edits away.
 
 ## Patterns unique to this feature
 
@@ -66,6 +75,8 @@ All three writes are behind `throttle:api.properties` (30/min, `RouteConfigServi
 - **Schema drift is silent.** Minecraft adding or removing a property does not break anything — new keys land in `other`, removed keys just stop appearing — but the schema in `config/server_properties.php` has to be updated by hand to get a typed control and a label.
 
 ## i18n
+
+**Pluralised keys must use i18next `_one`/`_other` suffixes, never Laravel's `|` syntax.** `LocaleController::i18n()` rewrites `:count` to `{{count}}` but leaves a pipe alone, so `'x' => ':count a|:count b'` renders the pipe literally in the client. See `unsaved_one`/`unsaved_other`, `group_changed_*`, `group_count_*` here and `install_with_deps_*` in `server/mods.php`.
 
 `resources/lang/en/server/properties.php` — UI chrome, `groups.*`, and `fields.<key>.{label,description}` for all 63 known properties. `resources/lang/en/routes.php` has `server.properties`. Activity strings live under `server.properties.*` in `resources/lang/en/activity.php`.
 
