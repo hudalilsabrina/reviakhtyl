@@ -7,6 +7,7 @@ use App\Filament\Components\Alert;
 use App\Filament\Components\ImageInput;
 use App\Models\Egg;
 use App\Notifications\MailTested;
+use App\Services\Telegram\TelegramBotService;
 use App\Traits\Helpers\AvailableLanguages;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
@@ -27,6 +28,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Mail\MailManager;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
@@ -736,6 +738,59 @@ class Settings extends Page implements HasSchemas
         $encrypter = app(Encrypter::class);
         $form = $this->getForm('form');
         $data = $form?->getState() ?? [];
+
+        // Validate Telegram settings before saving
+        if (! empty($data['panel:telegram:enabled']) && $data['panel:telegram:enabled']) {
+            $token = $data['panel:telegram:bot_token'] ?? null;
+            $username = $data['panel:telegram:bot_username'] ?? null;
+
+            if (empty($token) || empty($username)) {
+                Notification::make()
+                    ->title('Bot token and username are required when Telegram is enabled')
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+
+            // Test bot token
+            $testService = new TelegramBotService($settings, $encrypter);
+            $apiUrl = "https://api.telegram.org/bot{$token}";
+            try {
+                $response = Http::get("{$apiUrl}/getMe");
+                if (! $response->successful()) {
+                    Notification::make()
+                        ->title('Invalid bot token')
+                        ->body('Could not verify bot with Telegram API')
+                        ->danger()
+                        ->send();
+
+                    return;
+                }
+
+                $botInfo = $response->json('result');
+                if (! empty($botInfo['username']) && strtolower($botInfo['username']) !== strtolower($username)) {
+                    Notification::make()
+                        ->title('Bot username mismatch')
+                        ->body("Expected @{$username}, but API returned @{$botInfo['username']}")
+                        ->warning()
+                        ->send();
+                }
+            } catch (\Exception $e) {
+                Notification::make()
+                    ->title('Failed to verify bot token')
+                    ->body($e->getMessage())
+                    ->danger()
+                    ->send();
+
+                return;
+            }
+        }
+
+        // Generate webhook secret if not set and Telegram is enabled
+        if (! empty($data['panel:telegram:enabled']) && $data['panel:telegram:enabled'] && empty($data['panel:telegram:webhook_secret'])) {
+            $data['panel:telegram:webhook_secret'] = Str::random(32);
+        }
 
         foreach ($data as $key => $value) {
             if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token'], true) && ! empty($value)) {
