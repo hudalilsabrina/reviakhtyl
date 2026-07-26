@@ -8,6 +8,11 @@ return [
         'last_3_days' => 'Last 3 Days',
         'last_7_days' => 'Last 7 Days',
     ],
+    'export' => [
+        'button' => 'Export',
+        'csv' => 'CSV',
+        'json' => 'JSON',
+    ],
     'charts' => [
         'cpu' => [
             'title' => 'CPU History',

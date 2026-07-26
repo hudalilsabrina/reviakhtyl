@@ -82,6 +82,7 @@ Route::group([
         ->name('api:client:server.ws');
     Route::get('/resources', Client\Servers\ResourceUtilizationController::class)->name('api:client:server.resources');
     Route::get('/resources/history', Client\Servers\ResourceHistoryController::class)->name('api:client:server.resources.history');
+    Route::get('/resources/history/export', [Client\Servers\ResourceHistoryController::class, 'export'])->name('api:client:server.resources.history.export');
     Route::get('/activity', Client\Servers\ActivityLogController::class)->name('api:client:server.activity');
 
     Route::post('/command', [Client\Servers\CommandController::class, 'index']);
