@@ -211,7 +211,7 @@ class ChatbotSettings
             $short = str_replace('panel:chatbot:', '', $key);
 
             try {
-                $value = $this->settings->get('settings::'.$key);
+                $value = $this->settings->get('settings::'.$key, null);
             } catch (\Throwable) {
                 $value = null;
             }

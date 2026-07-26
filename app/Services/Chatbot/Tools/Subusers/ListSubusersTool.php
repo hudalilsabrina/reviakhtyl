@@ -44,9 +44,9 @@ class ListSubusersTool extends ChatbotTool
             // Named "entries" so an oversized list is trimmed by the executor
             // rather than discarded wholesale.
             'entries' => $subusers->map(fn (Subuser $subuser) => [
-                'uuid' => $subuser->user?->uuid,
-                'email' => $subuser->user?->email,
-                'username' => $subuser->user?->username,
+                'uuid' => $subuser->user->uuid,
+                'email' => $subuser->user->email,
+                'username' => $subuser->user->username,
                 'permissions' => $subuser->permissions ?? [],
             ])->values()->all(),
         ];

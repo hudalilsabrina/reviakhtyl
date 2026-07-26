@@ -42,7 +42,7 @@ class GetServerDetailsTool extends ChatbotTool
             'egg' => $server->egg?->name,
             'nest' => $server->egg?->nest?->name,
             'docker_image' => $server->image,
-            'node' => $server->node?->name,
+            'node' => $server->node->name,
             'limits' => [
                 'memory_mb' => $server->memory,
                 'swap_mb' => $server->swap,

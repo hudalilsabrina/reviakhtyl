@@ -93,7 +93,7 @@ class GetActivityLogTool extends ChatbotTool
             'entries' => $entries->take($limit)->map(fn (ActivityLog $log) => [
                 'event' => $log->event,
                 'actor' => $this->actor($log, $server),
-                'at' => $log->timestamp?->toIso8601String(),
+                'at' => $log->timestamp->toIso8601String(),
                 'via_api' => ! is_null($log->api_key_id),
                 'properties' => $this->properties($log),
             ])->values()->all(),

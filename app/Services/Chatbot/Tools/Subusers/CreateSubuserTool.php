@@ -108,7 +108,7 @@ class CreateSubuserTool extends ChatbotTool
 
         return [
             'email' => $arguments['email'],
-            'uuid' => $subuser->user?->uuid,
+            'uuid' => $subuser->user->uuid,
             'permissions' => array_values($permissions),
             'ignored_permissions' => array_values(array_diff($requested, $permissions)),
         ];
