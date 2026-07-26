@@ -149,7 +149,11 @@ const ModsContainer = () => {
     const [untracked, setUntracked] = useState<UntrackedJar[]>([]);
     const [trackJar, setTrackJar] = useState<UntrackedJar | null>(null);
     const [selectedMods, setSelectedMods] = useState<Set<number>>(new Set());
-    const [bulkOperation, setBulkOperation] = useState<{ type: 'update' | 'delete'; progress: number; total: number } | null>(null);
+    const [bulkOperation, setBulkOperation] = useState<{
+        type: 'update' | 'delete';
+        progress: number;
+        total: number;
+    } | null>(null);
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
 
@@ -520,7 +524,7 @@ const ModsContainer = () => {
     const toggleSelection = (modId: number) => {
         setSelectedMods((prev) => {
             const next = new Set(prev);
-            next.has(modId) ? next.delete(modId) : next.add(modId);
+            if (!next.delete(modId)) next.add(modId);
             return next;
         });
     };
@@ -538,13 +542,28 @@ const ModsContainer = () => {
         bulkUpdateMods(uuid, ids)
             .then((result) => {
                 result.success.forEach((item) => {
-                    setMods((prev) => prev.map((m) => (m.id === item.id ? { ...m, versionNumber: item.version || m.versionNumber } : m)));
+                    setMods((prev) =>
+                        prev.map((m) =>
+                            m.id === item.id ? { ...m, versionNumber: item.version || m.versionNumber } : m
+                        )
+                    );
                 });
                 if (result.success.length > 0) {
-                    addFlash({ type: 'success', key: 'server:mods', message: t('bulk_update_success', { count: result.success.length }) ?? `Updated ${result.success.length} mods` });
+                    addFlash({
+                        type: 'success',
+                        key: 'server:mods',
+                        message:
+                            t('bulk_update_success', { count: result.success.length }) ??
+                            `Updated ${result.success.length} mods`,
+                    });
                 }
                 if (result.failed.length > 0) {
-                    addError({ key: 'server:mods', message: t('bulk_update_failed', { count: result.failed.length }) ?? `Failed to update ${result.failed.length} mods` });
+                    addError({
+                        key: 'server:mods',
+                        message:
+                            t('bulk_update_failed', { count: result.failed.length }) ??
+                            `Failed to update ${result.failed.length} mods`,
+                    });
                 }
                 clearSelection();
             })
@@ -562,10 +581,21 @@ const ModsContainer = () => {
                     setMods((prev) => prev.filter((m) => m.id !== item.id));
                 });
                 if (result.success.length > 0) {
-                    addFlash({ type: 'success', key: 'server:mods', message: t('bulk_delete_success', { count: result.success.length }) ?? `Deleted ${result.success.length} mods` });
+                    addFlash({
+                        type: 'success',
+                        key: 'server:mods',
+                        message:
+                            t('bulk_delete_success', { count: result.success.length }) ??
+                            `Deleted ${result.success.length} mods`,
+                    });
                 }
                 if (result.failed.length > 0) {
-                    addError({ key: 'server:mods', message: t('bulk_delete_failed', { count: result.failed.length }) ?? `Failed to delete ${result.failed.length} mods` });
+                    addError({
+                        key: 'server:mods',
+                        message:
+                            t('bulk_delete_failed', { count: result.failed.length }) ??
+                            `Failed to delete ${result.failed.length} mods`,
+                    });
                 }
                 clearSelection();
             })
@@ -830,8 +860,8 @@ const ModsContainer = () => {
                                                 </Button>
                                             </div>
                                         </div>
-                                </Card>
-                            ))}
+                                    </Card>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -844,10 +874,18 @@ const ModsContainer = () => {
                         <>
                             {mods.some((m) => m.provider !== 'manual') && (
                                 <div css={tw`mb-4 flex items-center gap-3 flex-wrap`}>
-                                    <Button size={Button.Sizes.Small} onClick={selectAll} disabled={!!busy || !!bulkOperation}>
+                                    <Button
+                                        size={Button.Sizes.Small}
+                                        onClick={selectAll}
+                                        disabled={!!busy || !!bulkOperation}
+                                    >
                                         Select All
                                     </Button>
-                                    <Button size={Button.Sizes.Small} onClick={clearSelection} disabled={!!busy || !!bulkOperation}>
+                                    <Button
+                                        size={Button.Sizes.Small}
+                                        onClick={clearSelection}
+                                        disabled={!!busy || !!bulkOperation}
+                                    >
                                         Clear
                                     </Button>
                                     {selectedMods.size > 0 && (
@@ -858,14 +896,22 @@ const ModsContainer = () => {
                                                 onClick={runBulkUpdate}
                                                 disabled={!!busy || !!bulkOperation}
                                             >
-                                                {bulkOperation?.type === 'update' ? <Spinner size={'small'} /> : `Update Selected (${selectedMods.size})`}
+                                                {bulkOperation?.type === 'update' ? (
+                                                    <Spinner size={'small'} />
+                                                ) : (
+                                                    `Update Selected (${selectedMods.size})`
+                                                )}
                                             </Button>
                                             <Button.Danger
                                                 size={Button.Sizes.Small}
                                                 onClick={runBulkDelete}
                                                 disabled={!!busy || !!bulkOperation}
                                             >
-                                                {bulkOperation?.type === 'delete' ? <Spinner size={'small'} /> : `Delete Selected (${selectedMods.size})`}
+                                                {bulkOperation?.type === 'delete' ? (
+                                                    <Spinner size={'small'} />
+                                                ) : (
+                                                    `Delete Selected (${selectedMods.size})`
+                                                )}
                                             </Button.Danger>
                                         </>
                                     )}
@@ -876,7 +922,7 @@ const ModsContainer = () => {
                                     <Card key={mod.id}>
                                         {mod.provider !== 'manual' && (
                                             <input
-                                                type="checkbox"
+                                                type='checkbox'
                                                 checked={selectedMods.has(mod.id)}
                                                 onChange={() => toggleSelection(mod.id)}
                                                 disabled={!!busy || !!bulkOperation}
@@ -884,75 +930,81 @@ const ModsContainer = () => {
                                             />
                                         )}
                                         <ModIcon url={mod.iconUrl} />
-                                    <div css={tw`flex-1 min-w-0`}>
-                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{mod.title}</h3>
-                                            <Badge $variant={mod.provider === 'manual' ? 'manual' : 'provider'}>
-                                                {mod.provider === 'manual' ? t('manual_badge') : mod.provider}
-                                            </Badge>
-                                            {mod.disabled && <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>}
-                                        </div>
-                                        <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>{mod.fileName}</p>
-                                        <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
-                                            <Badge $variant={'installed'}>
-                                                <FaCheck style={{ fontSize: '9px' }} />
-                                                <span css={tw`font-mono`}>{mod.versionNumber}</span>
-                                            </Badge>
-                                        </p>
-                                        <div css={tw`flex gap-2 mt-3 flex-wrap`}>
-                                            {mod.provider === 'manual' && (
+                                        <div css={tw`flex-1 min-w-0`}>
+                                            <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                                <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                    {mod.title}
+                                                </h3>
+                                                <Badge $variant={mod.provider === 'manual' ? 'manual' : 'provider'}>
+                                                    {mod.provider === 'manual' ? t('manual_badge') : mod.provider}
+                                                </Badge>
+                                                {mod.disabled && (
+                                                    <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>
+                                                )}
+                                            </div>
+                                            <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
+                                                {mod.fileName}
+                                            </p>
+                                            <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
+                                                <Badge $variant={'installed'}>
+                                                    <FaCheck style={{ fontSize: '9px' }} />
+                                                    <span css={tw`font-mono`}>{mod.versionNumber}</span>
+                                                </Badge>
+                                            </p>
+                                            <div css={tw`flex gap-2 mt-3 flex-wrap`}>
+                                                {mod.provider === 'manual' && (
+                                                    <Button
+                                                        size={Button.Sizes.Small}
+                                                        variant={Button.Variants.Secondary}
+                                                        disabled={!!busy}
+                                                        onClick={() => openLinkSearch(mod)}
+                                                    >
+                                                        {t('link')}
+                                                    </Button>
+                                                )}
+                                                {!mod.disabled && mod.provider !== 'manual' && (
+                                                    <Button
+                                                        size={Button.Sizes.Small}
+                                                        variant={Button.Variants.Secondary}
+                                                        disabled={!!busy}
+                                                        onClick={() => runUpdate(mod)}
+                                                    >
+                                                        {busy === `update:${mod.id}` ? (
+                                                            <Spinner size={'small'} />
+                                                        ) : (
+                                                            t('update')
+                                                        )}
+                                                    </Button>
+                                                )}
                                                 <Button
                                                     size={Button.Sizes.Small}
                                                     variant={Button.Variants.Secondary}
                                                     disabled={!!busy}
-                                                    onClick={() => openLinkSearch(mod)}
+                                                    onClick={() => mutate(`toggle:${mod.id}`, toggleMod(uuid, mod.id))}
                                                 >
-                                                    {t('link')}
-                                                </Button>
-                                            )}
-                                            {!mod.disabled && mod.provider !== 'manual' && (
-                                                <Button
-                                                    size={Button.Sizes.Small}
-                                                    variant={Button.Variants.Secondary}
-                                                    disabled={!!busy}
-                                                    onClick={() => runUpdate(mod)}
-                                                >
-                                                    {busy === `update:${mod.id}` ? (
+                                                    {busy === `toggle:${mod.id}` ? (
                                                         <Spinner size={'small'} />
+                                                    ) : mod.disabled ? (
+                                                        t('enable')
                                                     ) : (
-                                                        t('update')
+                                                        t('disable')
                                                     )}
                                                 </Button>
-                                            )}
-                                            <Button
-                                                size={Button.Sizes.Small}
-                                                variant={Button.Variants.Secondary}
-                                                disabled={!!busy}
-                                                onClick={() => mutate(`toggle:${mod.id}`, toggleMod(uuid, mod.id))}
-                                            >
-                                                {busy === `toggle:${mod.id}` ? (
-                                                    <Spinner size={'small'} />
-                                                ) : mod.disabled ? (
-                                                    t('enable')
-                                                ) : (
-                                                    t('disable')
-                                                )}
-                                            </Button>
-                                            <Button.Danger
-                                                size={Button.Sizes.Small}
-                                                variant={Button.Variants.Secondary}
-                                                disabled={!!busy}
-                                                onClick={() => setConfirmRemove(mod)}
-                                            >
-                                                <FaTrash css={tw`inline mr-1 -mt-0.5`} />
-                                                {t('remove')}
-                                            </Button.Danger>
+                                                <Button.Danger
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => setConfirmRemove(mod)}
+                                                >
+                                                    <FaTrash css={tw`inline mr-1 -mt-0.5`} />
+                                                    {t('remove')}
+                                                </Button.Danger>
+                                            </div>
                                         </div>
-                                    </div>
-                                </Card>
-                            ))}
-                        </div>
-                    </>
+                                    </Card>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </>
             ) : (
