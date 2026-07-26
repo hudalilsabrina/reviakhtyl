@@ -19,15 +19,31 @@ import getSplits, { SplitChild, SplitsState } from '@/api/server/splits/getSplit
 import createSplit from '@/api/server/splits/createSplit';
 import mergeSplit from '@/api/server/splits/mergeSplit';
 
-const Stat = ({ label, value, unit }: { label: string; value: number | string; unit?: string }) => (
-    <div>
-        <p css={tw`text-xs uppercase tracking-wider text-gray-500`}>{label}</p>
-        <p css={tw`text-lg font-semibold text-gray-100`}>
-            {typeof value === 'number' ? value.toLocaleString() : value}
-            {unit && <span css={tw`ml-1 text-sm font-normal text-gray-400`}>{unit}</span>}
-        </p>
-    </div>
-);
+const Stat = ({ label, value, unit, max }: { label: string; value: number | string; unit?: string; max?: number }) => {
+    const numValue = typeof value === 'number' ? value : Number.parseFloat(value as string);
+    const percent = max && !Number.isNaN(numValue) ? (numValue / max) * 100 : 0;
+    
+    return (
+        <div>
+            <p css={tw`text-xs uppercase tracking-wider text-gray-500`}>{label}</p>
+            <p css={tw`text-lg font-semibold text-gray-100`}>
+                {typeof value === 'number' ? value.toLocaleString() : value}
+                {unit && <span css={tw`ml-1 text-sm font-normal text-gray-400`}>{unit}</span>}
+            </p>
+            {max !== undefined && !Number.isNaN(percent) && (
+                <div css={tw`mt-1 h-1.5 bg-gray-700 rounded-full overflow-hidden`}>
+                    <div
+                        css={[
+                            tw`h-full rounded-full transition-all`,
+                            percent > 75 ? tw`bg-red-500` : percent > 50 ? tw`bg-yellow-500` : tw`bg-green-500`,
+                        ]}
+                        style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+                    />
+                </div>
+            )}
+        </div>
+    );
+};
 
 const SplitterContainer = () => {
     const { t } = useTranslation('server/splitter');
@@ -58,6 +74,13 @@ const SplitterContainer = () => {
         setCreateOpen(true);
     };
 
+    const applyPreset = (fraction: number) => {
+        if (!state) return;
+        setSplitCpu(Math.max(1, Math.floor(state.remaining.cpu * fraction)).toString());
+        setSplitMemory(Math.max(8, Math.floor(state.remaining.memory * fraction)).toString());
+        setSplitDisk(Math.max(8, Math.floor(state.remaining.disk * fraction)).toString());
+    };
+
     const refresh = () =>
         getSplits(uuid)
             .then(setState)
@@ -76,6 +99,15 @@ const SplitterContainer = () => {
         }),
         [splitCpu, splitMemory, splitDisk]
     );
+
+    const parentRemaining = useMemo(() => {
+        if (!state) return null;
+        return {
+            cpu: state.remaining.cpu - numeric.cpu,
+            memory: state.remaining.memory - numeric.memory,
+            disk: state.remaining.disk - numeric.disk,
+        };
+    }, [numeric, state]);
 
     const formError = useMemo(() => {
         if (!state) return null;
@@ -153,9 +185,9 @@ const SplitterContainer = () => {
                     <Card>
                         <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
                         <div css={tw`grid grid-cols-2 sm:grid-cols-4 gap-4`}>
-                            <Stat label={t('cpu')} value={state.remaining.cpu} unit={'%'} />
-                            <Stat label={t('memory')} value={state.remaining.memory} unit={'MB'} />
-                            <Stat label={t('disk')} value={state.remaining.disk} unit={'MB'} />
+                            <Stat label={t('cpu')} value={state.remaining.cpu} unit={'%'} max={state.total.cpu} />
+                            <Stat label={t('memory')} value={state.remaining.memory} unit={'MB'} max={state.total.memory} />
+                            <Stat label={t('disk')} value={state.remaining.disk} unit={'MB'} max={state.total.disk} />
                             <Stat label={t('children')} value={`${state.used} / ${state.splitLimit}`} />
                         </div>
                     </Card>
@@ -179,9 +211,12 @@ const SplitterContainer = () => {
                                                 css={tw`py-3 flex items-center justify-between gap-4 flex-wrap`}
                                             >
                                                 <div css={tw`min-w-0`}>
-                                                    <p css={tw`text-sm font-medium text-gray-100 truncate`}>
+                                                    <a
+                                                        href={`/server/${child.identifier}`}
+                                                        css={tw`text-sm font-medium text-gray-100 hover:text-blue-400 truncate block transition-colors`}
+                                                    >
                                                         {child.name}
-                                                    </p>
+                                                    </a>
                                                     <p css={tw`text-xs text-gray-500 font-mono`}>{child.identifier}</p>
                                                 </div>
                                                 <div css={tw`flex items-center gap-6`}>
@@ -213,6 +248,19 @@ const SplitterContainer = () => {
                                 <Card css={tw`relative`}>
                                     <SpinnerOverlay visible={submitting && createOpen} />
                                     <p css={tw`text-sm font-semibold text-gray-100 mb-4`}>{t('create-title')}</p>
+                                    
+                                    <div css={tw`flex gap-2 mb-4`}>
+                                        <Button.Text className={'!px-3 !py-1.5 text-xs'} onClick={() => applyPreset(0.25)}>
+                                            {t('preset-quarter')}
+                                        </Button.Text>
+                                        <Button.Text className={'!px-3 !py-1.5 text-xs'} onClick={() => applyPreset(0.5)}>
+                                            {t('preset-half')}
+                                        </Button.Text>
+                                        <Button.Text className={'!px-3 !py-1.5 text-xs'} onClick={() => applyPreset(0.75)}>
+                                            {t('preset-three-quarters')}
+                                        </Button.Text>
+                                    </div>
+
                                     <div css={tw`grid grid-cols-1 sm:grid-cols-2 gap-4`}>
                                         <div css={tw`sm:col-span-2`}>
                                             <Label>{t('name-label')}</Label>
@@ -222,7 +270,8 @@ const SplitterContainer = () => {
                                             <Label>{t('cpu-label')}</Label>
                                             <Input
                                                 type={'number'}
-                                                min={0}
+                                                min={1}
+                                                placeholder={'Min: 1'}
                                                 value={splitCpu}
                                                 onChange={(e) => setSplitCpu(e.currentTarget.value)}
                                             />
@@ -231,7 +280,8 @@ const SplitterContainer = () => {
                                             <Label>{t('memory-label')}</Label>
                                             <Input
                                                 type={'number'}
-                                                min={0}
+                                                min={8}
+                                                placeholder={'Min: 8'}
                                                 value={splitMemory}
                                                 onChange={(e) => setSplitMemory(e.currentTarget.value)}
                                             />
@@ -240,7 +290,8 @@ const SplitterContainer = () => {
                                             <Label>{t('disk-label')}</Label>
                                             <Input
                                                 type={'number'}
-                                                min={0}
+                                                min={8}
+                                                placeholder={'Min: 8'}
                                                 value={splitDisk}
                                                 onChange={(e) => setSplitDisk(e.currentTarget.value)}
                                             />
@@ -271,6 +322,24 @@ const SplitterContainer = () => {
                                             </div>
                                         ))}
                                     </div>
+                                    
+                                    {parentRemaining && numeric.cpu > 0 && (
+                                        <div css={tw`mt-4 p-3 rounded bg-gray-800 border border-gray-700`}>
+                                            <p css={tw`text-xs text-gray-400 mb-2`}>{t('parent-will-have')}</p>
+                                            <div css={tw`flex gap-4 text-xs`}>
+                                                <span css={tw`text-gray-300`}>
+                                                    {t('cpu')}: <strong>{parentRemaining.cpu}%</strong>
+                                                </span>
+                                                <span css={tw`text-gray-300`}>
+                                                    {t('memory')}: <strong>{parentRemaining.memory} MB</strong>
+                                                </span>
+                                                <span css={tw`text-gray-300`}>
+                                                    {t('disk')}: <strong>{parentRemaining.disk} MB</strong>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {formError && <p css={tw`text-xs mt-3 text-red-400`}>{formError}</p>}
                                     <div css={tw`mt-6 flex justify-end gap-2`}>
                                         <Button.Text
