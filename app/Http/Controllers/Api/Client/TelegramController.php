@@ -37,7 +37,7 @@ class TelegramController extends ClientApiController
         $token = Str::random(32);
         cache()->put("telegram_auth_{$token}", $user->id, now()->addMinutes(10));
 
-        $botUsername = config('services.telegram.bot_username', 'YourBot');
+        $botUsername = $this->telegram->getBotUsername();
 
         return new JsonResponse([
             'token' => $token,
