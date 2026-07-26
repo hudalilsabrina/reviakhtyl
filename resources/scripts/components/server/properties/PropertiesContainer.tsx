@@ -313,9 +313,11 @@ const PropertiesContainer = () => {
                     ) : (
                         <>
                             <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                <div css={tw`relative flex-1 min-w-[12rem]`}>
+                                {/* flex, not block: an inline-block input leaves a baseline gap
+                                    below it, and the absolutely centred icon lands off-centre. */}
+                                <div css={tw`relative flex-1 flex items-center min-w-[12rem]`}>
                                     <FaMagnifyingGlass
-                                        css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm`}
+                                        css={tw`absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm pointer-events-none`}
                                         aria-hidden={'true'}
                                     />
                                     <Input
