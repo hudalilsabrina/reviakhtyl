@@ -7,7 +7,7 @@ import MessageContent from '@/components/server/chat/MessageContent';
 import ReasoningDisclosure from '@/components/server/chat/ReasoningDisclosure';
 import ToolCallChip from '@/components/server/chat/ToolCallChip';
 
-const Bubble = styled.div<{ $role: ChatMessage['role']; $failed: boolean }>`
+const Bubble = styled.div<{ $role: ChatMessage['role']; $failed: boolean; $pending?: boolean }>`
     ${tw`rounded-ui border px-3 py-2 text-sm leading-relaxed max-w-full`};
 
     ${({ $role }) =>
@@ -16,6 +16,9 @@ const Bubble = styled.div<{ $role: ChatMessage['role']; $failed: boolean }>`
             : tw`bg-gray-800/60 border-gray-700 text-gray-200`};
 
     ${({ $failed }) => $failed && tw`bg-red-500/10 border-red-500/40 text-red-200`};
+
+    /* Sent, not yet acknowledged — visibly in flight rather than settled. */
+    ${({ $pending }) => $pending && tw`opacity-60`};
 `;
 
 const Avatar = styled.div`
@@ -56,7 +59,7 @@ const ChatMessageRow = ({ message }: Props) => {
                     </div>
                 )}
                 {message.content && (
-                    <Bubble $role={message.role} $failed={message.status === 'failed'}>
+                    <Bubble $role={message.role} $failed={message.status === 'failed'} $pending={message.pending}>
                         {message.status === 'failed' && (
                             <div css={tw`flex items-center gap-1.5 text-xs font-semibold mb-1`}>
                                 <FaTriangleExclamation />
@@ -74,7 +77,9 @@ const ChatMessageRow = ({ message }: Props) => {
                         </div>
                     </Bubble>
                 )}
-                <span css={tw`text-2xs text-gray-500 px-1`}>{format(message.createdAt, 'HH:mm')}</span>
+                <span css={tw`text-2xs text-gray-500 px-1`}>
+                    {message.pending ? 'Sending…' : format(message.createdAt, 'HH:mm')}
+                </span>
             </div>
         </div>
     );

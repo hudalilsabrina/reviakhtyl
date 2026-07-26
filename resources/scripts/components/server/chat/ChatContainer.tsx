@@ -64,8 +64,26 @@ const EXAMPLE_PROMPTS: { group: string | null; prompt: string }[] = [
     { group: null, prompt: 'Give me a summary of how this server is doing' },
 ];
 
+/**
+ * The local echo of a message the user has sent but the server has not yet
+ * confirmed. Without it the composer clears and nothing appears until the whole
+ * turn returns — which can take a minute — so it looks like nothing was sent.
+ */
+const optimisticMessage = (content: string): ChatMessage => ({
+    uuid: `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    pending: true,
+    role: 'user',
+    content,
+    reasoning: null,
+    status: 'complete',
+    toolCalls: [],
+    createdAt: new Date(),
+});
+
 const mergeMessages = (existing: ChatMessage[], incoming: ChatMessage[]): ChatMessage[] => {
-    const merged = existing.slice();
+    // Local echoes are dropped wholesale: the server returns the real message
+    // with its own uuid, so keeping them would show the text twice.
+    const merged = existing.filter((message) => !message.pending);
 
     incoming.forEach((message) => {
         const index = merged.findIndex((m) => m.uuid === message.uuid);
@@ -240,9 +258,12 @@ const ChatContainer = () => {
         const content = input.trim();
         if (content.length === 0 || busy || awaitingConfirmation || loadingThread) return;
 
+        const echo = optimisticMessage(content);
+
         setBusy(true);
         setInput('');
         clearFlashes();
+        setMessages((current) => [...current, echo]);
 
         let conversation = active;
 
@@ -266,7 +287,9 @@ const ChatContainer = () => {
 
             mutateConversations();
         } catch (error) {
-            // Hand the message back so a failed request does not lose what was typed.
+            // Hand the message back so a failed request does not lose what was typed,
+            // and take the echo away so the thread does not claim it was sent.
+            setMessages((current) => current.filter((message) => message.uuid !== echo.uuid));
             setInput((current) => (current.length === 0 ? content : current));
             clearAndAddHttpError(error as Error);
 
