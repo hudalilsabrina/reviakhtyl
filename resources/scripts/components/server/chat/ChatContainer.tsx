@@ -130,7 +130,6 @@ const ChatContainer = () => {
     const [input, setInput] = useState('');
     const [loadingThread, setLoadingThread] = useState(false);
     const [busy, setBusy] = useState(false);
-    const [creating, setCreating] = useState(false);
     const [listOpen, setListOpen] = useState(false);
     // Incremented whenever a thread's messages are installed, to trigger the
     // scroll-to-newest exactly once per opened conversation.
@@ -154,12 +153,11 @@ const ChatContainer = () => {
     const awaitingConfirmation =
         lastMessage && lastMessage.status === 'awaiting_confirmation' ? lastMessage : undefined;
 
-    useEffect(() => {
-        if (!conversations || active !== null) return;
-
-        const newest = conversations.length > 0 ? conversations[0] : undefined;
-        if (newest) setActive(newest.uuid);
-    }, [conversations, active]);
+    // The page opens on a fresh chat rather than resuming the newest thread: arriving
+    // here usually means having a new question, and landing mid-conversation makes the
+    // assistant answer with stale context the user has forgotten about. Earlier threads
+    // stay one click away in the list. Nothing is created until the first message is
+    // sent, so opening the page repeatedly does not litter the list with empty threads.
 
     useEffect(() => {
         if (!active) {
@@ -224,20 +222,16 @@ const ChatContainer = () => {
         element.scrollTop = element.scrollHeight;
     }, [messages, busy]);
 
+    /**
+     * Returns to the fresh-chat state. No conversation is created here — the first
+     * message does that — so clicking this repeatedly cannot leave a trail of empty
+     * threads in the list.
+     */
     const handleCreate = () => {
-        setCreating(true);
         setListOpen(false);
         clearFlashes();
-
-        createConversation(uuid)
-            .then((conversation) => {
-                skipLoadRef.current = conversation.uuid;
-                setMessages([]);
-                setActive(conversation.uuid);
-                mutateConversations((data) => [conversation, ...(data || [])], false);
-            })
-            .catch((error) => clearAndAddHttpError(error))
-            .finally(() => setCreating(false));
+        setActive(null);
+        setMessages([]);
     };
 
     const handleSelect = (conversation: string) => {
@@ -414,7 +408,7 @@ const ChatContainer = () => {
                                 conversations={conversations ?? []}
                                 activeUuid={active}
                                 loading={!conversations && conversationsValidating}
-                                creating={creating}
+                                creating={false}
                                 onSelect={handleSelect}
                                 onCreate={handleCreate}
                                 onDelete={handleDelete}
