@@ -11,16 +11,33 @@ use Illuminate\Support\Str;
 
 class TelegramBotService
 {
-    protected ?string $token;
+    protected ?string $token = null;
 
-    protected ?string $webhookSecret;
+    protected ?string $webhookSecret = null;
 
-    protected string $apiUrl;
+    protected bool $settingsLoaded = false;
 
     public function __construct(
         protected SettingsRepositoryInterface $settings,
         protected Encrypter $encrypter
-    ) {
+    ) {}
+
+    /**
+     * Read the bot credentials from the settings table, at most once per instance.
+     *
+     * This is deliberately not done in the constructor: the container resolves this
+     * service while registering the console commands that depend on it, which happens
+     * before the settings table exists on a fresh installation, and would take every
+     * artisan command down with it — including the migration that creates the table.
+     */
+    protected function loadSettings(): void
+    {
+        if ($this->settingsLoaded) {
+            return;
+        }
+
+        $this->settingsLoaded = true;
+
         $token = $this->settings->get('settings::panel:telegram:bot_token', null);
 
         if (! empty($token)) {
@@ -32,19 +49,34 @@ class TelegramBotService
 
         $this->token = $token;
         $this->webhookSecret = $this->settings->get('settings::panel:telegram:webhook_secret', null);
-        $this->apiUrl = "https://api.telegram.org/bot{$this->token}";
+    }
+
+    protected function getToken(): ?string
+    {
+        $this->loadSettings();
+
+        return $this->token;
+    }
+
+    protected function apiUrl(): string
+    {
+        return "https://api.telegram.org/bot{$this->getToken()}";
     }
 
     public function getWebhookSecret(): ?string
     {
+        $this->loadSettings();
+
         return $this->webhookSecret;
     }
 
     public function isEnabled(): bool
     {
-        $enabled = $this->settings->get('settings::panel:telegram:enabled', 'false');
+        if (empty($this->getToken())) {
+            return false;
+        }
 
-        return ! empty($this->token) && $enabled === 'true';
+        return $this->settings->get('settings::panel:telegram:enabled', 'false') === 'true';
     }
 
     public function getBotUsername(): string
@@ -59,7 +91,7 @@ class TelegramBotService
         }
 
         try {
-            $response = Http::post("{$this->apiUrl}/sendMessage", [
+            $response = Http::post("{$this->apiUrl()}/sendMessage", [
                 'chat_id' => $chatId,
                 'text' => $text,
                 'parse_mode' => 'Markdown',
@@ -185,7 +217,7 @@ class TelegramBotService
                 $params['secret_token'] = $secretToken;
             }
 
-            $response = Http::post("{$this->apiUrl}/setWebhook", $params);
+            $response = Http::post("{$this->apiUrl()}/setWebhook", $params);
 
             return $response->successful();
         } catch (\Exception $e) {
@@ -202,7 +234,7 @@ class TelegramBotService
         }
 
         try {
-            $response = Http::get("{$this->apiUrl}/getWebhookInfo");
+            $response = Http::get("{$this->apiUrl()}/getWebhookInfo");
 
             return $response->successful() ? $response->json('result') : null;
         } catch (\Exception $e) {
@@ -214,12 +246,12 @@ class TelegramBotService
 
     public function getMe(): ?array
     {
-        if (! $this->token) {
+        if (! $this->getToken()) {
             return null;
         }
 
         try {
-            $response = Http::get("{$this->apiUrl}/getMe");
+            $response = Http::get("{$this->apiUrl()}/getMe");
 
             return $response->successful() ? $response->json('result') : null;
         } catch (\Exception $e) {
