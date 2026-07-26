@@ -140,6 +140,8 @@ const ChatContainer = () => {
     // A request can take minutes, and the user is free to switch conversations while it runs.
     // Responses are matched against this before they are allowed to touch the thread.
     const activeRef = useRef<string | null>(null);
+    // The conversation whose initial scroll-to-bottom has already happened.
+    const pinnedConversationRef = useRef<string | null>(null);
 
     useEffect(() => {
         activeRef.current = active;
@@ -189,17 +191,29 @@ const ChatContainer = () => {
         };
     }, [uuid, active]);
 
-    // Keep the newest message in view, including while we are waiting on a reply — but
-    // leave the scroll alone if the user has deliberately scrolled up to re-read something.
+    // Opening a thread lands on the newest message — a conversation is read from the
+    // bottom, and starting at the top shows the oldest exchange with no sign that
+    // anything follows. After that, follow new messages only while the user is already
+    // at the bottom, so scrolling up to re-read something is not yanked away.
     useEffect(() => {
         const element = threadRef.current;
         if (!element) return;
+
+        if (pinnedConversationRef.current !== active) {
+            // Wait for the messages themselves before deciding where the bottom is.
+            if (loadingThread) return;
+
+            pinnedConversationRef.current = active;
+            element.scrollTop = element.scrollHeight;
+
+            return;
+        }
 
         const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
         if (distanceFromBottom > 120) return;
 
         element.scrollTop = element.scrollHeight;
-    }, [messages, busy, loadingThread]);
+    }, [messages, busy, loadingThread, active]);
 
     const handleCreate = () => {
         setCreating(true);
