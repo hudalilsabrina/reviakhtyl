@@ -29,9 +29,10 @@ class ChatCompletion
         // Some providers return content as an array of typed parts rather than
         // a plain string; flatten those to text so the panel can display them.
         if (is_array($content)) {
+            // No filter(): a bare filter() drops '0', so a part whose text is
+            // exactly "0" would vanish from the answer.
             $content = collect($content)
                 ->map(fn ($part) => is_array($part) ? ($part['text'] ?? '') : (string) $part)
-                ->filter()
                 ->implode('');
         }
 

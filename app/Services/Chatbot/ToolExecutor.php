@@ -156,7 +156,11 @@ class ToolExecutor
             }
 
             if (is_string($result[$key])) {
-                $result[$key] = substr($result[$key], 0, self::MAX_RESULT_LENGTH);
+                // mb_substr, not substr: cutting mid-sequence leaves invalid
+                // UTF-8, json_encode() then returns false, and the whole result
+                // is replaced by an encoding error. Reading any large file with
+                // non-ASCII text in it would fail outright rather than truncate.
+                $result[$key] = mb_substr($result[$key], 0, self::MAX_RESULT_LENGTH);
                 $result['truncated'] = true;
 
                 return $result;
