@@ -2,7 +2,7 @@
 
 namespace App\Services\Chatbot\Tools\Mods;
 
-use App\Exceptions\DisplayException;
+use App\Exceptions\Service\Mods\ModUpToDateException;
 use App\Services\Chatbot\ToolContext;
 
 class UpdateModTool extends ModTool
@@ -63,19 +63,15 @@ class UpdateModTool extends ModTool
 
         try {
             $mod = $this->manager->update($server, $mod);
-        } catch (DisplayException $e) {
+        } catch (ModUpToDateException) {
             // The service signals "nothing newer exists" by throwing. That is a
             // perfectly good outcome for this tool, not a failure, and reporting
             // it as an error tends to make the model retry or apologise.
-            if (str_contains(strtolower($e->getMessage()), 'up to date')) {
-                return $this->present($mod) + [
-                    'updated' => false,
-                    'previous_version' => $previous,
-                    'message' => sprintf('%s is already up to date on version %s. Nothing was changed.', $mod->title, $previous),
-                ];
-            }
-
-            throw $e;
+            return $this->present($mod) + [
+                'updated' => false,
+                'previous_version' => $previous,
+                'message' => sprintf('%s is already up to date on version %s. Nothing was changed.', $mod->title, $previous),
+            ];
         }
 
         $updated = (string) $mod->version_number !== $previous;

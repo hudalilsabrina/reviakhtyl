@@ -4,6 +4,7 @@ namespace App\Services\Plugins;
 
 use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Exceptions\DisplayException;
+use App\Exceptions\Service\Plugins\PluginUpToDateException;
 use App\Models\Server;
 use App\Models\ServerPlugin;
 use App\Repositories\Agent\DaemonFileRepository;
@@ -192,7 +193,7 @@ class PluginManagerService
         );
 
         if (! $latest) {
-            throw new DisplayException('Plugin is already up to date.');
+            throw new PluginUpToDateException;
         }
 
         $this->pull($server, $latest, $plugin);
