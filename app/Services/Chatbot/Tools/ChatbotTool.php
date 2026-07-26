@@ -116,7 +116,7 @@ abstract class ChatbotTool
     {
         return [
             'type' => 'object',
-            'properties' => new \stdClass,
+            'properties' => new \stdClass(),
             'additionalProperties' => false,
         ];
     }

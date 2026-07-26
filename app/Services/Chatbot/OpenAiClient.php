@@ -4,6 +4,7 @@ namespace App\Services\Chatbot;
 
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Services\Chatbot\Data\ChatCompletion;
+use App\Services\Chatbot\Data\StreamAccumulator;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -29,17 +30,7 @@ class OpenAiClient
      */
     public function chat(array $messages, array $tools = []): ChatCompletion
     {
-        $payload = [
-            'model' => $this->settings->model(),
-            'messages' => $messages,
-            'temperature' => $this->settings->temperature(),
-            'max_tokens' => $this->settings->maxTokens(),
-        ];
-
-        if ($tools !== []) {
-            $payload['tools'] = $tools;
-            $payload['tool_choice'] = 'auto';
-        }
+        $payload = $this->payload($messages, $tools);
 
         try {
             $response = $this->request('post', '/chat/completions', $payload);
@@ -65,6 +56,123 @@ class OpenAiClient
         }
 
         return ChatCompletion::fromResponse($body);
+    }
+
+    /**
+     * The request body shared by the blocking and streaming paths, so the two
+     * cannot drift apart in what they ask the model for.
+     *
+     * @param  array<int, array<string, mixed>>  $messages
+     * @param  array<int, array<string, mixed>>  $tools
+     * @return array<string, mixed>
+     */
+    private function payload(array $messages, array $tools): array
+    {
+        $payload = [
+            'model' => $this->settings->model(),
+            'messages' => $messages,
+            'temperature' => $this->settings->temperature(),
+            'max_tokens' => $this->settings->maxTokens(),
+        ];
+
+        if ($tools !== []) {
+            $payload['tools'] = $tools;
+            $payload['tool_choice'] = 'auto';
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Streams a completion, invoking $onText with each fragment of the answer as
+     * it arrives, and returning the assembled turn.
+     *
+     * Falls back to the blocking path when the provider rejects streaming, so a
+     * provider that does not support it degrades to the previous behaviour
+     * rather than failing the message.
+     *
+     * @param  array<int, array<string, mixed>>  $messages
+     * @param  array<int, array<string, mixed>>  $tools
+     * @param  callable(string): void  $onText
+     *
+     * @throws ChatbotException
+     */
+    public function stream(array $messages, array $tools, callable $onText): ChatCompletion
+    {
+        $payload = $this->payload($messages, $tools) + ['stream' => true];
+        $accumulator = new StreamAccumulator();
+
+        try {
+            $response = Http::withToken($this->settings->apiKey())
+                ->withOptions(['stream' => true])
+                ->accept('text/event-stream')
+                ->timeout($this->settings->timeout())
+                ->connectTimeout(15)
+                ->post($this->settings->baseUrl().'/chat/completions', $payload);
+        } catch (\Throwable $e) {
+            Log::warning('Chatbot streaming request failed, falling back', ['error' => $e->getMessage()]);
+
+            return $this->chat($messages, $tools);
+        }
+
+        if (! $response->successful()) {
+            Log::warning('Chatbot provider rejected streaming, falling back', [
+                'status' => $response->status(),
+            ]);
+
+            return $this->chat($messages, $tools);
+        }
+
+        $body = $response->toPsrResponse()->getBody();
+        $buffer = '';
+
+        while (! $body->eof()) {
+            $buffer .= $body->read(8192);
+
+            // Events are separated by a blank line; a read can land anywhere,
+            // so only whole events are consumed and the remainder is kept.
+            while (($break = strpos($buffer, "\n\n")) !== false) {
+                $event = substr($buffer, 0, $break);
+                $buffer = substr($buffer, $break + 2);
+
+                foreach ($this->dataLines($event) as $data) {
+                    if ($data === '[DONE]') {
+                        return $accumulator->toCompletion();
+                    }
+
+                    $decoded = json_decode($data, true);
+
+                    if (! is_array($decoded)) {
+                        continue;
+                    }
+
+                    if ($text = $accumulator->push($decoded)) {
+                        $onText($text);
+                    }
+                }
+            }
+        }
+
+        return $accumulator->toCompletion();
+    }
+
+    /**
+     * The `data:` payloads of one SSE event. Comment lines (`:` keep-alives) and
+     * other fields are ignored.
+     *
+     * @return string[]
+     */
+    private function dataLines(string $event): array
+    {
+        $lines = [];
+
+        foreach (preg_split('/\r?\n/', $event) ?: [] as $line) {
+            if (str_starts_with($line, 'data:')) {
+                $lines[] = trim(substr($line, 5));
+            }
+        }
+
+        return $lines;
     }
 
     /**

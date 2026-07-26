@@ -16,6 +16,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $network_tx_bytes
  * @property Carbon $created_at
  * @property string|null $bucket_time
+ * @property int|string|null $samples
+ * @property float|int|string|null $peak_cpu
+ * @property float|int|string|null $peak_memory
+ * @property float|int|string|null $peak_disk
  * @property float|int|string|null $avg_cpu
  * @property float|int|string|null $avg_memory
  * @property float|int|string|null $avg_disk

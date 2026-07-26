@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Client\Servers;
 
+use App\Exceptions\DisplayException;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Http\Controllers\Api\Client\ClientApiController;
 use App\Http\Requests\Api\Client\ClientApiRequest;
@@ -14,6 +15,8 @@ use App\Services\Chatbot\ChatbotService;
 use App\Services\Chatbot\Tools\ChatbotTool;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ChatbotController extends ClientApiController
@@ -96,6 +99,70 @@ class ChatbotController extends ClientApiController
         $messages = $this->service->sendMessage($chatbotConversation, $request->input('content'));
 
         return ['data' => ['messages' => $this->messages($messages)]];
+    }
+
+    /**
+     * The same exchange as message(), delivered as server-sent events.
+     *
+     * A turn that chains tool calls occupies a single request for anything up to
+     * a few minutes; without this the user watches a spinner the whole time.
+     * The final `done` event carries the authoritative message list so the client
+     * reconciles against stored state rather than trusting what it accumulated.
+     */
+    public function stream(SendChatMessageRequest $request, Server $server, ChatbotConversation $chatbotConversation): StreamedResponse
+    {
+        $this->authorizeConversation($request, $chatbotConversation);
+
+        $content = $request->input('content');
+
+        return response()->stream(function () use ($chatbotConversation, $content) {
+            $emit = function (string $event, array $data) {
+                if ($event === 'message') {
+                    $data['message'] = $this->messages(collect([$data['message']]))[0] ?? null;
+                }
+
+                echo 'event: '.$event."\n";
+                echo 'data: '.json_encode($data)."\n\n";
+
+                // Nothing downstream should buffer this, but PHP's own buffers
+                // will hold the turn back on their own if not pushed each time.
+                if (ob_get_level() > 0) {
+                    @ob_flush();
+                }
+
+                flush();
+            };
+
+            try {
+                $messages = $this->service->sendMessage($chatbotConversation, $content, $emit);
+
+                $emit('status', ['status' => $this->service->pendingConfirmation($chatbotConversation)
+                    ? ChatbotMessage::STATUS_AWAITING_CONFIRMATION
+                    : ChatbotMessage::STATUS_COMPLETE,
+                ]);
+
+                $emit('done', ['messages' => $this->messages($messages)]);
+            } catch (\Throwable $e) {
+                // The stream has already sent 200, so a failure can only be
+                // reported in-band. DisplayException messages are written for
+                // users; anything else would leak internals.
+                Log::warning('Chatbot stream failed', ['error' => $e->getMessage()]);
+
+                $emit('error', [
+                    'message' => $e instanceof DisplayException
+                        ? $e->getMessage()
+                        : 'The assistant could not finish this response.',
+                ]);
+                $emit('done', ['messages' => []]);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache, no-transform',
+            'Connection' => 'keep-alive',
+            // nginx buffers proxied responses by default, which would hold every
+            // event until the turn ended and defeat the point of streaming.
+            'X-Accel-Buffering' => 'no',
+        ]);
     }
 
     /**

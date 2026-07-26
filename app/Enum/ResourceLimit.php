@@ -40,6 +40,31 @@ enum ResourceLimit
         return ThrottleRequests::using($this->throttleKey());
     }
 
+    /**
+     * Consumes one unit of this server's allowance outside the HTTP middleware,
+     * returning false once the allowance is spent.
+     *
+     * The cache key deliberately reproduces the one ThrottleRequests derives for
+     * a named limiter — md5(limiterName . key), its default hashed form — so a
+     * caller here and a request through the middleware draw on the same bucket
+     * rather than each getting a full quota. If that derivation ever changes, or
+     * key hashing is turned off, the two simply stop sharing: the limit still
+     * applies, it is just counted separately. This fails safe either way.
+     */
+    public function hit(Server $server): bool
+    {
+        $limit = $this->limit();
+        $key = md5($this->throttleKey().$server->uuid);
+
+        if (RateLimiter::tooManyAttempts($key, $limit->maxAttempts)) {
+            return false;
+        }
+
+        RateLimiter::hit($key, $limit->decaySeconds);
+
+        return true;
+    }
+
     public function limit(): Limit
     {
         return match ($this) {

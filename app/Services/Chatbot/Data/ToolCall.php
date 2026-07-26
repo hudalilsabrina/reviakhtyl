@@ -48,7 +48,7 @@ class ToolCall
             'type' => 'function',
             'function' => [
                 'name' => $this->name,
-                'arguments' => json_encode($this->arguments === [] ? new \stdClass : $this->arguments),
+                'arguments' => json_encode($this->arguments === [] ? new \stdClass() : $this->arguments),
             ],
         ];
     }
