@@ -115,7 +115,51 @@ class ChatbotController extends ClientApiController
 
         $content = $request->input('content');
 
-        return response()->stream(function () use ($chatbotConversation, $content) {
+        return $this->sse(
+            $chatbotConversation,
+            fn (callable $emit) => $this->service->sendMessage($chatbotConversation, $content, $emit),
+        );
+    }
+
+    /**
+     * Approving a destructive action re-enters the same loop, so it can take just
+     * as long as sending a message and deserves the same live feedback.
+     */
+    public function confirmStream(ConfirmChatActionRequest $request, Server $server, ChatbotConversation $chatbotConversation): StreamedResponse
+    {
+        $this->authorizeConversation($request, $chatbotConversation);
+
+        $message = $chatbotConversation->messages()
+            ->where('uuid', $request->input('message_uuid'))
+            ->first();
+
+        if (! $message) {
+            throw new NotFoundHttpException('The requested message was not found in this conversation.');
+        }
+
+        $approved = $request->boolean('approved');
+
+        return $this->sse($chatbotConversation, function (callable $emit) use ($chatbotConversation, $message, $approved) {
+            $messages = $this->service->resolveConfirmation($chatbotConversation, $message, $approved, $emit);
+
+            // The resolved message leads the authoritative list, as it does on the
+            // blocking endpoint: its status and per-call outcomes have changed.
+            return collect([$message->refresh()])->concat($messages);
+        });
+    }
+
+    /**
+     * Runs $work as an event stream, giving it an emitter and closing with the
+     * turn's status and the authoritative message list.
+     *
+     * Both streaming endpoints share this so there is one place that knows the
+     * framing, the flushing and how a mid-stream failure is reported.
+     *
+     * @param  \Closure(callable): Collection<int, ChatbotMessage>  $work
+     */
+    private function sse(ChatbotConversation $conversation, \Closure $work): StreamedResponse
+    {
+        return response()->stream(function () use ($conversation, $work) {
             $emit = function (string $event, array $data) {
                 if ($event === 'message') {
                     $data['message'] = $this->messages(collect([$data['message']]))[0] ?? null;
@@ -134,9 +178,9 @@ class ChatbotController extends ClientApiController
             };
 
             try {
-                $messages = $this->service->sendMessage($chatbotConversation, $content, $emit);
+                $messages = $work($emit);
 
-                $emit('status', ['status' => $this->service->pendingConfirmation($chatbotConversation)
+                $emit('status', ['status' => $this->service->pendingConfirmation($conversation)
                     ? ChatbotMessage::STATUS_AWAITING_CONFIRMATION
                     : ChatbotMessage::STATUS_COMPLETE,
                 ]);
