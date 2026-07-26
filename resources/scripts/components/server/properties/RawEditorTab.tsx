@@ -3,7 +3,6 @@ import tw from 'twin.macro';
 import { useTranslation } from 'react-i18next';
 import { useStoreState } from 'easy-peasy';
 import Card from '@/reviactyl/ui/Card';
-import SpinnerOverlay from '@/reviactyl/elements/SpinnerOverlay';
 import { Button } from '@/reviactyl/elements/button/index';
 import CodemirrorEditor from '@/reviactyl/elements/CodemirrorEditor';
 import MonacoEditor from '@/reviactyl/elements/MonacoEditor';
@@ -41,8 +40,7 @@ const RawEditorTab = ({ content, saving, onSave }: Props) => {
     return (
         <div css={tw`space-y-4`}>
             <p css={tw`text-xs text-amber-400/90`}>{t('raw_warning')}</p>
-            <Card css={tw`relative !p-1`}>
-                <SpinnerOverlay visible={saving} />
+            <Card css={tw`!p-1`}>
                 {user?.fileEditor === 'mo' ? <MonacoEditor {...editorProps} /> : <CodemirrorEditor {...editorProps} />}
             </Card>
             <div css={tw`flex justify-end`}>
