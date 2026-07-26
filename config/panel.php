@@ -215,6 +215,8 @@ return [
         'max_tokens' => (int) env('PANEL_CHATBOT_MAX_TOKENS', 1024),
         'max_iterations' => (int) env('PANEL_CHATBOT_MAX_ITERATIONS', 8),
         'history_limit' => (int) env('PANEL_CHATBOT_HISTORY_LIMIT', 30),
+        'context_tokens' => (int) env('PANEL_CHATBOT_CONTEXT_TOKENS', 24000),
+        'compaction' => (bool) env('PANEL_CHATBOT_COMPACTION', true),
         'timeout' => (int) env('PANEL_CHATBOT_TIMEOUT', 120),
         'require_confirmation' => (bool) env('PANEL_CHATBOT_REQUIRE_CONFIRMATION', true),
         'system_prompt' => env('PANEL_CHATBOT_SYSTEM_PROMPT'),

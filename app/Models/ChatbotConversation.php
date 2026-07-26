@@ -18,6 +18,8 @@ use Illuminate\Support\Str;
  * @property int $server_id
  * @property int $user_id
  * @property string|null $title
+ * @property string|null $summary
+ * @property int|null $summary_through_id
  * @property CarbonImmutable|null $last_message_at
  * @property CarbonImmutable $created_at
  * @property CarbonImmutable $updated_at
@@ -39,6 +41,7 @@ class ChatbotConversation extends Model
         'id' => 'int',
         'server_id' => 'int',
         'user_id' => 'int',
+        'summary_through_id' => 'int',
         'last_message_at' => 'datetime',
     ];
 
@@ -47,6 +50,8 @@ class ChatbotConversation extends Model
         'server_id' => 'required|numeric|exists:servers,id',
         'user_id' => 'required|numeric|exists:users,id',
         'title' => 'nullable|string|max:191',
+        'summary' => 'nullable|string',
+        'summary_through_id' => 'nullable|numeric',
     ];
 
     public function server(): BelongsTo
