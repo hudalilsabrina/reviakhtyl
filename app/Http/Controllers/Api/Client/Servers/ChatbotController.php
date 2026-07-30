@@ -273,6 +273,12 @@ class ChatbotController extends ClientApiController
      */
     private function messages(Collection $messages): array
     {
+        $results = $messages
+            ->filter(fn (ChatbotMessage $m) => $m->role === ChatbotMessage::ROLE_TOOL)
+            ->mapWithKeys(fn (ChatbotMessage $m) => [
+                $m->tool_call_id => is_array($m->content) ? $m->content : null,
+            ]);
+
         return $messages
             ->reject(fn (ChatbotMessage $message) => $message->role === ChatbotMessage::ROLE_TOOL)
             ->map(fn (ChatbotMessage $message) => [
@@ -284,10 +290,12 @@ class ChatbotController extends ClientApiController
                 'tool_calls' => collect($message->tool_calls ?? [])->map(fn (array $call) => [
                     'id' => $call['id'] ?? '',
                     'name' => $call['name'] ?? '',
+                    'arguments' => $call['arguments'] ?? [],
                     'summary' => $call['summary'] ?? ($call['name'] ?? ''),
                     'destructive' => (bool) ($call['destructive'] ?? false),
                     'status' => $call['status'] ?? 'pending',
                     'ok' => $call['ok'] ?? null,
+                    'result' => $results->get($call['id'] ?? ''),
                 ])->values()->all(),
                 'created_at' => $message->created_at->toIso8601String(),
             ])
