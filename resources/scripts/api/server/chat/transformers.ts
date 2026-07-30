@@ -19,6 +19,8 @@ export interface RawChatToolCall {
     status: ChatToolCallStatus;
     ok: boolean | null;
     destructive?: boolean;
+    arguments?: Record<string, unknown>;
+    result?: { ok: boolean; [key: string]: unknown } | null;
 }
 
 export interface RawChatMessage {
@@ -60,6 +62,8 @@ export const rawDataToChatToolCall = (data: RawChatToolCall): ChatToolCall => ({
     status: data.status,
     ok: data.ok ?? null,
     destructive: data.destructive ?? false,
+    arguments: data.arguments ?? {},
+    result: data.result ?? null,
 });
 
 export const rawDataToChatMessage = (data: RawChatMessage): ChatMessage => ({

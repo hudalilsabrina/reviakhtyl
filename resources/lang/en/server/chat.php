@@ -44,4 +44,13 @@ return [
     'activity-sending' => 'The assistant is working — this can take a moment.',
     'activity-approving' => 'Running the approved actions — this can take a moment.',
     'activity-denying' => 'Telling the assistant not to run them…',
+    'tool-call-details' => 'Details',
+    'tool-call-hide-details' => 'Hide details',
+    'tool-call-params' => 'Parameters',
+    'tool-call-result' => 'Result',
+    'tool-call-result-success' => 'Succeeded',
+    'tool-call-result-failure' => 'Failed',
+    'tool-call-no-result' => 'Result not yet available',
+    'tool-call-empty-args' => '(none)',
+    'tool-call-empty-result' => '(no additional data)',
 ];

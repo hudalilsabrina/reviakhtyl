@@ -11,6 +11,8 @@ export interface ChatToolCall {
     status: ChatToolCallStatus;
     ok: boolean | null;
     destructive: boolean;
+    arguments: Record<string, unknown>;
+    result?: { ok: boolean; [key: string]: unknown } | null;
 }
 
 export interface ChatMessage {

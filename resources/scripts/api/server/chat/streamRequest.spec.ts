@@ -209,6 +209,8 @@ describe('handleEvent', () => {
                         status: 'executed',
                         ok: true,
                         destructive: false,
+                        arguments: {},
+                        result: null,
                     },
                 ],
                 createdAt: new Date('2026-07-27T02:04:31+07:00'),
@@ -407,6 +409,8 @@ describe('streamConfirmation', () => {
                 status: call,
                 ok: call === 'executed',
                 destructive: true,
+                arguments: {},
+                result: null,
             },
         ],
         created_at: '2026-07-26T12:00:00+00:00',
@@ -503,6 +507,8 @@ describe('streamConfirmation', () => {
                 status: 'executed',
                 ok: true,
                 destructive: true,
+                arguments: {},
+                result: null,
             },
         ]);
         expect(thread[1]!.content).toBe('Restarted it for you.');
