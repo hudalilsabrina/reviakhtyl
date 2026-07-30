@@ -8,7 +8,7 @@ use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 use App\Services\Servers\GetUserPermissionsService;
 
-class ListPermissionsTool extends ChatbotTool
+class ListPermissionCatalogueTool extends ChatbotTool
 {
     public function __construct(private GetUserPermissionsService $permissionsService) {}
 

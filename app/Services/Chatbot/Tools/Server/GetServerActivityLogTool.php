@@ -11,7 +11,7 @@ use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 use Illuminate\Support\Str;
 
-class GetActivityLogTool extends ChatbotTool
+class GetServerActivityLogTool extends ChatbotTool
 {
     /** Property values longer than this are trimmed before the model sees them. */
     private const MAX_PROPERTY_LENGTH = 200;

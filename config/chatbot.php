@@ -18,14 +18,14 @@ use App\Services\Chatbot\Tools\Files\ReadFileTool;
 use App\Services\Chatbot\Tools\Files\RenameFilesTool;
 use App\Services\Chatbot\Tools\Files\WriteFileTool;
 use App\Services\Chatbot\Tools\Mods\InstallModTool;
-use App\Services\Chatbot\Tools\Mods\ListModsTool;
+use App\Services\Chatbot\Tools\Mods\ListInstalledModsTool;
 use App\Services\Chatbot\Tools\Mods\ListModVersionsTool;
 use App\Services\Chatbot\Tools\Mods\RemoveModTool;
 use App\Services\Chatbot\Tools\Mods\SearchModsTool;
 use App\Services\Chatbot\Tools\Mods\ToggleModTool;
 use App\Services\Chatbot\Tools\Mods\UpdateModTool;
 use App\Services\Chatbot\Tools\Plugins\InstallPluginTool;
-use App\Services\Chatbot\Tools\Plugins\ListPluginsTool;
+use App\Services\Chatbot\Tools\Plugins\ListInstalledPluginsTool;
 use App\Services\Chatbot\Tools\Plugins\ListPluginVersionsTool;
 use App\Services\Chatbot\Tools\Plugins\RemovePluginTool;
 use App\Services\Chatbot\Tools\Plugins\SearchPluginsTool;
@@ -36,8 +36,8 @@ use App\Services\Chatbot\Tools\Schedules\CreateScheduleTool;
 use App\Services\Chatbot\Tools\Schedules\DeleteScheduleTool;
 use App\Services\Chatbot\Tools\Schedules\ExecuteScheduleTool;
 use App\Services\Chatbot\Tools\Schedules\ListSchedulesTool;
-use App\Services\Chatbot\Tools\Server\GetActivityLogTool;
-use App\Services\Chatbot\Tools\Server\GetResourceHistoryTool;
+use App\Services\Chatbot\Tools\Server\GetServerActivityLogTool;
+use App\Services\Chatbot\Tools\Server\GetServerResourceHistoryTool;
 use App\Services\Chatbot\Tools\Server\GetServerDetailsTool;
 use App\Services\Chatbot\Tools\Server\GetServerResourcesTool;
 use App\Services\Chatbot\Tools\Server\ReadServerLogTool;
@@ -47,8 +47,8 @@ use App\Services\Chatbot\Tools\Startup\UpdateStartupPartsTool;
 use App\Services\Chatbot\Tools\Startup\UpdateStartupVariableTool;
 use App\Services\Chatbot\Tools\Subusers\CreateSubuserTool;
 use App\Services\Chatbot\Tools\Subusers\DeleteSubuserTool;
-use App\Services\Chatbot\Tools\Subusers\ListPermissionsTool;
-use App\Services\Chatbot\Tools\Subusers\ListSubusersTool;
+use App\Services\Chatbot\Tools\Subusers\ListPermissionCatalogueTool;
+use App\Services\Chatbot\Tools\Subusers\ListSubuserAccountsTool;
 use App\Services\Chatbot\Tools\Subusers\UpdateSubuserPermissionsTool;
 
 return [
@@ -57,8 +57,8 @@ return [
         // is currently performing.
         GetServerDetailsTool::class,
         GetServerResourcesTool::class,
-        GetResourceHistoryTool::class,
-        GetActivityLogTool::class,
+        GetServerResourceHistoryTool::class,
+        GetServerActivityLogTool::class,
 
         // Server logs.
         ReadServerLogTool::class,
@@ -81,8 +81,8 @@ return [
         DeleteFilesTool::class,
 
         // Subuser management.
-        ListSubusersTool::class,
-        ListPermissionsTool::class,
+        ListSubuserAccountsTool::class,
+        ListPermissionCatalogueTool::class,
         CreateSubuserTool::class,
         UpdateSubuserPermissionsTool::class,
         DeleteSubuserTool::class,
@@ -95,7 +95,7 @@ return [
 
         // Plugin management.
         SearchPluginsTool::class,
-        ListPluginsTool::class,
+        ListInstalledPluginsTool::class,
         ListPluginVersionsTool::class,
         InstallPluginTool::class,
         UpdatePluginTool::class,
@@ -104,7 +104,7 @@ return [
 
         // Mod management.
         SearchModsTool::class,
-        ListModsTool::class,
+        ListInstalledModsTool::class,
         ListModVersionsTool::class,
         InstallModTool::class,
         UpdateModTool::class,
