@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { FaPlus, FaTrash } from 'react-icons/fa6';
 import styled from 'styled-components';
@@ -28,31 +29,33 @@ interface Props {
 
 const ConversationList = ({ conversations, activeUuid, loading, creating, onSelect, onCreate, onDelete }: Props) => {
     const [pendingDelete, setPendingDelete] = useState<ChatConversation | null>(null);
+    const { t } = useTranslation('server/chat');
 
     return (
         <div css={tw`flex flex-col gap-3`}>
             <Dialog.Confirm
                 open={pendingDelete !== null}
                 onClose={() => setPendingDelete(null)}
-                title={'Delete conversation'}
-                confirm={'Delete'}
+                title={t('delete-conversation-title')}
+                confirm={t('delete-confirm')}
                 onConfirmed={() => {
                     if (pendingDelete) onDelete(pendingDelete.uuid);
                     setPendingDelete(null);
                 }}
             >
-                This will permanently remove &quot;{pendingDelete?.title || 'New conversation'}&quot; and everything
-                said in it. Anything the assistant already did to your server stays done.
+                {t('delete-message', {
+                    title: pendingDelete?.title || t('new-conversation-title'),
+                })}
             </Dialog.Confirm>
 
             <Button disabled={creating} onClick={onCreate} css={tw`w-full flex items-center justify-center gap-2`}>
-                <FaPlus css={tw`w-3 h-3`} /> New chat
+                <FaPlus css={tw`w-3 h-3`} /> {t('new-chat')}
             </Button>
 
             {loading ? (
                 <Spinner size={'small'} centered />
             ) : conversations.length === 0 ? (
-                <p css={tw`text-xs text-gray-400 px-1`}>No conversations yet.</p>
+                <p css={tw`text-xs text-gray-400 px-1`}>{t('conversations-empty')}</p>
             ) : (
                 <div css={tw`flex flex-col gap-2 max-h-72 lg:max-h-[60vh] overflow-y-auto`}>
                     {conversations.map((conversation) => (
@@ -63,7 +66,7 @@ const ConversationList = ({ conversations, activeUuid, loading, creating, onSele
                                 css={tw`flex-1 min-w-0 text-left`}
                             >
                                 <span css={tw`block text-sm text-gray-100 truncate`}>
-                                    {conversation.title || 'New conversation'}
+                                    {conversation.title || t('new-conversation-title')}
                                 </span>
                                 <span css={tw`block text-2xs text-gray-400`}>
                                     {formatDistanceToNow(conversation.lastMessageAt ?? conversation.createdAt, {
@@ -73,8 +76,8 @@ const ConversationList = ({ conversations, activeUuid, loading, creating, onSele
                             </button>
                             <button
                                 type={'button'}
-                                title={'Delete conversation'}
-                                aria-label={'Delete conversation'}
+                                title={t('delete-conversation-aria')}
+                                aria-label={t('delete-conversation-aria')}
                                 onClick={() => setPendingDelete(conversation)}
                                 css={tw`flex-shrink-0 p-1.5 rounded-ui text-gray-500 hover:text-red-400 transition-colors duration-150`}
                             >

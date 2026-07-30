@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaPaperPlane } from 'react-icons/fa6';
 import tw from 'twin.macro';
 import { Textarea } from '@/reviactyl/elements/Input';
@@ -13,6 +14,7 @@ interface Props {
 }
 
 const MessageComposer = ({ value, disabled, placeholder, onChange, onSubmit }: Props) => {
+    const { t } = useTranslation('server/chat');
     const ref = useRef<HTMLTextAreaElement>(null);
 
     // Grow with the content instead of scrolling inside a fixed two row box.
@@ -49,7 +51,7 @@ const MessageComposer = ({ value, disabled, placeholder, onChange, onSubmit }: P
                 type={'button'}
                 disabled={disabled || value.trim().length === 0}
                 onClick={onSubmit}
-                title={'Send message'}
+                title={t('send-button-tooltip')}
             >
                 <FaPaperPlane css={tw`w-4 h-4`} />
             </Button>

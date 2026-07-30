@@ -5,7 +5,7 @@ namespace App\Services\Chatbot\Tools\Mods;
 use App\Models\ServerMod;
 use App\Services\Chatbot\ToolContext;
 
-class ListModsTool extends ModTool
+class ListInstalledModsTool extends ModTool
 {
     public function name(): string
     {

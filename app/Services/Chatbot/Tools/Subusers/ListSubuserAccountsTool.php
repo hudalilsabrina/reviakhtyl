@@ -8,7 +8,7 @@ use App\Models\Subuser;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 
-class ListSubusersTool extends ChatbotTool
+class ListSubuserAccountsTool extends ChatbotTool
 {
     public function name(): string
     {

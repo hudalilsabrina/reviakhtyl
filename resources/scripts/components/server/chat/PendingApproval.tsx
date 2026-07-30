@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaTriangleExclamation } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
@@ -23,6 +24,7 @@ interface Props {
 }
 
 const PendingApproval = ({ message, processing, onDecision }: Props) => {
+    const { t } = useTranslation('server/chat');
     const panelRef = useRef<HTMLDivElement>(null);
 
     const pending = message.toolCalls.filter((toolCall) => toolCall.status === 'pending');
@@ -45,7 +47,7 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
             $destructive={destructive}
             tabIndex={-1}
             role='group'
-            aria-label='Action awaiting your approval'
+            aria-label={t('approval-panel-aria')}
             aria-live='assertive'
         >
             <div
@@ -56,15 +58,11 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
             >
                 <FaTriangleExclamation css={tw`flex-shrink-0`} />
                 <span>
-                    {destructive
-                        ? 'The assistant wants to make a destructive change'
-                        : 'The assistant needs your permission'}
+                    {destructive ? t('approval-heading-destructive') : t('approval-heading-permission')}
                 </span>
             </div>
             <p css={tw`text-xs text-gray-300 mb-3`}>
-                {destructive
-                    ? 'Nothing has happened yet. Read each action carefully — approving will run them against your server and some of them cannot be undone.'
-                    : 'Nothing has happened yet. Approve to let the assistant run the actions below, or deny to tell it not to.'}
+                {destructive ? t('approval-body-destructive') : t('approval-body-permission')}
             </p>
 
             <ul css={tw`space-y-2`}>
@@ -75,7 +73,7 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
                             <span
                                 css={tw`flex-shrink-0 text-2xs uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded-ui bg-red-500/20 text-red-300 border border-red-500/40`}
                             >
-                                Destructive
+                                {t('destructive-badge')}
                             </span>
                         )}
                     </ActionRow>
@@ -84,15 +82,15 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
 
             <div css={tw`flex flex-wrap items-center justify-end gap-2 mt-4`}>
                 <Button.Text disabled={processing} onClick={() => onDecision(false)}>
-                    Deny
+                    {t('deny')}
                 </Button.Text>
                 {destructive ? (
                     <Button.Danger disabled={processing} onClick={() => onDecision(true)}>
-                        Approve &amp; run
+                        {t('approve-and-run')}
                     </Button.Danger>
                 ) : (
                     <Button.Success disabled={processing} onClick={() => onDecision(true)}>
-                        Approve &amp; run
+                        {t('approve-and-run')}
                     </Button.Success>
                 )}
             </div>

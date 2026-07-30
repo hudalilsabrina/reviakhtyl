@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaBrain, FaChevronDown } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
@@ -34,13 +35,14 @@ interface Props {
  * should have to read to get their answer.
  */
 const ReasoningDisclosure = ({ reasoning }: Props) => {
+    const { t } = useTranslation('server/chat');
     const [open, setOpen] = useState(false);
 
     return (
         <div css={tw`w-full`}>
             <Toggle type={'button'} onClick={() => setOpen((value) => !value)} aria-expanded={open}>
                 <FaBrain css={tw`w-2.5 h-2.5`} />
-                <span>{open ? 'Hide thinking' : 'Show thinking'}</span>
+                <span>{open ? t('thinking-hide') : t('thinking-show')}</span>
                 <Chevron $open={open} />
             </Toggle>
             {open && <Body>{reasoning}</Body>}

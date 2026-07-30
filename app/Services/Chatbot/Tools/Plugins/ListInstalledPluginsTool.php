@@ -5,7 +5,7 @@ namespace App\Services\Chatbot\Tools\Plugins;
 use App\Models\ServerPlugin;
 use App\Services\Chatbot\ToolContext;
 
-class ListPluginsTool extends PluginTool
+class ListInstalledPluginsTool extends PluginTool
 {
     public function name(): string
     {

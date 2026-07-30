@@ -9,7 +9,7 @@ use App\Services\Chatbot\Tools\ChatbotTool;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
-class GetResourceHistoryTool extends ChatbotTool
+class GetServerResourceHistoryTool extends ChatbotTool
 {
     /** How many points the trend is reduced to before being handed to the model. */
     private const TREND_POINTS = 12;

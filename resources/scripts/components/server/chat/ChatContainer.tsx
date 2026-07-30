@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FaComments, FaRobot } from 'react-icons/fa6';
 import styled, { keyframes } from 'styled-components';
 import tw from 'twin.macro';
@@ -90,12 +91,6 @@ interface TurnOutcome {
     failure: Error | null;
 }
 
-const ACTIVITY_LABEL: Record<Exclude<Activity, 'idle'>, string> = {
-    sending: 'The assistant is working — this can take a moment.',
-    approving: 'Running the approved actions — this can take a moment.',
-    denying: 'Telling the assistant not to run them…',
-};
-
 const buildExamples = (tools: ChatTool[]): string[] => {
     const groups = new Set(tools.map((tool) => tool.group));
 
@@ -105,6 +100,7 @@ const buildExamples = (tools: ChatTool[]): string[] => {
 };
 
 const ChatContainer = () => {
+    const { t } = useTranslation('server/chat');
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const { clearFlashes, clearAndAddHttpError } = useFlashKey('server:chat');
 
@@ -480,21 +476,24 @@ const ChatContainer = () => {
             <ServerContentBlock title={'Assistant'} showFlashKey={'server:chat'}>
                 <Card css={tw`text-center py-10`}>
                     <FaRobot css={tw`w-10 h-10 mx-auto text-gray-600 mb-4`} />
-                    <h2 css={tw`text-xl text-gray-100 mb-2`}>The assistant is not available</h2>
-                    <p css={tw`text-sm text-gray-400 max-w-md mx-auto`}>
-                        Your administrator has not set up the AI assistant for this panel yet. Once they configure it,
-                        you will be able to ask questions about this server and have it take actions for you from here.
-                    </p>
+                    <h2 css={tw`text-xl text-gray-100 mb-2`}>{t('not-available-heading')}</h2>
+                    <p css={tw`text-sm text-gray-400 max-w-md mx-auto`}>{t('not-available-body')}</p>
                 </Card>
             </ServerContentBlock>
         );
     }
 
     const composerPlaceholder = awaitingConfirmation
-        ? 'Approve or deny the request above to continue'
+        ? t('composer-placeholder-waiting-confirmation')
         : busy
-        ? 'Waiting for the assistant…'
-        : 'Ask about this server…';
+        ? t('composer-placeholder-busy')
+        : t('composer-placeholder-idle');
+
+    const ACTIVITY_LABEL: Record<Exclude<Activity, 'idle'>, string> = {
+        sending: t('activity-sending'),
+        approving: t('activity-approving'),
+        denying: t('activity-denying'),
+    };
 
     return (
         <ServerContentBlock title={'Assistant'} showFlashKey={'server:chat'}>
@@ -507,7 +506,7 @@ const ChatContainer = () => {
                         css={tw`w-full flex items-center justify-center gap-2`}
                     >
                         <FaComments css={tw`w-4 h-4`} />
-                        {listOpen ? 'Hide conversations' : `Conversations (${conversations?.length ?? 0})`}
+                        {listOpen ? t('sidebar-toggle-hide') : t('sidebar-toggle-show', { count: conversations?.length ?? 0 })}
                     </Button>
                 </div>
 
@@ -517,10 +516,10 @@ const ChatContainer = () => {
                             request, telling the user their history is empty when it merely failed to load. */}
                         {conversationsError && !conversations ? (
                             <div css={tw`p-4 text-center`}>
-                                <p css={tw`text-sm text-gray-300 mb-1`}>Could not load your conversations.</p>
+                                <p css={tw`text-sm text-gray-300 mb-1`}>{t('conversations-load-error')}</p>
                                 <p css={tw`text-xs text-gray-500 mb-3`}>{httpErrorToHuman(conversationsError)}</p>
                                 <Button.Text size={Button.Sizes.Small} onClick={() => mutateConversations()}>
-                                    Try again
+                                    {t('retry')}
                                 </Button.Text>
                             </div>
                         ) : (
@@ -544,12 +543,12 @@ const ChatContainer = () => {
                         ) : messages.length === 0 ? (
                             <div css={tw`py-6 text-center`}>
                                 <FaRobot css={tw`w-8 h-8 mx-auto text-gray-600 mb-3`} />
-                                <h2 css={tw`text-lg text-gray-100 mb-1`}>Ask me about this server</h2>
+                                <h2 css={tw`text-lg text-gray-100 mb-1`}>{t('ask-about-server')}</h2>
                                 <p css={tw`text-sm text-gray-400 max-w-md mx-auto mb-5`}>
-                                    I can look things up for you and act on this server.{' '}
+                                    {t('intro-text')}{' '}
                                     {config.requiresConfirmation
-                                        ? 'Anything that changes the server is shown to you for approval first.'
-                                        : 'This panel is configured to let me make changes without asking first, so be specific about what you want.'}
+                                        ? t('approval-first')
+                                        : t('approval-immediate')}
                                 </p>
                                 <div css={tw`grid gap-2 sm:grid-cols-2 max-w-xl mx-auto`}>
                                     {examples.map((example) => (
@@ -601,7 +600,7 @@ const ChatContainer = () => {
                             onSubmit={handleSend}
                         />
                         <p css={tw`text-2xs text-gray-500 mt-2`}>
-                            Enter sends, Shift + Enter adds a new line.
+                            {t('keyboard-hint')}
                             {config.model ? ` Powered by ${config.model}.` : ''}
                         </p>
                     </div>

@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
 import { FaRobot, FaTriangleExclamation } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
@@ -32,6 +33,7 @@ interface Props {
 }
 
 const ChatMessageRow = ({ message, streaming = false }: Props) => {
+    const { t } = useTranslation('server/chat');
     const isUser = message.role === 'user';
     // Pending calls are surfaced by the approval panel instead, so they are skipped here to
     // avoid rendering the same tool call twice.
@@ -65,7 +67,7 @@ const ChatMessageRow = ({ message, streaming = false }: Props) => {
                         {message.status === 'failed' && (
                             <div css={tw`flex items-center gap-1.5 text-xs font-semibold mb-1`}>
                                 <FaTriangleExclamation />
-                                <span>The assistant could not finish this response.</span>
+                                <span>{t('response-failed')}</span>
                             </div>
                         )}
                         {/* The cursor is part of the text rather than a sibling element so it
@@ -78,12 +80,12 @@ const ChatMessageRow = ({ message, streaming = false }: Props) => {
                     <Bubble $role={message.role} $failed>
                         <div css={tw`flex items-center gap-1.5 text-xs font-semibold`}>
                             <FaTriangleExclamation />
-                            <span>The assistant could not finish this response.</span>
+                            <span>{t('response-failed')}</span>
                         </div>
                     </Bubble>
                 )}
                 <span css={tw`text-2xs text-gray-500 px-1`}>
-                    {message.pending ? 'Sending…' : format(message.createdAt, 'HH:mm')}
+                    {message.pending ? t('sending') : format(message.createdAt, 'HH:mm')}
                 </span>
             </div>
         </div>
