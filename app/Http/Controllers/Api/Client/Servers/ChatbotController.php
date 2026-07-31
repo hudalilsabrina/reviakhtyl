@@ -17,6 +17,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class ChatbotController extends ClientApiController
@@ -240,6 +241,77 @@ class ChatbotController extends ClientApiController
         $this->authorizeConversation($request, $chatbotConversation);
 
         $chatbotConversation->delete();
+
+        return $this->returnNoContent();
+    }
+
+    /**
+     * Regenerates the assistant's turn that starts at the given message.
+     *
+     * The message and everything after it are replaced by a fresh assistant
+     * response, fed the same conversation history up to the turn boundary.
+     *
+     * @throws ChatbotException
+     */
+    public function regenerate(ClientApiRequest $request, Server $server, ChatbotConversation $chatbotConversation): array
+    {
+        $this->authorizeConversation($request, $chatbotConversation);
+
+        $targetUuid = $request->input('message_uuid');
+
+        $target = $chatbotConversation->messages()
+            ->where('uuid', $targetUuid)
+            ->first();
+
+        if (! $target) {
+            throw new NotFoundHttpException('The requested message was not found in this conversation.');
+        }
+
+        $messages = $this->service->regenerate($chatbotConversation, $target);
+
+        return ['data' => ['messages' => $this->messages($messages)]];
+    }
+
+    /**
+     * Removes a message and all messages that follow it, keeping at least
+     * one user message so the conversation remains coherent.
+     */
+    public function destroyMessage(ClientApiRequest $request, Server $server, ChatbotConversation $chatbotConversation, string $message): Response
+    {
+        $this->authorizeConversation($request, $chatbotConversation);
+
+        $target = $chatbotConversation->messages()
+            ->where('uuid', $message)
+            ->first();
+
+        if (! $target) {
+            throw new NotFoundHttpException('The requested message was not found in this conversation.');
+        }
+
+        // Find the earliest user message at or before the target. Deleting a
+        // user's last question orphans every assistant response to it, so the
+        // cutoff always lands on a user message and never removes the very
+        // first one the user typed.
+        $cutoff = $chatbotConversation->messages()
+            ->where('role', ChatbotMessage::ROLE_USER)
+            ->where('id', '<=', $target->id)
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $cutoff) {
+            throw new BadRequestHttpException('There are no user messages to delete.');
+        }
+
+        $firstId = $chatbotConversation->messages()->min('id');
+
+        if ($cutoff->id === $firstId) {
+            // Can't delete the only user message in the conversation.
+            throw new BadRequestHttpException('Cannot delete the only user message in a conversation.');
+        }
+
+        $chatbotConversation->messages()
+            ->where('id', '>=', $cutoff->id)
+            ->delete();
 
         return $this->returnNoContent();
     }

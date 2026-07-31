@@ -53,4 +53,10 @@ return [
     'tool-call-no-result' => 'Result not yet available',
     'tool-call-empty-args' => '(none)',
     'tool-call-empty-result' => '(no additional data)',
+    'copy-message' => 'Copy',
+    'copy-message-success' => 'Copied to clipboard',
+    'copy-message-failed' => 'Could not copy to clipboard',
+    'regenerate-message' => 'Regenerate',
+    'delete-message' => 'Delete',
+    'delete-message-body' => 'This will permanently remove this message and everything after it. This cannot be undone.',
 ];

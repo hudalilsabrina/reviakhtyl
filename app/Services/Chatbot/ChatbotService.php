@@ -104,6 +104,42 @@ class ChatbotService
     }
 
     /**
+     * Regenerates the assistant's turn that starts at the given message.
+     *
+     * The target message and every message after it are removed, then the
+     * conversation is re-run from its new tail.  The caller receives all
+     * freshly created messages.
+     *
+     * @throws ChatbotException
+     */
+    public function regenerate(ChatbotConversation $conversation, ChatbotMessage $target): Collection
+    {
+        $this->assertEnabled();
+
+        if ($target->conversation_id !== $conversation->id) {
+            throw new ChatbotException('The requested message does not belong to this conversation.');
+        }
+
+        return $this->withTurnLock($conversation, function () use ($conversation, $target) {
+            $cutoff = $conversation->messages()
+                ->where('role', ChatbotMessage::ROLE_USER)
+                ->where('id', '<=', $target->id)
+                ->reorder('id', 'desc')
+                ->first();
+
+            if (! $cutoff) {
+                return collect();
+            }
+
+            $conversation->messages()
+                ->where('id', '>=', $cutoff->id)
+                ->delete();
+
+            return $this->run($conversation);
+        });
+    }
+
+    /**
      * @return Collection<int, ChatbotMessage>
      */
     private function runConfirmation(
@@ -252,8 +288,14 @@ class ChatbotService
             }
 
             if (! $completion->hasToolCalls()) {
+                if (empty(trim((string) $completion->content))) {
+                    // No text and no tool calls — nothing useful to show. Return
+                    // the conversation as-is without a meaningless placeholder.
+                    return $placeholder ? $created : $created;
+                }
+
                 $answer = $this->persistAssistant($conversation, $placeholder, [
-                    'content' => $completion->content ?? 'I could not produce a response to that. Please rephrase and try again.',
+                    'content' => $completion->content,
                     'reasoning' => $completion->reasoning,
                 ]);
 

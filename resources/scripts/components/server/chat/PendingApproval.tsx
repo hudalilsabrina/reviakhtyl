@@ -1,10 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FaTriangleExclamation } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
 import { ChatMessage } from '@/api/server/chat/types';
 import { Button } from '@/reviactyl/elements/button/index';
+import Spinner from '@/reviactyl/elements/Spinner';
 
 const Panel = styled.div<{ $destructive: boolean }>`
     ${tw`rounded-ui border p-4`};
@@ -26,6 +27,7 @@ interface Props {
 const PendingApproval = ({ message, processing, onDecision }: Props) => {
     const { t } = useTranslation('server/chat');
     const panelRef = useRef<HTMLDivElement>(null);
+    const previousFocusRef = useRef<HTMLElement | null>(null);
 
     const pending = message.toolCalls.filter((toolCall) => toolCall.status === 'pending');
     // The thread is blocked on the message status, not on the individual call statuses. If the
@@ -34,11 +36,45 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
     const actions = pending.length > 0 ? pending : message.toolCalls;
     const destructive = actions.some((toolCall) => toolCall.destructive);
 
+    const handleKeyDown = useCallback(
+        (event: React.KeyboardEvent) => {
+            if (event.key !== 'Tab') return;
+
+            const root = panelRef.current;
+            if (!root) return;
+
+            const focusable = root.querySelectorAll<HTMLElement>(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+            );
+            if (focusable.length === 0) return;
+
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+
+            if (event.shiftKey) {
+                if (document.activeElement === first) {
+                    event.preventDefault();
+                    last.focus();
+                }
+            } else {
+                if (document.activeElement === last) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        },
+        [],
+    );
+
     // Whatever had focus in the composer is disabled the moment this appears, which drops focus
-    // onto <body>. Pull it here instead so keyboard and screen reader users are told a decision
-    // is waiting. The container is focused rather than a button — a stray Enter must not approve.
+    // onto <body>. Save the previous target so we can restore it once the approval panel is gone.
     useEffect(() => {
+        previousFocusRef.current = document.activeElement as HTMLElement | null;
         panelRef.current?.focus();
+
+        return () => {
+            previousFocusRef.current?.focus();
+        };
     }, []);
 
     return (
@@ -46,9 +82,10 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
             ref={panelRef}
             $destructive={destructive}
             tabIndex={-1}
-            role='group'
+            role='alertdialog'
             aria-label={t('approval-panel-aria')}
             aria-live='assertive'
+            onKeyDown={handleKeyDown}
         >
             <div
                 css={[
@@ -86,11 +123,11 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
                 </Button.Text>
                 {destructive ? (
                     <Button.Danger disabled={processing} onClick={() => onDecision(true)}>
-                        {t('approve-and-run')}
+                        {processing ? <Spinner size={Spinner.Size.SMALL} /> : t('approve-and-run')}
                     </Button.Danger>
                 ) : (
                     <Button.Success disabled={processing} onClick={() => onDecision(true)}>
-                        {t('approve-and-run')}
+                        {processing ? <Spinner size={Spinner.Size.SMALL} /> : t('approve-and-run')}
                     </Button.Success>
                 )}
             </div>
