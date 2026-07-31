@@ -4,6 +4,7 @@ import { FaRobot, FaTriangleExclamation } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
 import { ChatMessage } from '@/api/server/chat/types';
+import MessageActions from '@/components/server/chat/MessageActions';
 import MessageContent from '@/components/server/chat/MessageContent';
 import ReasoningDisclosure from '@/components/server/chat/ReasoningDisclosure';
 import ToolCallChip from '@/components/server/chat/ToolCallChip';
@@ -28,26 +29,25 @@ const Avatar = styled.div`
 
 interface Props {
     message: ChatMessage;
-    // The text of this message is still arriving.
     streaming?: boolean;
+    onRegenerate?: () => void;
+    onDelete?: () => void;
 }
 
-const ChatMessageRow = ({ message, streaming = false }: Props) => {
+const ChatMessageRow = ({ message, streaming = false, onRegenerate, onDelete }: Props) => {
     const { t } = useTranslation('server/chat');
     const isUser = message.role === 'user';
-    // Pending calls are surfaced by the approval panel instead, so they are skipped here to
-    // avoid rendering the same tool call twice.
     const resolvedToolCalls = message.toolCalls.filter((toolCall) => toolCall.status !== 'pending');
 
-    // A turn that was nothing but tool calls has no content of its own, and those calls are drawn
-    // by the approval panel — rendering the row anyway leaves a stray avatar and timestamp with no
-    // bubble beside them.
     if (!message.content && !message.reasoning && resolvedToolCalls.length === 0 && message.status !== 'failed') {
         return null;
     }
 
     return (
-        <div css={[tw`flex items-start gap-2 w-full`, isUser && tw`flex-row-reverse`]}>
+        <div
+            className="group"
+            css={[tw`flex items-start gap-2 w-full`, isUser && tw`flex-row-reverse`]}
+        >
             {!isUser && (
                 <Avatar>
                     <FaRobot css={tw`w-3.5 h-3.5`} />
@@ -62,31 +62,28 @@ const ChatMessageRow = ({ message, streaming = false }: Props) => {
                         ))}
                     </div>
                 )}
-                {message.content && (
-                    <Bubble $role={message.role} $failed={message.status === 'failed'} $pending={message.pending}>
+
+                <div css={tw`flex items-center gap-2`}>
+                    <Bubble $role={message.role} $failed={message.status === 'failed'} $pending={streaming}>
+                        <MessageContent content={message.content ?? ''} />
                         {message.status === 'failed' && (
-                            <div css={tw`flex items-center gap-1.5 text-xs font-semibold mb-1`}>
-                                <FaTriangleExclamation />
+                            <div css={tw`flex items-center gap-1.5 mt-1.5 text-xs text-red-300`}>
+                                <FaTriangleExclamation css={tw`w-3 h-3`} />
                                 <span>{t('response-failed')}</span>
                             </div>
                         )}
-                        {/* The cursor is part of the text rather than a sibling element so it
-                            sits at the end of the last line, inside whatever block it landed in,
-                            instead of on a line of its own below the answer. */}
-                        <MessageContent content={streaming ? `${message.content}▋` : message.content} />
                     </Bubble>
-                )}
-                {!message.content && message.status === 'failed' && (
-                    <Bubble $role={message.role} $failed>
-                        <div css={tw`flex items-center gap-1.5 text-xs font-semibold`}>
-                            <FaTriangleExclamation />
-                            <span>{t('response-failed')}</span>
-                        </div>
-                    </Bubble>
-                )}
-                <span css={tw`text-2xs text-gray-500 px-1`}>
-                    {message.pending ? t('sending') : format(message.createdAt, 'HH:mm')}
-                </span>
+                    <span css={tw`flex items-center gap-1 flex-shrink-0`}>
+                        <span css={tw`text-2xs text-gray-500`}>
+                            {message.pending ? t('sending') : format(message.createdAt, 'HH:mm')}
+                        </span>
+                        <MessageActions
+                            message={message}
+                            onRegenerate={onRegenerate}
+                            onDelete={onDelete}
+                        />
+                    </span>
+                </div>
             </div>
         </div>
     );

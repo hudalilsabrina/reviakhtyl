@@ -6,12 +6,14 @@ import tw from 'twin.macro';
 import confirmToolCalls from '@/api/server/chat/confirmToolCalls';
 import createConversation from '@/api/server/chat/createConversation';
 import deleteConversation from '@/api/server/chat/deleteConversation';
+import deleteMessage from '@/api/server/chat/deleteMessage';
 import getConversation from '@/api/server/chat/getConversation';
+import regenerateMessage from '@/api/server/chat/regenerateMessage';
 import sendMessage from '@/api/server/chat/sendMessage';
 import streamConfirmation from '@/api/server/chat/streamConfirmation';
 import streamMessage from '@/api/server/chat/streamMessage';
 import { ChatStreamHandlers, isStreamUnsupported } from '@/api/server/chat/streamRequest';
-import { ChatMessage, ChatTool } from '@/api/server/chat/types';
+import { ChatMessage } from '@/api/server/chat/types';
 import getServerChatConfig from '@/api/swr/getServerChatConfig';
 import getServerChatConversations from '@/api/swr/getServerChatConversations';
 import { httpErrorToHuman } from '@/api/http';
@@ -65,6 +67,12 @@ const EXAMPLE_PROMPTS: { group: string | null; prompt: string }[] = [
     { group: 'schedules', prompt: 'What schedules are set up on this server?' },
     { group: 'startup', prompt: 'Which startup variables can I change?' },
     { group: 'network', prompt: 'What address do players connect to?' },
+    { group: 'plugins', prompt: 'Can you install a plugin for me?' },
+    { group: 'backups', prompt: 'Can you make a backup right now?' },
+    { group: 'files', prompt: 'Can you edit a config file for me?' },
+    { group: 'databases', prompt: 'Can you run a database query?' },
+    { group: 'schedules', prompt: 'Can you set up a scheduled task?' },
+    { group: 'power', prompt: 'Can you check the resource usage?' },
     { group: null, prompt: 'What can you help me with on this server?' },
     { group: null, prompt: 'Give me a summary of how this server is doing' },
 ];
@@ -90,14 +98,6 @@ interface TurnOutcome {
     /** The turn failed after it had started, reported once the stream closes rather than thrown mid-flight. */
     failure: Error | null;
 }
-
-const buildExamples = (tools: ChatTool[]): string[] => {
-    const groups = new Set(tools.map((tool) => tool.group));
-
-    return EXAMPLE_PROMPTS.filter((example) => example.group === null || groups.has(example.group))
-        .slice(0, 4)
-        .map((example) => example.prompt);
-};
 
 const ChatContainer = () => {
     const { t } = useTranslation('server/chat');
@@ -127,6 +127,9 @@ const ChatContainer = () => {
     const [listOpen, setListOpen] = useState(false);
     // The message currently receiving text, so its bubble can show a cursor.
     const [streamingUuid, setStreamingUuid] = useState<string | null>(null);
+    // Rotated each time a new empty chat opens so the example prompt buttons vary.
+    const [exampleIndex, setExampleIndex] = useState(0);
+    const EXAMPLE_POOL_SIZE = 4;
     // Incremented whenever a thread's messages are installed, to trigger the
     // scroll-to-newest exactly once per opened conversation.
     const [threadRevision, setThreadRevision] = useState(0);
@@ -159,7 +162,12 @@ const ChatContainer = () => {
         streamRef.current = null;
     };
 
-    const examples = useMemo(() => buildExamples(config?.tools ?? []), [config]);
+    const examples = useMemo(() => {
+        const all = EXAMPLE_PROMPTS.filter(
+            (example) => example.group === null || new Set((config?.tools ?? []).map((t) => t.group)).has(example.group),
+        );
+        return all.slice(exampleIndex % all.length, exampleIndex % all.length + 4).map((e) => e.prompt);
+    }, [config, exampleIndex]);
 
     const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
     const awaitingConfirmation =
@@ -189,6 +197,11 @@ const ChatContainer = () => {
         getConversation(uuid, active)
             .then((conversation) => {
                 if (cancelled) return;
+
+                // Rotate the example prompts for each new empty chat.
+                if (conversation.messages.length === 0) {
+                    setExampleIndex((i) => (i + 1) % EXAMPLE_POOL_SIZE);
+                }
 
                 setMessages(conversation.messages);
                 // Signals "a thread's messages just landed", which is the only
@@ -268,6 +281,42 @@ const ChatContainer = () => {
             clearAndAddHttpError(error);
             mutateConversations();
         });
+    };
+
+    const handleRegenerate = async (message: ChatMessage) => {
+        if (busy || !active) return;
+
+        setActivity('sending');
+
+        try {
+            const incoming = await regenerateMessage(uuid, active, message.uuid);
+
+            setMessages(incoming);
+            setThreadRevision((revision) => revision + 1);
+            mutateConversations();
+        } catch (error) {
+            clearAndAddHttpError(error as Error);
+            await resyncThread(active);
+        } finally {
+            setActivity('idle');
+        }
+    };
+
+    const handleDeleteMessage = async (message: ChatMessage) => {
+        if (busy || !active) return;
+
+        const targetIndex = messages.findIndex((m) => m.uuid === message.uuid);
+        if (targetIndex === -1) return;
+
+        try {
+            await deleteMessage(uuid, active, message.uuid);
+
+            setMessages((current) => current.slice(0, targetIndex));
+            mutateConversations();
+        } catch (error) {
+            clearAndAddHttpError(error as Error);
+            await resyncThread(active);
+        }
     };
 
     /**
@@ -564,6 +613,8 @@ const ChatContainer = () => {
                                     key={message.uuid}
                                     message={message}
                                     streaming={message.uuid === streamingUuid}
+                                    onRegenerate={() => handleRegenerate(message)}
+                                    onDelete={() => handleDeleteMessage(message)}
                                 />
                             ))
                         )}

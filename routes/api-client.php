@@ -248,6 +248,8 @@ Route::group([
             Route::post('/conversations/{chatbotConversation}/messages/stream', [Client\Servers\ChatbotController::class, 'stream']);
             Route::post('/conversations/{chatbotConversation}/confirm', [Client\Servers\ChatbotController::class, 'confirm']);
             Route::post('/conversations/{chatbotConversation}/confirm/stream', [Client\Servers\ChatbotController::class, 'confirmStream']);
+            Route::post('/conversations/{chatbotConversation}/messages/regenerate', [Client\Servers\ChatbotController::class, 'regenerate']);
+            Route::delete('/conversations/{chatbotConversation}/messages/{messageUuid}', [Client\Servers\ChatbotController::class, 'destroyMessage']);
         });
     });
 
