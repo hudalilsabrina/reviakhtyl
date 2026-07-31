@@ -109,13 +109,26 @@ class ServerPropertiesService
     }
 
     /**
-     * Apply a set of already normalized properties, leaving everything else in
-     * the file untouched.
+     * Apply a set of property changes, validating them first.
      *
-     * @param  array<string, string>  $normalized  output of normalize()
+     * @param  array<string, mixed>  $changes  raw user input
      * @return array{exists: bool, raw: string, values: array<string, string>}
      */
-    public function apply(Server $server, array $normalized): array
+    public function apply(Server $server, array $changes): array
+    {
+        $normalized = $this->normalize($changes);
+
+        return $this->applyNormalized($server, $normalized);
+    }
+
+    /**
+     * Apply already-normalized changes (used by the controller after explicit
+     * normalization, and internally by this class).
+     *
+     * @param  array<string, string>  $normalized
+     * @return array{exists: bool, raw: string, values: array<string, string>}
+     */
+    private function applyNormalized(Server $server, array $normalized): array
     {
         $current = $this->read($server);
 
@@ -369,7 +382,17 @@ class ServerPropertiesService
 
         foreach ($nodes as $node) {
             if ($node['type'] === 'entry' && array_key_exists($node['key'], $pending)) {
+                // Preserve continuation lines (all but the last source line),
+                // then write the new key=value as the final line.  This keeps
+                // multi-line properties intact when only the value changes.
+                $source = $node['source'];
+
+                foreach (array_slice($source, 0, -1) as $line) {
+                    $out[] = $line;
+                }
+
                 $out[] = $node['raw_key'].'='.$pending[$node['key']];
+
                 unset($pending[$node['key']]);
 
                 continue;
