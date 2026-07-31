@@ -40,7 +40,7 @@ class PropertiesController extends ClientApiController
         $submitted = $request->input('properties');
         $normalized = $this->service->normalize($submitted);
 
-        $state = $this->service->apply($server, $normalized);
+        $state = $this->service->applyNormalized($server, $normalized);
 
         if ($normalized !== []) {
             Activity::event('server:properties.update')
