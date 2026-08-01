@@ -47,10 +47,8 @@ Contributors help the development of Reviactyl panel. To start contributing you 
 
 And much more!
 
-## Licenses & Attribution
+## Licenses
 
-Pterodactyl® Copyright © 2015 - 2022 Dane Everitt and contributors. (Licensed under [MIT](https://github.com/reviactyl/panel/blob/develop/licenses/pterodactyl))
-
-Reviactyl™, Copyright © 2025 - 2026 Reviactyl and contributors. (Licensed under [MIT](https://github.com/reviactyl/panel/blob/develop/LICENSE.md))
+Reviactyl™, Copyright © Reviactyl and contributors. (Licensed under [MIT](https://github.com/reviactyl/panel/blob/develop/LICENSE.md))
 
 ###### Copyright © 2025 - Current, Reviactyl and Contributors.
