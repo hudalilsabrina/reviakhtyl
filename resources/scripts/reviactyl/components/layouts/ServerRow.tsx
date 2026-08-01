@@ -169,7 +169,9 @@ export default ({
                     {!stats || isSuspended || server.isNodeUnderMaintenance ? (
                         isSuspended ? (
                             <div css={tw`flex-1 text-center`}>
-                                <span className={`text-danger font-medium bg-danger/20 backdrop-blur-sm border border-danger/80 rounded-ui px-2 py-1 text-xs`}>
+                                <span
+                                    className={`text-danger font-medium bg-danger/20 backdrop-blur-sm border border-danger/80 rounded-ui px-2 py-1 text-xs`}
+                                >
                                     {server.status === 'suspended'
                                         ? t('server.suspended')
                                         : t('server.connection-error')}
@@ -177,13 +179,17 @@ export default ({
                             </div>
                         ) : server.isNodeUnderMaintenance ? (
                             <div css={tw`flex-1 text-center`}>
-                                <span className={`text-yellow-400 font-medium backdrop-blur-sm bg-yellow-500/50 border border-yellow-500/70 rounded-ui px-2 py-1 text-xs`}>
+                                <span
+                                    className={`text-yellow-400 font-medium backdrop-blur-sm bg-yellow-500/50 border border-yellow-500/70 rounded-ui px-2 py-1 text-xs`}
+                                >
                                     {t('server.maintenance')}
                                 </span>
                             </div>
                         ) : server.isTransferring || server.status ? (
                             <div css={tw`flex-1 text-center`}>
-                                <span className={`text-yellow-400 font-medium backdrop-blur-sm bg-gray-600/50 border border-gray-500/70 rounded-ui px-2 py-1 text-xs`}>
+                                <span
+                                    className={`text-yellow-400 font-medium backdrop-blur-sm bg-gray-600/50 border border-gray-500/70 rounded-ui px-2 py-1 text-xs`}
+                                >
                                     {server.isTransferring
                                         ? t('server.transferring')
                                         : server.status === 'installing'

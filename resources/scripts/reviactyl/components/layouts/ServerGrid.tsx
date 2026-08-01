@@ -72,7 +72,8 @@ export default ({
     const cpuLimit = server.limits.cpu !== 0 ? server.limits.cpu + ' %' : t('server.unlimited');
 
     // Check if server is in a other state (suspended, transferring, etc.)
-    const isSpecialState = isSuspended || server.isNodeUnderMaintenance || server.isTransferring || (server.status && !stats);
+    const isSpecialState =
+        isSuspended || server.isNodeUnderMaintenance || server.isTransferring || (server.status && !stats);
 
     return (
         <React.Fragment>
@@ -175,10 +176,7 @@ export default ({
                                         <span className='w-4 sm:w-5 text-yellow-400'>
                                             <FaTriangleExclamation />
                                         </span>
-                                        <p className='text-yellow-400 font-medium'>
-                                            {' '}
-                                            {t('server.maintenance')}
-                                        </p>
+                                        <p className='text-yellow-400 font-medium'> {t('server.maintenance')}</p>
                                     </StatBlock>
                                 </React.Fragment>
                             ) : server.isTransferring || server.status ? (
