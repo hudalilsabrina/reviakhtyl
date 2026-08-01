@@ -18,28 +18,27 @@ class Alert extends Component
      */
     protected string $view = 'filament.components.alert';
 
-    protected string|Htmlable|Closure|null $message;
+    protected string|Htmlable|Closure|null $description = null;
 
     protected string|Htmlable|Closure|null $title = null;
 
     protected string|Closure $type = 'info';
 
-    final public function __construct(string|Htmlable|Closure|null $message)
+    final public function __construct()
     {
-        $this->message($message);
     }
 
-    public static function make(string|Htmlable|Closure|null $message): static
+    public static function make(): static
     {
-        $static = app(static::class, ['message' => $message]);
+        $static = app(static::class);
         $static->configure();
 
         return $static;
     }
 
-    public function message(string|Htmlable|Closure|null $message): static
+    public function description(string|Htmlable|Closure|null $description): static
     {
-        $this->message = $message;
+        $this->description = $description;
 
         return $this;
     }
@@ -91,9 +90,9 @@ class Alert extends Component
         return $this;
     }
 
-    public function getMessage(): string|Htmlable|null
+    public function getDescription(): string|Htmlable|null
     {
-        return $this->evaluate($this->message);
+        return $this->evaluate($this->description);
     }
 
     public function getTitle(): string|Htmlable|null

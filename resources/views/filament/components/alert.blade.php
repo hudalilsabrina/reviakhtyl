@@ -1,5 +1,5 @@
 @php
-    $message = $getMessage();
+    $description = $getDescription();
     $title = $getTitle();
     $type = $getType();
     $actions = $getChildSchema($schemaComponent::ACTIONS_SCHEMA_KEY)?->toHtmlString();
@@ -24,7 +24,7 @@
         @endif
 
         <div class="filament-alert__message">
-            {{ $message }}
+            {{ $description }}
         </div>
 
         @if (filled($actions))
