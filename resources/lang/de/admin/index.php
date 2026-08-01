@@ -22,4 +22,13 @@ return [
     'no_activity' => 'Es gibt keine Aktivitäten zum anzeigen.',
     'activity-header' => 'Neuste Aktivitäten',
     'more-btn' => 'Mehr ansehen',
+    'dashboard' => [
+        'total_users' => 'Benutzer insgesamt',
+        'new_users' => 'Neue Benutzer: :count',
+        'total_servers' => 'Server insgesamt',
+        'new_servers' => 'Neue Server: :count',
+        'developmental_build' => 'Entwicklungs-Build',
+        'up_to_date' => 'Aktuell',
+        'outdated_build' => 'Veralteter Build',
+    ],
 ];

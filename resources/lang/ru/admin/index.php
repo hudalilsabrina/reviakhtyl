@@ -22,4 +22,13 @@ return [
     'no_activity' => 'There is no recent activity to display.',
     'activity-header' => 'Recent Activity',
     'more-btn' => 'View More',
+    'dashboard' => [
+        'total_users' => 'Всего пользователей',
+        'new_users' => 'Новые пользователи: :count',
+        'total_servers' => 'Всего серверов',
+        'new_servers' => 'Новые серверы: :count',
+        'developmental_build' => 'Сборка для разработки',
+        'up_to_date' => 'Актуальная версия',
+        'outdated_build' => 'Устаревшая сборка',
+    ],
 ];

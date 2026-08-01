@@ -22,4 +22,13 @@ return [
     'no_activity' => 'प्रदर्शित करने के लिए कोई हालिया गतिविधि नहीं है.',
     'activity-header' => 'हाल की गतिविधि',
     'more-btn' => 'और देखें',
+    'dashboard' => [
+        'total_users' => 'कुल उपयोगकर्ता',
+        'new_users' => 'नए उपयोगकर्ता: :count',
+        'total_servers' => 'कुल सर्वर',
+        'new_servers' => 'नए सर्वर: :count',
+        'developmental_build' => 'विकास बिल्ड',
+        'up_to_date' => 'अप-टू-डेट',
+        'outdated_build' => 'पुराना बिल्ड',
+    ],
 ];

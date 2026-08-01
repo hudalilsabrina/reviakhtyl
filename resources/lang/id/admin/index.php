@@ -22,4 +22,13 @@ return [
     'no_activity' => 'Tidak ada aktivitas terkini untuk ditampilkan.',
     'activity-header' => 'Aktivitas Terkini',
     'more-btn' => 'Lihat Lebih Banyak',
+    'dashboard' => [
+        'total_users' => 'Total Pengguna',
+        'new_users' => 'Pengguna baru: :count',
+        'total_servers' => 'Total Server',
+        'new_servers' => 'Server baru: :count',
+        'developmental_build' => 'Build Pengembangan',
+        'up_to_date' => 'Terkini',
+        'outdated_build' => 'Build Kedaluwarsa',
+    ],
 ];

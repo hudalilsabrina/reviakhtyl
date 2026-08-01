@@ -17,15 +17,15 @@ class DashboardStatsOverview extends BaseWidget
         $start = now()->subDays(6)->startOfDay();
 
         return [
-            Stat::make('Total Users', User::query()->count())
-                ->description('New users: '.User::query()->whereDate('created_at', today())->count())
+            Stat::make(trans('admin/index.dashboard.total_users'), User::query()->count())
+                ->description(trans('admin/index.dashboard.new_users', ['count' => User::query()->whereDate('created_at', today())->count()]))
                 ->descriptionIcon('heroicon-o-users')
                 ->chart($this->getDailyCreatedCounts(User::class, $start))
                 ->color('success')
                 ->icon('heroicon-o-users'),
 
-            Stat::make('Total Servers', Server::query()->count())
-                ->description('New servers: '.Server::query()->whereDate('created_at', today())->count())
+            Stat::make(trans('admin/index.dashboard.total_servers'), Server::query()->count())
+                ->description(trans('admin/index.dashboard.new_servers', ['count' => Server::query()->whereDate('created_at', today())->count()]))
                 ->descriptionIcon('heroicon-o-server-stack')
                 ->chart($this->getDailyCreatedCounts(Server::class, $start))
                 ->color('info')
@@ -64,7 +64,7 @@ class DashboardStatsOverview extends BaseWidget
 
         return [
             Stat::make('Reviactyl Panel', $version)
-                ->description(config('app.version') === 'canary' ? 'Developmental Build' : ($isLatest ? 'Up-to-date' : 'Outdated Build'))
+                ->description(config('app.version') === 'canary' ? trans('admin/index.dashboard.developmental_build') : ($isLatest ? trans('admin/index.dashboard.up_to_date') : trans('admin/index.dashboard.outdated_build')))
                 ->descriptionIcon(config('app.version') === 'canary' ? 'heroicon-o-code-bracket' : ($isLatest ? 'heroicon-o-check-badge' : 'heroicon-o-exclamation-triangle'))
                 ->color(config('app.version') === 'canary' ? 'info' : ($isLatest ? 'success' : 'warning'))
                 ->icon('heroicon-o-bolt'),

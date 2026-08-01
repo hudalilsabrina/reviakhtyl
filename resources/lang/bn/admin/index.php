@@ -22,4 +22,13 @@ return [
     'no_activity' => 'দেখানোর মতো কোনো সাম্প্রতিক কার্যকলাপ নেই।',
     'activity-header' => 'সাম্প্রতিক কার্যকলাপ',
     'more-btn' => 'আরও দেখুন',
+    'dashboard' => [
+        'total_users' => 'মোট ব্যবহারকারী',
+        'new_users' => 'নতুন ব্যবহারকারী: :count',
+        'total_servers' => 'মোট সার্ভার',
+        'new_servers' => 'নতুন সার্ভার: :count',
+        'developmental_build' => 'উন্নয়নাধীন বিল্ড',
+        'up_to_date' => 'সর্বশেষ সংস্করণ',
+        'outdated_build' => 'পুরোনো বিল্ড',
+    ],
 ];
