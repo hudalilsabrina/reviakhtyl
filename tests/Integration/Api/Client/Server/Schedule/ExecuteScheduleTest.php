@@ -6,6 +6,7 @@ use App\Jobs\Schedule\RunTaskJob;
 use App\Models\Permission;
 use App\Models\Schedule;
 use App\Models\Task;
+use App\Repositories\Agent\DaemonCommandRepository;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Bus;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -64,8 +65,27 @@ class ExecuteScheduleTest extends ClientApiIntegrationTestCase
         $this->actingAs($user)->postJson($this->link($schedule, '/execute'))->assertForbidden();
     }
 
+    public function test_subuser_cannot_execute_schedule_without_task_action_permission()
+    {
+        [$user, $server] = $this->generateTestAccount([Permission::ACTION_SCHEDULE_UPDATE]);
+
+        $mock = $this->mock(DaemonCommandRepository::class);
+        $mock->shouldNotReceive('setServer');
+
+        /** @var Schedule $schedule */
+        $schedule = Schedule::factory()->create(['server_id' => $server->id]);
+        Task::factory()->create([
+            'schedule_id' => $schedule->id,
+            'sequence_id' => 1,
+            'action' => 'command',
+            'payload' => 'say Test',
+        ]);
+
+        $this->actingAs($user)->postJson($this->link($schedule, '/execute'))->assertForbidden();
+    }
+
     public static function permissionsDataProvider(): array
     {
-        return [[[]], [[Permission::ACTION_SCHEDULE_UPDATE]]];
+        return [[[]], [[Permission::ACTION_SCHEDULE_UPDATE, Permission::ACTION_CONTROL_CONSOLE]]];
     }
 }
