@@ -24,9 +24,7 @@ class Alert extends Component
 
     protected string|Closure $type = 'info';
 
-    final public function __construct()
-    {
-    }
+    final public function __construct() {}
 
     public static function make(): static
     {

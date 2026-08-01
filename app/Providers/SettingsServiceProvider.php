@@ -228,6 +228,9 @@ class SettingsServiceProvider extends ServiceProvider
      */
     public function boot(ConfigRepository $config, InstallationState $installationState, SettingsRepositoryInterface $settings): void
     {
+        if ($config->get('panel.load_environment_only')) {
+            return;
+        }
 
         $this->keys = array_merge($this->keys, $this->designifyKeys);
 

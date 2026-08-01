@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Contracts\Repository\SettingsRepositoryInterface;
+use App\Filament\Components\Alert;
 use App\Filament\Components\ImageInput;
 use App\Notifications\MailTested;
 use App\Traits\Helpers\AvailableLanguages;
@@ -25,6 +26,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Mail\MailManager;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 class Settings extends Page implements HasSchemas
@@ -149,6 +151,7 @@ class Settings extends Page implements HasSchemas
     {
         return [
             Tabs::make('settings-tabs')
+                ->disabled(fn (): bool => config('panel.load_environment_only'))
                 ->persistTabInQueryString()
                 ->tabs([
                     Tab::make('general')
@@ -179,12 +182,28 @@ class Settings extends Page implements HasSchemas
         ];
     }
 
+    private function environmentNotice(): array
+    {
+        return [
+            Alert::make()
+                ->title('App Environment Only Mode Enabled')
+                ->description(new HtmlString('Your Panel is currently configured to read settings from the environment only. You will need to set <code>APP_ENVIRONMENT_ONLY=false</code> in your environment file in order to load settings dynamically.'))
+                ->warning()
+                ->columnSpanFull()
+                ->visible(fn (): bool => config('panel.load_environment_only')),
+
+        ];
+    }
+
     private function generalSettings(): array
     {
         return [
             Group::make()
                 ->columns(4)
                 ->schema([
+
+                    ...$this->environmentNotice(),
+
                     TextInput::make('app:name')
                         ->label(trans('admin/settings.overview.app-name'))
                         ->required()
@@ -273,6 +292,7 @@ class Settings extends Page implements HasSchemas
     private function securitySettings(): array
     {
         return [
+            ...$this->environmentNotice(),
             Section::make('CAPTCHA') // Untranslated because this is a common term, it's acronym stands for "Completely Automated Public Turing test to tell Computers and Humans Apart" and is widely recognized as is.
                 ->columns(2)
                 ->schema([
@@ -332,6 +352,7 @@ class Settings extends Page implements HasSchemas
     private function oauthSettings(): array
     {
         return [
+            ...$this->environmentNotice(),
             Section::make('Google') // Untranslated because this is a proper noun, it's the name of a company.
                 ->columns(3)
                 ->icon('tabler-brand-google')
@@ -445,6 +466,7 @@ class Settings extends Page implements HasSchemas
     private function mailSettings(): array
     {
         return [
+            ...$this->environmentNotice(),
             Group::make()
                 ->columns(4)
                 ->schema([
@@ -513,6 +535,7 @@ class Settings extends Page implements HasSchemas
     private function advancedSettings(): array
     {
         return [
+            ...$this->environmentNotice(),
             Section::make(trans('admin/settings.advanced.http-label'))
                 ->columns(4)
                 ->schema([
@@ -571,6 +594,10 @@ class Settings extends Page implements HasSchemas
 
     public function save(): void
     {
+        if (config('panel.load_environment_only')) {
+            return;
+        }
+
         $settings = app(SettingsRepositoryInterface::class);
         $kernel = app(Kernel::class);
         $encrypter = app(Encrypter::class);
@@ -605,14 +632,14 @@ class Settings extends Page implements HasSchemas
         $form = $this->getForm('form');
         $data = $form?->getState() ?? [];
 
-        config()->set('mail.mailers.smtp.host', $data['mail:mailers:smtp:host']);
-        config()->set('mail.mailers.smtp.port', $data['mail:mailers:smtp:port']);
-        config()->set('mail.mailers.smtp.encryption', $data['mail:mailers:smtp:encryption']);
-        config()->set('mail.mailers.smtp.username', $data['mail:mailers:smtp:username']);
-        config()->set('mail.mailers.smtp.password', $data['mail:mailers:smtp:password']);
+        config()->set('mail.mailers.smtp.host', $data['mail:mailers:smtp:host'] ?? config('mail.mailers.smtp.host'));
+        config()->set('mail.mailers.smtp.port', $data['mail:mailers:smtp:port'] ?? config('mail.mailers.smtp.port'));
+        config()->set('mail.mailers.smtp.encryption', $data['mail:mailers:smtp:encryption'] ?? config('mail.mailers.smtp.encryption'));
+        config()->set('mail.mailers.smtp.username', $data['mail:mailers:smtp:username'] ?? config('mail.mailers.smtp.username'));
+        config()->set('mail.mailers.smtp.password', $data['mail:mailers:smtp:password'] ?? config('mail.mailers.smtp.password'));
 
-        config()->set('mail.from.address', $data['mail:from:address']);
-        config()->set('mail.from.name', $data['mail:from:name']);
+        config()->set('mail.from.address', $data['mail:from:address'] ?? config('mail.from.address'));
+        config()->set('mail.from.name', $data['mail:from:name'] ?? config('mail.from.name'));
 
         try {
             app(MailManager::class)->forgetMailers();
@@ -643,6 +670,7 @@ class Settings extends Page implements HasSchemas
                 ->label(trans('admin/settings.overview.save-btn'))
                 ->icon('tabler-device-floppy')
                 ->action('save')
+                ->disabled(fn (): bool => config('panel.load_environment_only'))
                 ->keyBindings(['mod+s']),
         ];
     }
