@@ -2,45 +2,45 @@
 
 return [
 
-    'label' => 'Extension',
-    'plural-label' => 'Extensions',
+    'label' => 'Расширение',
+    'plural-label' => 'Расширения',
 
     'columns' => [
         'id' => 'ID',
-        'name' => 'Name',
-        'version' => 'Version',
-        'author' => 'Author',
-        'enabled' => 'Enabled',
-        'updated' => 'Updated',
-        'manifest_json' => 'Manifest JSON',
+        'name' => 'Название',
+        'version' => 'Версия',
+        'author' => 'Автор',
+        'enabled' => 'Включено',
+        'updated' => 'Обновлено',
+        'manifest_json' => 'Манифест JSON',
     ],
 
     'modals' => [
-        'manifest' => 'Extension Manifest',
+        'manifest' => 'Манифест расширения',
     ],
 
     'actions' => [
-        'edit' => 'Edit',
-        'upload' => 'Upload',
-        'manifest' => 'View Manifest',
-        'disable' => 'Disable',
-        'enable' => 'Enable',
-        'delete' => 'Delete',
-        'close' => 'Close',
+        'edit' => 'Редактировать',
+        'upload' => 'Загрузить',
+        'manifest' => 'Просмотреть манифест',
+        'disable' => 'Отключить',
+        'enable' => 'Включить',
+        'delete' => 'Удалить',
+        'close' => 'Закрыть',
     ],
 
     'alerts' => [
-        'enabled' => 'Extension enabled.',
-        'enable_failed' => 'Failed to enable extension.',
-        'disabled' => 'Extension disabled.',
-        'disable_failed' => 'Failed to disable extension.',
-        'uninstalled' => 'Extension uninstalled.',
-        'uninstall_failed' => 'Failed to uninstall extension.',
-        'could_not_locate_file' => 'Could not locate uploaded package file.',
-        'invalid_file_type' => 'Only .rext files are allowed.',
-        'upload_hint' => 'Only .rext extension packages are allowed.',
-        'install_failed' => 'Extension install failed.',
-        'install_success' => 'Installed :name (:version) successfully.',
+        'enabled' => 'Расширение включено.',
+        'enable_failed' => 'Не удалось включить расширение.',
+        'disabled' => 'Расширение отключено.',
+        'disable_failed' => 'Не удалось отключить расширение.',
+        'uninstalled' => 'Расширение удалено.',
+        'uninstall_failed' => 'Не удалось удалить расширение.',
+        'could_not_locate_file' => 'Не удалось найти загруженный файл пакета.',
+        'invalid_file_type' => 'Разрешены только файлы .rext.',
+        'upload_hint' => 'Разрешены только пакеты расширений .rext.',
+        'install_failed' => 'Не удалось установить расширение.',
+        'install_success' => 'Расширение :name (:version) успешно установлено.',
     ],
 
 ];

@@ -1,30 +1,30 @@
 <?php
 
 return [
-    'title' => 'Historical Metrics',
-    'error' => 'Unable to load historical stats.',
+    'title' => 'Исторические метрики',
+    'error' => 'Не удалось загрузить историческую статистику.',
     'time_range' => [
-        'last_24_hours' => 'Last 24 Hours',
-        'last_3_days' => 'Last 3 Days',
-        'last_7_days' => 'Last 7 Days',
+        'last_24_hours' => 'Последние 24 часа',
+        'last_3_days' => 'Последние 3 дня',
+        'last_7_days' => 'Последние 7 дней',
     ],
     'charts' => [
         'cpu' => [
-            'title' => 'CPU History',
-            'label' => 'CPU Usage (%)',
+            'title' => 'История использования ЦП',
+            'label' => 'Использование ЦП (%)',
         ],
         'memory' => [
-            'title' => 'Memory History',
-            'label' => 'Memory Usage (MB)',
+            'title' => 'История использования памяти',
+            'label' => 'Использование памяти (МБ)',
         ],
         'disk' => [
-            'title' => 'Disk History',
-            'label' => 'Disk Usage (MB)',
+            'title' => 'История использования диска',
+            'label' => 'Использование диска (МБ)',
         ],
         'network' => [
-            'title' => 'Network History',
-            'rx_label' => 'Network RX (MB)',
-            'tx_label' => 'Network TX (MB)',
+            'title' => 'История использования сети',
+            'rx_label' => 'Получено по сети (МБ)',
+            'tx_label' => 'Отправлено по сети (МБ)',
         ],
     ],
 ];

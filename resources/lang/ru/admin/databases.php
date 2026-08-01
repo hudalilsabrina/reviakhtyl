@@ -2,23 +2,23 @@
 
 return [
 
-    'label' => 'Database',
-    'plural-label' => 'Databases',
+    'label' => 'База данных',
+    'plural-label' => 'Базы данных',
 
-    'none' => 'None',
+    'none' => 'Нет',
 
     'sections' => [
         'host_details' => [
-            'title' => 'Host Details',
-            'description' => 'Configure the database host connection settings.',
+            'title' => 'Данные хоста',
+            'description' => 'Настройте параметры подключения к хосту базы данных.',
         ],
 
         'authentication' => [
-            'title' => 'Authentication',
+            'title' => 'Аутентификация',
         ],
 
         'linked_node' => [
-            'title' => 'Linked Node',
+            'title' => 'Связанный узел',
         ],
     ],
 
@@ -27,32 +27,32 @@ return [
     ],
 
     'helpers' => [
-        'host' => 'The hostname or IP address of the database server.',
-        'linked_node' => 'Optional. Link this host to a specific node.',
+        'host' => 'Имя хоста или IP-адрес сервера базы данных.',
+        'linked_node' => 'Необязательно. Свяжите этот хост с определённым узлом.',
     ],
 
     'fields' => [
-        'linked_node' => 'Linked Node',
+        'linked_node' => 'Связанный узел',
     ],
 
     'columns' => [
         'id' => 'ID',
-        'name' => 'Name',
-        'host' => 'Host',
-        'port' => 'Port',
-        'username' => 'Username',
-        'linked_node' => 'Linked Node',
-        'databases' => 'Databases',
-        'created' => 'Created',
+        'name' => 'Название',
+        'host' => 'Хост',
+        'port' => 'Порт',
+        'username' => 'Имя пользователя',
+        'linked_node' => 'Связанный узел',
+        'databases' => 'Базы данных',
+        'created' => 'Создано',
     ],
 
     'actions' => [
-        'edit' => 'Edit',
-        'delete' => 'Delete',
+        'edit' => 'Редактировать',
+        'delete' => 'Удалить',
     ],
 
     'errors' => [
-        'cannot_delete' => 'Cannot delete a database host with associated databases.',
+        'cannot_delete' => 'Невозможно удалить хост базы данных, с которым связаны базы данных.',
     ],
 
 ];

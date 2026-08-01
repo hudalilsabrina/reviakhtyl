@@ -1,28 +1,28 @@
 <?php
 
 return [
-    'title' => 'Application API',
-    'list-title' => 'Credentials List',
-    'key' => 'Key',
-    'memo' => 'Memo',
-    'last-used' => 'Last Used',
-    'created' => 'Created On',
-    'author' => 'Author',
-    'never-used' => 'Never Used',
+    'title' => 'API приложения',
+    'list-title' => 'Список учётных данных',
+    'key' => 'Ключ',
+    'memo' => 'Примечание',
+    'last-used' => 'Последнее использование',
+    'created' => 'Дата создания',
+    'author' => 'Автор',
+    'never-used' => 'Никогда не использовался',
 
-    'revoke' => 'Revoke',
-    'revoke-title' => 'Revoke API Key',
-    'revoke-warning' => 'Once this API key is revoked any applications currently using it will stop working.',
-    'revoked' => 'API Key has been revoked.',
+    'revoke' => 'Отозвать',
+    'revoke-title' => 'Отозвать API-ключ',
+    'revoke-warning' => 'После отзыва этого API-ключа все приложения, использующие его в настоящее время, перестанут работать.',
+    'revoked' => 'API-ключ был отозван.',
 
-    'permissions' => 'Select Permissions',
-    'read-only' => 'Read',
-    'read-write' => 'Read & Write',
-    'none' => 'None',
+    'permissions' => 'Выберите разрешения',
+    'read-only' => 'Чтение',
+    'read-write' => 'Чтение и запись',
+    'none' => 'Нет',
 
-    'description' => 'Description',
-    'info' => 'Once you have assigned permissions and created this set of credentials you will be unable to come back and edit it. If you need to make changes down the road you will need to create a new set of credentials.',
+    'description' => 'Описание',
+    'info' => 'После назначения разрешений и создания этих учётных данных вы не сможете вернуться и изменить их. Если в дальнейшем потребуется внести изменения, необходимо будет создать новый набор учётных данных.',
 
-    'create-btn' => 'Create New',
-    'new-btn' => 'Create Credentials',
+    'create-btn' => 'Создать',
+    'new-btn' => 'Создать учётные данные',
 ];

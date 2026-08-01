@@ -2,43 +2,43 @@
 
 return [
 
-    'label' => 'Mount',
-    'plural_label' => 'Mounts',
+    'label' => 'Точка монтирования',
+    'plural_label' => 'Точки монтирования',
 
     'sections' => [
-        'configuration' => 'Mount Configuration',
+        'configuration' => 'Конфигурация монтирования',
     ],
 
     'fields' => [
-        'name' => 'Name',
-        'description' => 'Description',
-        'source' => 'Source Path',
-        'target' => 'Target Path',
-        'read_only' => 'Read Only',
-        'user_mountable' => 'User Mountable',
+        'name' => 'Название',
+        'description' => 'Описание',
+        'source' => 'Исходный путь',
+        'target' => 'Целевой путь',
+        'read_only' => 'Только чтение',
+        'user_mountable' => 'Доступно для монтирования пользователями',
     ],
 
     'helpers' => [
-        'name' => 'A unique name used to separate this mount from another.',
-        'description' => 'A longer, human-readable description of this mount.',
-        'source' => 'The file path on the host machine to mount to containers.',
-        'target' => 'The path inside the container to mount this as.',
-        'read_only' => 'If set, the mount will be read-only inside the container.',
-        'user_mountable' => 'If set, users will be able to mount this to their servers.',
+        'name' => 'Уникальное название, используемое для отличия этой точки монтирования от других.',
+        'description' => 'Более подробное и понятное описание этой точки монтирования.',
+        'source' => 'Путь к файлу или каталогу на хост-машине для монтирования в контейнеры.',
+        'target' => 'Путь внутри контейнера, куда будет выполнено монтирование.',
+        'read_only' => 'Если включено, точка монтирования будет доступна внутри контейнера только для чтения.',
+        'user_mountable' => 'Если включено, пользователи смогут подключать эту точку монтирования к своим серверам.',
     ],
 
     'columns' => [
         'id' => 'ID',
-        'name' => 'Name',
-        'source' => 'Source',
-        'target' => 'Target',
-        'read_only' => 'Read Only',
-        'user_mountable' => 'User Mountable',
+        'name' => 'Название',
+        'source' => 'Источник',
+        'target' => 'Назначение',
+        'read_only' => 'Только чтение',
+        'user_mountable' => 'Доступно пользователям',
     ],
 
     'actions' => [
-        'attach_egg' => 'Attach Egg',
-        'attach_node' => 'Attach Node',
+        'attach_egg' => 'Привязать Egg',
+        'attach_node' => 'Привязать узел',
     ],
 
 ];
