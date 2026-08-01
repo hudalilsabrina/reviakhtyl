@@ -172,6 +172,7 @@ class Settings extends Page implements HasSchemas
                     Tab::make('mail')
                         ->label(trans('admin/settings.mail.title'))
                         ->icon('tabler-mail')
+                        ->disabled(fn (): string => config('mail.default') !== 'smtp')
                         ->schema($this->mailSettings()),
 
                     Tab::make('advanced')
@@ -191,6 +192,19 @@ class Settings extends Page implements HasSchemas
                 ->warning()
                 ->columnSpanFull()
                 ->visible(fn (): bool => config('panel.load_environment_only')),
+
+        ];
+    }
+
+    private function mailNotice(): array
+    {
+        return [
+            Alert::make()
+                ->title('Feature not available with current mail driver')
+                ->description(new HtmlString('This interface is limited to instances using SMTP as the mail driver. Please either use <code>php artisan p:environment:mail</code> command to update your email settings, or set <code>MAIL_DRIVER=smtp</code> in your environment file.'))
+                ->warning()
+                ->columnSpanFull()
+                ->visible(fn (): string => config('mail.default') !== 'smtp'),
 
         ];
     }
@@ -467,6 +481,8 @@ class Settings extends Page implements HasSchemas
     {
         return [
             ...$this->environmentNotice(),
+            ...$this->mailNotice(),
+
             Group::make()
                 ->columns(4)
                 ->schema([
