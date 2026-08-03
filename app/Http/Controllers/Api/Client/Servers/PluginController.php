@@ -16,6 +16,7 @@ use App\Models\ServerPlugin;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Plugins\PluginJarService;
 use App\Services\Plugins\PluginManagerService;
+use App\Services\Security\FileScanService;
 use App\Transformers\Api\Client\ServerPluginTransformer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -154,6 +155,25 @@ class PluginController extends ClientApiController
         if (! $fileExists) {
             throw new DisplayException('The jar file no longer exists in /plugins.');
         }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
+        try {
+            app(DaemonFileRepository::class)
+                ->setServer($server)
+                ->streamContentToFile('/plugins/'.$fileName, $tmp, 64 * 1024 * 1024);
+            $scan = app(FileScanService::class)->scan($tmp);
+            if ($scan->isInfected()) {
+                throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
+            }
+            if ($scan->isError() && config('panel.file_scan.strict')) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        } catch (\Throwable $e) {
+            @unlink($tmp);
+
+            throw $e;
+        }
+        @unlink($tmp);
 
         $plugin = $server->plugins()->create([
             'provider' => 'manual',

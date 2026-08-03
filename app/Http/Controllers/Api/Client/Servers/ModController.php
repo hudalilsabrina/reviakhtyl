@@ -18,6 +18,7 @@ use App\Models\ServerMod;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Mods\ModJarService;
 use App\Services\Mods\ModManagerService;
+use App\Services\Security\FileScanService;
 use App\Transformers\Api\Client\ServerModTransformer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -150,6 +151,8 @@ class ModController extends ClientApiController
             throw new DisplayException('The jar file no longer exists in /mods.');
         }
 
+        $this->scanJar($server, $fileName);
+
         $mod = $server->mods()->create([
             'provider' => 'manual',
             'project_id' => 'manual:'.$fileName,
@@ -170,6 +173,28 @@ class ModController extends ClientApiController
         return $this->fractal->item($mod)
             ->transformWith($this->getTransformer(ServerModTransformer::class))
             ->toArray();
+    }
+
+    private function scanJar(Server $server, string $fileName): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
+        try {
+            app(DaemonFileRepository::class)
+                ->setServer($server)
+                ->streamContentToFile('/mods/'.$fileName, $tmp, 64 * 1024 * 1024);
+            $scan = app(FileScanService::class)->scan($tmp);
+            if ($scan->isInfected()) {
+                throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
+            }
+            if ($scan->isError() && config('panel.file_scan.strict')) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        } catch (\Throwable $e) {
+            @unlink($tmp);
+
+            throw $e;
+        }
+        @unlink($tmp);
     }
 
     public function store(InstallModRequest $request, Server $server): array|JsonResponse
