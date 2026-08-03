@@ -21,8 +21,24 @@ use App\Transformers\Api\Client\ServerPluginTransformer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 
+trait ScansRemoteJars
+{
+    private function assertCleanJarScan(Server $server, string $remotePath): void
+    {
+        $scan = app(FileScanService::class)->scanRemoteFile(app(DaemonFileRepository::class), $server, $remotePath);
+        if ($scan->isInfected()) {
+            throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
+        }
+        if ($scan->isError() && config('panel.file_scan.strict')) {
+            throw new DisplayException('File scanner error: '.$scan->getMessage());
+        }
+    }
+}
+
 class PluginController extends ClientApiController
 {
+    use ScansRemoteJars;
+
     public function __construct(private PluginManagerService $manager, private PluginJarService $jars)
     {
         parent::__construct();
@@ -156,24 +172,7 @@ class PluginController extends ClientApiController
             throw new DisplayException('The jar file no longer exists in /plugins.');
         }
 
-        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
-        try {
-            app(DaemonFileRepository::class)
-                ->setServer($server)
-                ->streamContentToFile('/plugins/'.$fileName, $tmp, 64 * 1024 * 1024);
-            $scan = app(FileScanService::class)->scan($tmp);
-            if ($scan->isInfected()) {
-                throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
-            }
-            if ($scan->isError() && config('panel.file_scan.strict')) {
-                throw new DisplayException('File scanner error: '.$scan->getMessage());
-            }
-        } catch (\Throwable $e) {
-            @unlink($tmp);
-
-            throw $e;
-        }
-        @unlink($tmp);
+        $this->assertCleanJarScan($server, '/plugins/'.$fileName);
 
         $plugin = $server->plugins()->create([
             'provider' => 'manual',

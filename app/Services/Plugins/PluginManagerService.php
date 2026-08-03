@@ -263,27 +263,18 @@ class PluginManagerService
             throw new DisplayException('Download completed but file not found in /plugins directory.');
         }
 
-        $this->scanFile($server, '/plugins/'.$version['file_name']);
+        $this->assertCleanScan($server, '/plugins/'.$version['file_name']);
     }
 
-    private function scanFile(Server $server, string $remotePath): void
+    private function assertCleanScan(Server $server, string $remotePath): void
     {
-        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
-        try {
-            $this->fileRepository->setServer($server)->streamContentToFile($remotePath, $tmp, self::MAX_SIZE);
-            $scan = $this->fileScanService->scan($tmp);
-            if ($scan->isInfected()) {
-                throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
-            }
-            if ($scan->isError() && config('panel.file_scan.strict')) {
-                throw new DisplayException('File scanner error: '.$scan->getMessage());
-            }
-        } catch (\Throwable $e) {
-            @unlink($tmp);
-
-            throw $e;
+        $scan = $this->fileScanService->scanRemoteFile($this->fileRepository, $server, $remotePath);
+        if ($scan->isInfected()) {
+            throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
         }
-        @unlink($tmp);
+        if ($scan->isError() && config('panel.file_scan.strict')) {
+            throw new DisplayException('File scanner error: '.$scan->getMessage());
+        }
     }
 
     private function variable(Server $server, string $key): ?string
