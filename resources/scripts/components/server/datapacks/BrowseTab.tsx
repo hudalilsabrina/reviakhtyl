@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { FaMagnifyingGlass } from 'react-icons/fa6';
 import Select from '@/reviactyl/elements/Select';
 import Spinner from '@/reviactyl/elements/Spinner';
-import Button from '@/reviactyl/elements/button/index';
-import Badge from './Badge';
+import { Button } from '@/reviactyl/elements/button/index';
+import { Badge } from './Badge';
 import { DatapackIcon } from './DatapackIcon';
 import { DatapackHit, DatapackProvider, DatapackSort } from './types';
 
@@ -92,7 +92,7 @@ export const BrowseTab = ({
                                         <Badge $variant="provider">{t('installed_badge', { version: hit.installedVersion })}</Badge>
                                     )}
                                 </div>
-                                <p css={tw`text-xs text-gray-500 mt-0.5 line-clamp-2`}>{hit.description}</p>
+                                <p css={tw`text-xs text-gray-500 mt-0.5`}>{hit.description}</p>
                             </div>
                             <div css={tw`flex flex-col gap-1 flex-shrink-0`}>
                                 <Button size={Button.Sizes.Small} onClick={() => onOpenVersions(hit)}>

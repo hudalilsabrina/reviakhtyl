@@ -46,9 +46,10 @@ export const VersionPickerModal = ({
                                 return (
                                     <div
                                         key={version.id}
-                                        css={tw`flex items-center gap-3 p-3 transition-colors duration-150 ${
-                                            current ? tw`bg-gray-800/80` : tw`hover:bg-gray-800/40`
-                                        }`}
+                                        className={
+                                            'flex items-center gap-3 p-3 transition-colors duration-150 ' +
+                                            (current ? 'bg-gray-800/80' : 'hover:bg-gray-800/40')
+                                        }
                                     >
                                         <div css={tw`flex-1 min-w-0`}>
                                             <div css={tw`flex items-center gap-2 flex-wrap`}>
