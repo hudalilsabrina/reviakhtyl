@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Client\Servers;
 
 use App\Enum\JwtScope;
+use App\Exceptions\DisplayException;
 use App\Exceptions\Http\Connection\DaemonConnectionException;
 use App\Facades\Activity;
 use App\Http\Controllers\Api\Client\ClientApiController;
@@ -20,6 +21,7 @@ use App\Http\Requests\Api\Client\Servers\Files\WriteFileContentRequest;
 use App\Models\Server;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Nodes\NodeJWTService;
+use App\Services\Security\FileScanService;
 use App\Transformers\Api\Client\FileObjectTransformer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +35,7 @@ class FileController extends ClientApiController
     public function __construct(
         private NodeJWTService $jwtService,
         private DaemonFileRepository $fileRepository,
+        private FileScanService $fileScanService,
     ) {
         parent::__construct();
     }
@@ -109,9 +112,22 @@ class FileController extends ClientApiController
      */
     public function write(WriteFileContentRequest $request, Server $server): JsonResponse
     {
-        $this->fileRepository->setServer($server)->putContent($request->get('file'), $request->getContent());
+        $path = $request->get('file');
+        $content = $request->getContent();
 
-        Activity::event('server:file.write')->property('file', $request->get('file'))->log();
+        if (str_ends_with(strtolower($path), '.jar')) {
+            $scan = $this->fileScanService->scanContent($content, $path);
+            if ($scan->isInfected()) {
+                throw new DisplayException("Uploaded file failed virus scan: {$scan->getSignature()}");
+            }
+            if ($scan->isError() && config('panel.file_scan.strict')) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        }
+
+        $this->fileRepository->setServer($server)->putContent($path, $content);
+
+        Activity::event('server:file.write')->property('file', $path)->log();
 
         return new JsonResponse([], Response::HTTP_NO_CONTENT);
     }
@@ -252,15 +268,41 @@ class FileController extends ClientApiController
      */
     public function pull(PullFileRequest $request, Server $server): JsonResponse
     {
+        $url = $request->input('url');
+        $directory = rtrim((string) $request->input('directory', '/'), '/');
+        $filename = $request->input('filename');
+
+        if (! $filename) {
+            $filename = basename(parse_url($url, PHP_URL_PATH) ?: 'downloaded.jar');
+        }
+
         $this->fileRepository->setServer($server)->pull(
-            $request->input('url'),
-            $request->input('directory'),
+            $url,
+            $directory,
             $request->safe(['filename', 'use_header', 'foreground'])
         );
 
+        if (str_ends_with(strtolower($filename), '.jar')) {
+            $remotePath = $directory === '' ? '/'.$filename : $directory.'/'.$filename;
+
+            try {
+                $content = $this->fileRepository->setServer($server)->getContent($remotePath);
+            } catch (\Throwable $e) {
+                throw new DisplayException('Failed to verify pulled file: '.$e->getMessage());
+            }
+
+            $scan = $this->fileScanService->scanContent($content, $filename);
+            if ($scan->isInfected()) {
+                throw new DisplayException("Pulled file failed virus scan: {$scan->getSignature()}");
+            }
+            if ($scan->isError() && config('panel.file_scan.strict')) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        }
+
         Activity::event('server:file.pull')
-            ->property('directory', $request->input('directory'))
-            ->property('url', $request->input('url'))
+            ->property('directory', $directory)
+            ->property('url', $url)
             ->log();
 
         return new JsonResponse([], Response::HTTP_NO_CONTENT);

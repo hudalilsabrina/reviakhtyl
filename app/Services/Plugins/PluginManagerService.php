@@ -8,6 +8,7 @@ use App\Exceptions\Service\Plugins\PluginUpToDateException;
 use App\Models\Server;
 use App\Models\ServerPlugin;
 use App\Repositories\Agent\DaemonFileRepository;
+use App\Services\Security\FileScanService;
 use Illuminate\Support\Facades\Cache;
 
 class PluginManagerService
@@ -23,6 +24,8 @@ class PluginManagerService
         'folia' => ['folia', 'paper', 'spigot', 'bukkit'],
     ];
 
+    private const MAX_SIZE = 64 * 1024 * 1024;
+
     /** @var array<string, PluginProviderInterface> */
     private array $providers;
 
@@ -32,6 +35,7 @@ class PluginManagerService
     public function __construct(
         private DaemonFileRepository $fileRepository,
         private SettingsRepositoryInterface $settings,
+        private FileScanService $fileScanService,
         ModrinthService $modrinth,
         HangarService $hangar,
         SpigetService $spiget,
@@ -258,6 +262,28 @@ class PluginManagerService
         if (! $found) {
             throw new DisplayException('Download completed but file not found in /plugins directory.');
         }
+
+        $this->scanFile($server, '/plugins/'.$version['file_name']);
+    }
+
+    private function scanFile(Server $server, string $remotePath): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
+        try {
+            $this->fileRepository->setServer($server)->streamContentToFile($remotePath, $tmp, self::MAX_SIZE);
+            $scan = $this->fileScanService->scan($tmp);
+            if ($scan->isInfected()) {
+                throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
+            }
+            if ($scan->isError() && config('panel.file_scan.strict')) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        } catch (\Throwable $e) {
+            @unlink($tmp);
+
+            throw $e;
+        }
+        @unlink($tmp);
     }
 
     private function variable(Server $server, string $key): ?string

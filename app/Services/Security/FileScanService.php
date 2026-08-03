@@ -1,0 +1,103 @@
+<?php
+
+namespace App\Services\Security;
+
+use App\Contracts\Repository\SettingsRepositoryInterface;
+use App\Facades\Activity;
+use Illuminate\Support\Facades\Log;
+use Symfony\Component\Process\Process;
+
+class FileScanService
+{
+    public function __construct(
+        private SettingsRepositoryInterface $settings,
+        private ?ProcessRunner $processRunner = null,
+        private ?string $binary = null,
+        private ?int $maxSize = null,
+        private bool $strict = false,
+        private bool $enabled = true,
+    ) {}
+
+    public function scan(string $filePath): FileScanResult
+    {
+        if (! $this->isEnabled()) {
+            return new FileScanResult(ScanVerdict::Skipped, null, 'Scanning disabled');
+        }
+
+        if (! is_file($filePath) || ! is_readable($filePath)) {
+            return new FileScanResult(ScanVerdict::Skipped, null, 'File not accessible');
+        }
+
+        $maxSize = $this->maxSize ?? 256 * 1024 * 1024;
+        if (filesize($filePath) > $maxSize) {
+            return new FileScanResult(ScanVerdict::Skipped, null, 'File exceeds max scan size');
+        }
+
+        $binary = $this->binary ?? 'clamscan';
+
+        try {
+            $output = $this->getProcessRunner()->run([$binary, '--no-summary', '--stdout', '--', $filePath]);
+        } catch (\Throwable $e) {
+            $this->logError('Scanner error', $e->getMessage());
+
+            return new FileScanResult(ScanVerdict::Error, null, $e->getMessage());
+        }
+
+        if (str_contains($output, 'OK')) {
+            return new FileScanResult(ScanVerdict::Clean);
+        }
+
+        if (preg_match('/FOUND\s+(.+)/', $output, $m)) {
+            $signature = trim($m[1]);
+            $this->logInfected($filePath, $signature);
+
+            return new FileScanResult(ScanVerdict::Infected, $signature, $output);
+        }
+
+        $this->logError('Unexpected scanner output', $output);
+
+        return new FileScanResult(ScanVerdict::Error, null, "Unexpected scanner output: {$output}");
+    }
+
+    public function scanContent(string $content, string $filename = 'uploaded'): FileScanResult
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
+        file_put_contents($tmp, $content);
+        $result = $this->scan($tmp);
+        @unlink($tmp);
+
+        return $result;
+    }
+
+    private function isEnabled(): bool
+    {
+        return $this->enabled && (bool) $this->settings->get('settings::panel:files:scan_enabled', false);
+    }
+
+    private function getProcessRunner(): ProcessRunner
+    {
+        return $this->processRunner ?? new SymfonyProcessRunner();
+    }
+
+    private function logInfected(string $path, string $signature): void
+    {
+        try {
+            Activity::warning("File infected: {$signature}")
+                ->withProperty('file', $path)
+                ->withProperty('signature', $signature)
+                ->log();
+            Log::warning('File scan: infected', ['file' => $path, 'signature' => $signature]);
+        } catch (\Throwable) {
+            // Facades unavailable outside a booted application (e.g. unit tests)
+        }
+    }
+
+    private function logError(string $context, string $detail): void
+    {
+        try {
+            Log::warning("File scan: {$context}", ['detail' => $detail]);
+        } catch (\Throwable) {
+            // Facades unavailable outside a booted application (e.g. unit tests)
+        }
+    }
+}

@@ -8,11 +8,14 @@ use App\Exceptions\Service\Mods\ModUpToDateException;
 use App\Models\Server;
 use App\Models\ServerMod;
 use App\Repositories\Agent\DaemonFileRepository;
+use App\Services\Security\FileScanService;
 use Illuminate\Support\Facades\Cache;
 
 class ModManagerService
 {
     public const MOD_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
+
+    private const MAX_SIZE = 64 * 1024 * 1024;
 
     /** @var array<string, ModProviderInterface> */
     private array $providers;
@@ -23,6 +26,7 @@ class ModManagerService
     public function __construct(
         private DaemonFileRepository $fileRepository,
         private SettingsRepositoryInterface $settings,
+        private FileScanService $fileScanService,
         ModrinthService $modrinth,
         CurseForgeService $curseforge,
     ) {
@@ -270,6 +274,28 @@ class ModManagerService
         if (! $found) {
             throw new DisplayException('Download completed but file not found in /mods directory.');
         }
+
+        $this->scanFile($server, '/mods/'.$version['file_name']);
+    }
+
+    private function scanFile(Server $server, string $remotePath): void
+    {
+        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
+        try {
+            $this->fileRepository->setServer($server)->streamContentToFile($remotePath, $tmp, self::MAX_SIZE);
+            $scan = $this->fileScanService->scan($tmp);
+            if ($scan->isInfected()) {
+                throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
+            }
+            if ($scan->isError() && config('panel.file_scan.strict')) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        } catch (\Throwable $e) {
+            @unlink($tmp);
+
+            throw $e;
+        }
+        @unlink($tmp);
     }
 
     /** NeoForge dual-tags many mods as forge. */

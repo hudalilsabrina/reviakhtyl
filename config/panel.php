@@ -84,6 +84,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | File Scan
+    |--------------------------------------------------------------------------
+    |
+    | Optional anti-virus scanning for files (JARs, etc.) using clamscan.
+    */
+    'file_scan' => [
+        'enabled' => env('PANEL_FILE_SCAN_ENABLED', false),
+        'binary' => env('PANEL_FILE_SCAN_BINARY', 'clamscan'),
+        'max_scan_size' => 256 * 1024 * 1024,
+        'strict' => env('PANEL_FILE_SCAN_STRICT', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | CDN
     |--------------------------------------------------------------------------
     |
