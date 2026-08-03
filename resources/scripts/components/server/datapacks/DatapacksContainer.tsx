@@ -42,7 +42,7 @@ const TabsContainer = styled.div(({ $active }: { $active: boolean }) => [
 ]);
 
 const TabList = styled.div`
-    ${tw`flex items-center gap-1 p-1 bg-gray-900/70 border border-gray-800 rounded-ui w-fit`}
+    ${tw`flex items-center gap-1 p-1 bg-gray-900/70 border border-gray-800 rounded-ui w-auto`}
 `;
 
 const TabButton = styled.button<{ $active: boolean }>`

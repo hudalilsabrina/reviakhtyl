@@ -6,7 +6,7 @@ namespace App\Services\Datapacks;
  * Datapack-specific Modrinth wrapper. Reuses the Modrinth HTTP client but
  * searches the "datapack" project type instead of "mod".
  */
-class ModrinthDatapackService implements DatapackProviderInterface
+class ModrinthService implements DatapackProviderInterface
 {
     public const PROVIDER = 'modrinth';
 

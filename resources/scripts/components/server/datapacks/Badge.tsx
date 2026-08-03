@@ -1,16 +1,37 @@
+import styled, { css } from 'styled-components';
 import tw from 'twin.macro';
-import styled from 'styled-components';
 
-const variantClasses = {
-    manual: tw`bg-yellow-500/10 text-yellow-300 border-yellow-500/20`,
-    provider: tw`bg-blue-500/10 text-blue-300 border-blue-500/20`,
-    updated: tw`bg-green-500/10 text-green-300 border-green-500/20`,
-    disabled: tw`bg-gray-500/10 text-gray-400 border-gray-500/20`,
-};
+export const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' | 'manual' }>`
+    ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded`}
+    font-size: 10px;
 
-const Badge = styled.span(({ $variant }: { $variant: keyof typeof variantClasses }) => [
-    tw`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border`,
-    variantClasses[$variant] || variantClasses.provider,
-]);
-
-export default Badge;
+    ${(props) =>
+        props.$variant === 'manual' &&
+        css`
+            ${tw`bg-blue-600/30 text-blue-200`};
+        `}
+    ${(props) =>
+        props.$variant === 'provider' &&
+        css`
+            ${tw`bg-gray-700/70 text-gray-300`};
+        `}
+    ${(props) =>
+        props.$variant === 'disabled' &&
+        css`
+            ${tw`bg-yellow-600/30 text-yellow-200`};
+        `}
+    ${(props) =>
+        props.$variant === 'installed' &&
+        css`
+            background-color: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+        `}
+`;
