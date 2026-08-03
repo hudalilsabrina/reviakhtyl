@@ -60,12 +60,12 @@ class FileScanService
             return new FileScanResult(ScanVerdict::Error, null, $e->getMessage());
         }
 
-        if (str_contains($output, 'OK')) {
+        if (preg_match('/(?:^|:\s*)OK\s*$/m', $output)) {
             return new FileScanResult(ScanVerdict::Clean);
         }
 
-        if (preg_match('/FOUND\s+(.+)/', $output, $m)) {
-            $signature = trim($m[1]);
+        if (preg_match('/FOUND\s+(\S+)/', $output, $m)) {
+            $signature = $m[1];
             $this->logInfected($filePath, $signature);
 
             return new FileScanResult(ScanVerdict::Infected, $signature, $output);
@@ -142,6 +142,13 @@ class FileScanService
         $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
         try {
             $repository->setServer($server)->streamContentToFile($remotePath, $tmp, $this->maxSize ?? 256 * 1024 * 1024);
+        } catch (\Throwable $e) {
+            @unlink($tmp);
+
+            return new FileScanResult(ScanVerdict::Error, null, "Failed to fetch remote file: {$e->getMessage()}");
+        }
+
+        try {
             return $this->scan($tmp);
         } finally {
             @unlink($tmp);
