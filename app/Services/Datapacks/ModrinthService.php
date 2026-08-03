@@ -1,23 +1,29 @@
 <?php
 
-namespace App\Services\Mods;
+namespace App\Services\Datapacks;
 
-use Illuminate\Support\Facades\Http;
-
-class ModrinthService implements ModProviderInterface
+/**
+ * Datapack-specific Modrinth wrapper. Reuses the Modrinth HTTP client but
+ * searches the "datapack" project type instead of "mod".
+ */
+class ModrinthDatapackService implements DatapackProviderInterface
 {
     public const PROVIDER = 'modrinth';
 
-    private const API = 'https://api.modrinth.com/v2';
+    private \App\Services\Mods\ModrinthService $delegate;
 
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance', string $projectType = 'mod'): array
+    public function __construct(\App\Services\Mods\ModrinthService $delegate)
     {
-        $facets = [['project_type:'.$projectType]];
-        if ($gameVersion) {
-            $facets[] = ['versions:'.$gameVersion];
-        }
-        if ($loaders) {
-            $facets[] = array_map(fn ($l) => 'categories:'.$l, $loaders);
+        $this->delegate = $delegate;
+    }
+
+    public function search(string $query, array $gameVersions, int $limit, int $offset, string $sort = 'relevance'): array
+    {
+        $facets = [['project_type:datapack']];
+        if ($gameVersions) {
+            foreach ($gameVersions as $gv) {
+                $facets[] = ['versions:'.$gv];
+            }
         }
 
         $index = match ($sort) {
@@ -26,13 +32,14 @@ class ModrinthService implements ModProviderInterface
             default => 'relevance',
         };
 
-        $response = Http::acceptJson()->timeout(15)->get(self::API.'/search', [
-            'query' => $query,
-            'limit' => $limit,
-            'offset' => $offset,
-            'index' => $index,
-            'facets' => json_encode($facets),
-        ]);
+        $response = \Illuminate\Support\Facades\Http::acceptJson()->timeout(15)
+            ->get(\App\Services\Mods\ModrinthService::API.'/search', [
+                'query' => $query,
+                'limit' => $limit,
+                'offset' => $offset,
+                'index' => $index,
+                'facets' => json_encode($facets),
+            ]);
 
         if ($response->failed()) {
             return ['hits' => [], 'total' => 0];
@@ -52,23 +59,20 @@ class ModrinthService implements ModProviderInterface
         ];
     }
 
-    public function resolveVersion(string $projectId, array $loaders, ?string $gameVersion): ?array
+    public function resolveVersion(string $projectId, array $gameVersions): ?array
     {
-        return $this->versions($projectId, $loaders, $gameVersion, 100)[0] ?? null;
+        return $this->versions($projectId, $gameVersions, 100)[0] ?? null;
     }
 
-    public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array
+    public function versions(string $projectId, array $gameVersions, int $limit = 25): array
     {
         $params = [];
-        if ($loaders) {
-            $params['loaders'] = json_encode($loaders);
-        }
-        if ($gameVersion) {
-            $params['game_versions'] = json_encode([$gameVersion]);
+        if ($gameVersions) {
+            $params['game_versions'] = json_encode(array_values($gameVersions));
         }
 
-        $response = Http::acceptJson()->timeout(15)
-            ->get(self::API.'/project/'.$projectId.'/version', $params);
+        $response = \Illuminate\Support\Facades\Http::acceptJson()->timeout(15)
+            ->get(\App\Services\Mods\ModrinthService::API.'/project/'.$projectId.'/version', $params);
 
         if ($response->failed()) {
             return [];
@@ -82,15 +86,20 @@ class ModrinthService implements ModProviderInterface
             ->all();
     }
 
-    public function latestVersion(string $projectId, string $currentVersionId, array $loaders, ?string $gameVersion): ?array
+    public function latestVersion(string $projectId, string $currentVersionId, array $gameVersions): ?array
     {
-        $version = $this->resolveVersion($projectId, $loaders, $gameVersion);
+        $version = $this->resolveVersion($projectId, $gameVersions);
 
         if (! $version || $version['id'] === $currentVersionId) {
             return null;
         }
 
         return $version;
+    }
+
+    public function projects(array $ids): array
+    {
+        return $this->delegate->projects($ids);
     }
 
     private function mapVersion(array $version): ?array
@@ -118,27 +127,5 @@ class ModrinthService implements ModProviderInterface
                 ->values()
                 ->all(),
         ];
-    }
-
-    public function projects(array $ids): array
-    {
-        if (! $ids) {
-            return [];
-        }
-
-        $response = Http::acceptJson()->timeout(15)
-            ->get(self::API.'/projects', ['ids' => json_encode(array_values($ids))]);
-
-        if ($response->failed()) {
-            return [];
-        }
-
-        return collect($response->json())
-            ->mapWithKeys(fn ($p) => [$p['id'] => [
-                'id' => $p['id'],
-                'title' => $p['title'],
-                'icon_url' => $p['icon_url'] ?? null,
-            ]])
-            ->all();
     }
 }
