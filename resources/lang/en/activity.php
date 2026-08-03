@@ -141,6 +141,15 @@ return [
             'edit' => 'Changed the :variable variable from ":old" to ":new"',
             'image' => 'Updated the Docker Image for the server from :old to :new',
         ],
+        'datapack' => [
+            'install' => 'Installed datapack :title (:version)',
+            'update' => 'Updated datapack :title from :old_version to :new_version',
+            'delete' => 'Deleted datapack :title',
+            'toggle' => 'Toggled datapack :title (:state)',
+            'bulk-update' => 'Bulk updated :count datapacks',
+            'bulk-delete' => 'Bulk deleted :count datapacks',
+            'link' => 'Linked manual datapack :title to :provider',
+        ],
         'subuser' => [
             'create' => 'Added :email as a subuser',
             'update' => 'Updated the subuser permissions for :email',

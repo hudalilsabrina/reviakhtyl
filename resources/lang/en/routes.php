@@ -29,6 +29,7 @@ return [
         'backups' => 'Backups',
         'plugins' => 'Plugins',
         'mods' => 'Mods',
+        'datapacks' => 'Datapacks',
         'splitter' => 'Splitter',
         'users' => 'Users',
         'settings' => 'Settings',
