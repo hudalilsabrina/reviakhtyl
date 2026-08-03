@@ -8,7 +8,7 @@ class SymfonyProcessRunner implements ProcessRunner
 {
     public function run(array $command): string
     {
-        $process = new Process($command);
+        $process = new Process($command, null, null, null, 30);
         $process->run();
 
         return $process->getOutput();

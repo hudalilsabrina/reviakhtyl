@@ -15,7 +15,6 @@ use App\Http\Requests\Api\Client\Servers\Mods\TrackModRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\UpdateModRequest;
 use App\Models\Server;
 use App\Models\ServerMod;
-use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Mods\ModJarService;
 use App\Services\Mods\ModManagerService;
 use App\Services\Security\FileScanService;
@@ -25,6 +24,8 @@ use Illuminate\Support\Facades\Cache;
 
 class ModController extends ClientApiController
 {
+    use ScansRemoteJars;
+
     public function __construct(private ModManagerService $manager, private ModJarService $jars)
     {
         parent::__construct();
@@ -151,7 +152,7 @@ class ModController extends ClientApiController
             throw new DisplayException('The jar file no longer exists in /mods.');
         }
 
-        $this->scanJar($server, $fileName);
+        $this->assertCleanJarScan($server, '/mods/'.$fileName);
 
         $mod = $server->mods()->create([
             'provider' => 'manual',
@@ -173,28 +174,6 @@ class ModController extends ClientApiController
         return $this->fractal->item($mod)
             ->transformWith($this->getTransformer(ServerModTransformer::class))
             ->toArray();
-    }
-
-    private function scanJar(Server $server, string $fileName): void
-    {
-        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
-        try {
-            app(DaemonFileRepository::class)
-                ->setServer($server)
-                ->streamContentToFile('/mods/'.$fileName, $tmp, 64 * 1024 * 1024);
-            $scan = app(FileScanService::class)->scan($tmp);
-            if ($scan->isInfected()) {
-                throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
-            }
-            if ($scan->isError() && config('panel.file_scan.strict')) {
-                throw new DisplayException('File scanner error: '.$scan->getMessage());
-            }
-        } catch (\Throwable $e) {
-            @unlink($tmp);
-
-            throw $e;
-        }
-        @unlink($tmp);
     }
 
     public function store(InstallModRequest $request, Server $server): array|JsonResponse
