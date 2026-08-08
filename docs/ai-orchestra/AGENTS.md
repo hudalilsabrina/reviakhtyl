@@ -70,7 +70,7 @@ Everything below either already exists or is a strict reuse. Map:
 
 Add `app/Services/Chatbot/Agents/` with one class per sub-agent. Each declares:
 
-- **`id()`** — stable string, e.g. `files`, `server_ops`, `mods`, `lifecycle`.
+- **`id()`** — stable string, e.g. `files`, `server`, `power`, `mods`.
 - **`name()` / `systemDirective()`** — the narrow 3–6 sentence role prompt fragment.
 - **`toolGroups()`** — ordered list of `ChatbotToolGroup` values that narrow to its toolkit.
 - **`model()`?** — optional per-agent model override (defaults to panel model).
@@ -82,21 +82,31 @@ The router's tool definitions are **not** the server-tool list. The router's sin
 tool is `delegate(request, to_agent_ids, context_budget)`. It never holds a handle to any
 panel tool, keeping the router incapable of side effects itself — it composes only.
 
-### Proposed v1 agent set (matches existing `config/chatbot.php` groups)
+### Proposed agent set vs. today's real groups
+
+**Ground truth first:** `ChatbotToolGroup` (`app/Enum/ChatbotToolGroup.php`) has exactly
+**8** cases: `server, power, console, files, subusers, startup, plugins, mods`. Tools are
+grouped by what their `group()` returns. The **backup, database and schedule tools — and
+`rename_server` — all return `ChatbotToolGroup::Server`** (verified in `Backups/*`,
+`Databases/*`, `Schedules/*`, `Server/RenameServerTool.php`). There is **no** `backups`,
+`databases` or `schedules` group today, so those capabilities cannot be scoped to their own
+agent without first splitting the `server` group in the enum.
+
+Recommended v1 agent set:
 
 | Agent | Groups | Covers |
 |---|---|---|
 | `files` | `files` | read/write/compress/rename/copy/delete/folders |
-| `server_ops` | `server`, `power`, `console`, `schedules*` | status, resources, history, activity, power, console, schedules |
-| `startup` | `startup` | startup vars & parts, rename |
+| `server` | `server` | status, resources, history, activity, logs, backups, databases, schedules, rename — all one reachable set |
+| `power` | `power`, `console` | start/stop/restart/kill, console commands |
+| `startup` | `startup` | startup vars & parts |
 | `mods` | `plugins`, `mods` | plugin + mod lifecycle |
-| `backups` | `backups` | list/create/restore/delete backup |
-| `databases` | `databases` | list/create/delete database |
 | `subusers` | `subusers` | accounts + permissions |
 
-`*` schedules straddle power and lifecycle; decide ownership in review. Group toggles keep
-working as-is: an agent with a disabled group simply reduces its routable toolset
-(`chat/AGENTS.md:114`).
+Note that `server` stays a fat agent today because the `server` group is already fat. A
+follow-up (enum split into e.g. `server`, `backups`, `databases`, `schedules`) is what would
+let each of those run as a dedicated narrow agent. Group toggles keep working as-is: an
+agent with a disabled group simply reduces its routable toolset (`chat/AGENTS.md:114`).
 
 ## New storage
 
@@ -199,8 +209,9 @@ up to the conversation's existing `max_iterations` budget so a router cannot spi
 
 - Should `chatbot_agents` be a DB table (admin-definable) or a hard-coded register in
   `config/chatbot.php` like tools? v1 recommends hard-coded, DB later.
-- Are `schedules` better under `server_ops` or a `lifecycle` agent (startup + persistence +
-  schedules)?
+- Should the `server` group be split in `ChatbotToolGroup` (e.g. separate `backups`,
+  `databases`, `schedules`) so those capabilities can have dedicated narrow agents? That is a
+  prerequisite for any per-subsystem agent beyond the fat `server` agent proposed here.
 - Do sub-agents need their own per-agent `history_limit`, or is the shared conversation window
   sufficient give tool digests shrink old results?
 - Should admin review see sub-agent transcripts, or only the router's visible answer +
