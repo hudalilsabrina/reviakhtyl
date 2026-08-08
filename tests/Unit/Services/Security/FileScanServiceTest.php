@@ -91,7 +91,7 @@ describe('scan — verdict parsing', function () {
     });
 
     it('returns Infected with the signature when FOUND is detected', function () {
-        $service = scanService(['output' => "/tmp/test.jar: FOUND Eicar-Test-Signature\n"]);
+        $service = scanService(['output' => "/tmp/test.jar: Eicar-Test-Signature FOUND\n"]);
 
         $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
         file_put_contents($tmp, 'Eicar');
@@ -101,6 +101,18 @@ describe('scan — verdict parsing', function () {
         expect($result->verdict)->toEqual(ScanVerdict::Infected);
         expect($result->signature)->toBe('Eicar-Test-Signature');
         expect($result->isInfected())->toBeTrue();
+    });
+
+    it('returns Infected when the signature appears after FOUND', function () {
+        $service = scanService(['output' => "/tmp/test.jar: FOUND Eicar-Test-Signature\n"]);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'avscan_');
+        file_put_contents($tmp, 'Eicar');
+        $result = $service->scan($tmp);
+        @unlink($tmp);
+
+        expect($result->verdict)->toEqual(ScanVerdict::Infected);
+        expect($result->signature)->toBe('Eicar-Test-Signature');
     });
 
     it('returns Error on unrecognised output', function () {

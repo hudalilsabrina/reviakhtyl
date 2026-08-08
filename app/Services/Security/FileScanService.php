@@ -64,8 +64,8 @@ class FileScanService
             return new FileScanResult(ScanVerdict::Clean);
         }
 
-        if (preg_match('/FOUND\s+(\S+)/', $output, $m)) {
-            $signature = $m[1];
+        if (preg_match('/(?:(\S+)\s+FOUND|FOUND\s+(\S+))/', $output, $m)) {
+            $signature = $m[1] !== '' ? $m[1] : $m[2];
             $this->logInfected($filePath, $signature);
 
             return new FileScanResult(ScanVerdict::Infected, $signature, $output);
@@ -102,7 +102,7 @@ class FileScanService
             return true;
         }
 
-        return (bool) $this->settings->get('settings::panel:file_scan:enabled', false);
+        return $this->truthy($this->settings->get('settings::panel:file_scan:enabled', false));
     }
 
     /**
@@ -112,8 +112,28 @@ class FileScanService
      */
     public function isStrict(): bool
     {
-        return (bool) config('panel.file_scan.strict', false)
-            || (bool) $this->settings->get('settings::panel:file_scan:strict', false);
+        if ((bool) config('panel.file_scan.strict', false)) {
+            return true;
+        }
+
+        return $this->truthy($this->settings->get('settings::panel:file_scan:strict', false));
+    }
+
+    /**
+     * Settings are stored as 'true'/'false' strings; PHP casts any non-empty
+     * string to true, so compare explicitly.
+     */
+    private function truthy(mixed $value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        return $value === 'true' || $value === '1';
     }
 
     private function getProcessRunner(): ProcessRunner
