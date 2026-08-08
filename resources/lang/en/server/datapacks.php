@@ -46,4 +46,8 @@ return [
     'track_success' => '":title" is now tracked.',
     'link' => 'Link',
     'link_success' => 'Linked :title',
+    'bulk_update_success' => 'Updated :count datapacks.',
+    'bulk_update_failed' => 'Failed to update :count datapacks.',
+    'bulk_delete_success' => 'Deleted :count datapacks.',
+    'bulk_delete_failed' => 'Failed to delete :count datapacks.',
 ];
