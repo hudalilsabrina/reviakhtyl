@@ -116,7 +116,7 @@ class AccountController extends ClientApiController
     public function updateFont(Request $request): JsonResponse
     {
         $request->validate([
-            'font' => ['required', 'string', 'max:64'],
+            'font' => ['nullable', 'string', 'max:64'],
         ]);
 
         $user = $request->user();

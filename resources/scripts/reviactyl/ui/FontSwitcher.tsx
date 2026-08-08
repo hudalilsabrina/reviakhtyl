@@ -94,8 +94,9 @@ const FontSwitcher = () => {
 
         if (user) {
             try {
+                const apiFont = fontKey || null;
                 await updateAccountFont({ font: fontKey });
-                setUserData({ ...user, font: fontKey || null });
+                setUserData({ ...user, font: apiFont });
             } catch (error) {
                 console.error('Failed to update font:', error);
             }
