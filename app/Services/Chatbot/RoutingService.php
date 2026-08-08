@@ -50,10 +50,22 @@ class RoutingService
     ) {}
 
     /**
-     * The router's only tool. Built inline rather than as a ChatbotTool class
-     * because it is not a panel capability: it must never be reachable by a
-     * sub-agent, and nothing about it is configurable.
+     * The router's only tools. `delegate()` is the delegation handoff; `answer_directly()`
+     * is the classifier that keeps simple requests on the flat single-model loop instead of
+     * paying the delegation overhead.
      *
+     * Both are built inline rather than as ChatbotTool classes because they are not panel
+     * capabilities: they must never be reachable by a sub-agent, and nothing about them is
+     * configurable.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function definitions(): array
+    {
+        return [$this->delegateDefinition(), $this->answerDirectlyDefinition()];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function delegateDefinition(): array
@@ -62,7 +74,7 @@ class RoutingService
             'type' => 'function',
             'function' => [
                 'name' => 'delegate',
-                'description' => 'Ask a specialized agent to perform work on the server. Pass the exact request and the agent ids to use. Delegate to ONE agent per call and wait for the result before calling again.',
+                'description' => 'Ask a specialized agent to perform complex work on the server. Only use this for genuinely complex requests — several different tools across domains, or a long multi-step sequence. For simple single-step requests use answer_directly() instead. Pass the exact request and the agent ids to use. Delegate to ONE agent per call and wait for the result before calling again.',
                 'parameters' => [
                     'type' => 'object',
                     'properties' => [
@@ -71,6 +83,25 @@ class RoutingService
                         'context_budget' => ['type' => 'integer', 'description' => 'Optional. Not enforced in this version; keep requests focused.'],
                     ],
                     'required' => ['request', 'to_agent_ids'],
+                    'additionalProperties' => false,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function answerDirectlyDefinition(): array
+    {
+        return [
+            'type' => 'function',
+            'function' => [
+                'name' => 'answer_directly',
+                'description' => 'Answer this request with the standard single-model assistant flow instead of delegating to a sub-agent. Use it for simple, single-step requests: reading a value, writing or editing one config file, checking a setting, a straightforward question. Only delegate genuinely complex work — requests that need several different tools across domains, or a long multi-step sequence.',
+                'parameters' => [
+                    'type' => 'object',
+                    'properties' => new \stdClass(),
                     'additionalProperties' => false,
                 ],
             ],
@@ -117,7 +148,7 @@ class RoutingService
         }
 
         $systemPrompt = $this->promptBuilder->buildForRouter($context, $agents);
-        $definitions = [$this->delegateDefinition()];
+        $definitions = $this->definitions();
 
         for ($iteration = 0; $iteration < self::MAX_ROUTER_ITERATIONS; $iteration++) {
             $providerMessages = $this->routerProviderMessages($conversation, $context, $systemPrompt);
@@ -174,6 +205,17 @@ class RoutingService
                 $emit && $emit('message', ['message' => $answer]);
 
                 return $placeholder ? $created : $created->push($answer);
+            }
+
+            // The classifier fired: this request is simple enough for the flat
+            // single-model loop, which holds every tool and answers directly.
+            // Nothing of the router's turn is persisted — its placeholder row
+            // (if any) would otherwise show an empty bubble beside the real
+            // answer the flat loop writes.
+            if ($this->wantsDirectAnswer($completion->toolCalls)) {
+                $placeholder?->delete();
+
+                return $this->runFlatLoop($conversation, $emit);
             }
 
             $delegateCalls = array_slice($completion->toolCalls, 0, self::MAX_DELEGATES_PER_TURN);
@@ -370,6 +412,23 @@ class RoutingService
         }
 
         return [];
+    }
+
+    /**
+     * The router's classification: answer_directly() wins over delegation for
+     * this turn, so a simple request never pays for sub-agent machinery.
+     *
+     * @param  ToolCall[]  $calls
+     */
+    private function wantsDirectAnswer(array $calls): bool
+    {
+        foreach ($calls as $call) {
+            if ($call->name === 'answer_directly') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

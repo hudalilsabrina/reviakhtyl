@@ -65,11 +65,13 @@ function promptAgents(): array
     return $agents;
 }
 
-it('describes the router as a delegator with the delegate tool only', function () {
+it('describes the router as deciding between direct answers and delegation', function () {
     $prompt = promptBuilder()->buildForRouter(promptBuilderContext(), promptAgents());
 
-    expect($prompt)->toContain('delegate()')
-        ->toContain('your only tool is delegate()');
+    expect($prompt)->toContain('answer_directly()')
+        ->toContain('delegate()')
+        ->toContain('simple requests with answer_directly()')
+        ->toContain('Delegate only complex work');
 });
 
 it('lists every available agent with its id and name', function () {

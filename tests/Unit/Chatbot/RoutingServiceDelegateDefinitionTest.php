@@ -51,3 +51,21 @@ it('never gives the router a panel tool', function () {
 
     expect($definition['function']['name'])->toBe('delegate');
 });
+
+it('offers answer_directly alongside delegate as the classifier tool', function () {
+    $definitions = routingService()->definitions();
+
+    expect(array_map(fn (array $d) => $d['function']['name'], $definitions))
+        ->toBe(['delegate', 'answer_directly']);
+});
+
+it('describes the answer_directly tool with no parameters', function () {
+    $definition = routingService()->answerDirectlyDefinition();
+
+    expect($definition['type'])->toBe('function')
+        ->and($definition['function']['name'])->toBe('answer_directly')
+        ->and($definition['function']['description'])->toBeString()->not->toBe('')
+        ->and($definition['function']['parameters']['type'])->toBe('object')
+        ->and($definition['function']['parameters']['additionalProperties'])->toBeFalse()
+        ->and(json_encode($definition, JSON_THROW_ON_ERROR))->toBeString();
+});
