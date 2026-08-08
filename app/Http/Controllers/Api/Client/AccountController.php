@@ -112,4 +112,24 @@ class AccountController extends ClientApiController
 
         return new JsonResponse([$user], Response::HTTP_OK);
     }
+
+    public function updateFont(Request $request): JsonResponse
+    {
+        $request->validate([
+            'font' => ['required', 'string', 'max:64'],
+        ]);
+
+        $user = $request->user();
+        $original = $user->font;
+        $user->font = $request->input('font');
+        $user->save();
+
+        if ($original !== $user->font) {
+            Activity::event('user:account.font-changed')
+                ->property(['old' => $original, 'new' => $user->font])
+                ->log();
+        }
+
+        return new JsonResponse([], Response::HTTP_NO_CONTENT);
+    }
 }

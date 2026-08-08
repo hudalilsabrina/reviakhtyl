@@ -15,6 +15,7 @@ import Spinner from '@/reviactyl/elements/Spinner';
 import { ThemeLoader } from '@/reviactyl/ui/ThemeEngine';
 import { Invert } from '@/reviactyl/ui/SmartInvert';
 import { LocaleLoader } from '@/reviactyl/ui/LanguageSwitcher';
+import { FontLoader } from '@/reviactyl/ui/FontSwitcher';
 
 const DashboardRouter = lazy(() => import('@/routers/DashboardRouter'));
 const ServerRouter = lazy(() => import('@/routers/ServerRouter'));
@@ -34,6 +35,7 @@ interface ExtendedWindow extends Window {
         use_totp: boolean;
         language: string;
         editor: string;
+        font: string | null;
         updated_at: string;
         created_at: string;
     };
@@ -55,6 +57,7 @@ function App() {
             useTotp: PanelUser.use_totp,
             createdAt: new Date(PanelUser.created_at),
             fileEditor: PanelUser.editor,
+            font: PanelUser.font ?? null,
             updatedAt: new Date(PanelUser.updated_at),
         });
     }
@@ -73,6 +76,7 @@ function App() {
             <StoreProvider store={store}>
                 <ThemeLoader />
                 <LocaleLoader />
+                <FontLoader />
                 <ProgressBar />
                 <div css={tw`mx-auto w-auto`}>
                     <BrowserRouter

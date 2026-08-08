@@ -1,0 +1,19 @@
+{
+    "": { "name": "Default", "family": "" },
+    "Poppins": { "name": "Poppins", "family": "Poppins" },
+    "Inter": { "name": "Inter", "family": "Inter" },
+    "Roboto": { "name": "Roboto", "family": "Roboto" },
+    "Cairo": { "name": "Cairo", "family": "Cairo" },
+    "Google+Sans": { "name": "Google Sans", "family": "Google Sans" },
+    "Playpen+Sans+Arabic": { "name": "Playpen Sans Arabic", "family": "Playpen Sans Arabic" },
+    "Noto+Sans": { "name": "Noto Sans", "family": "Noto Sans" },
+    "IBM+Plex+Sans": { "name": "IBM Plex Sans", "family": "IBM Plex Sans" },
+    "JetBrains+Mono": { "name": "JetBrains Mono", "family": "JetBrains Mono" },
+    "Source+Code+Pro": { "name": "Source Code Pro", "family": "Source Code Pro" },
+    "Fira+Code": { "name": "Fira Code", "family": "Fira Code" },
+    "Montserrat": { "name": "Montserrat", "family": "Montserrat" },
+    "Open+Sans": { "name": "Open Sans", "family": "Open Sans" },
+    "Lato": { "name": "Lato", "family": "Lato" },
+    "Raleway": { "name": "Raleway", "family": "Raleway" },
+    "Nunito": { "name": "Nunito", "family": "Nunito" }
+}

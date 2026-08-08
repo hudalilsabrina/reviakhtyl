@@ -16,6 +16,7 @@ return [
         '2fa-verification' => 'Two-Step Verification',
         'customization' => 'Customization',
         'language' => 'Panel Language',
+        'font' => 'Panel Font',
         'editor' => 'Preferred File Editor',
         'smart-invert' => 'Smart Invert',
         'on' => 'On',
