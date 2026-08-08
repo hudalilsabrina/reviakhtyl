@@ -52,6 +52,7 @@ class ChatbotSettings
             'panel:chatbot:require_confirmation',
             'panel:chatbot:system_prompt',
             'panel:chatbot:tool_groups',
+            'panel:chatbot:orchestration',
         ];
     }
 
@@ -179,6 +180,15 @@ class ChatbotSettings
     public function isToolGroupEnabled(ChatbotToolGroup $group): bool
     {
         return in_array($group->value, $this->enabledToolGroups(), true);
+    }
+
+    /**
+     * Whether turns route through the orchestrating router and its narrow
+     * sub-agents instead of the flat single-model loop.
+     */
+    public function orchestrationEnabled(): bool
+    {
+        return $this->bool('orchestration');
     }
 
     private function bool(string $key, bool $default = false): bool

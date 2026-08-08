@@ -231,6 +231,9 @@ return [
         'history_limit' => (int) env('PANEL_CHATBOT_HISTORY_LIMIT', 30),
         'context_tokens' => (int) env('PANEL_CHATBOT_CONTEXT_TOKENS', 24000),
         'compaction' => (bool) env('PANEL_CHATBOT_COMPACTION', true),
+        // Route turns through a router that delegates to narrow sub-agents
+        // instead of the single flat tool list.
+        'orchestration' => (bool) env('PANEL_CHATBOT_ORCHESTRATION', false),
         'timeout' => (int) env('PANEL_CHATBOT_TIMEOUT', 120),
         'require_confirmation' => (bool) env('PANEL_CHATBOT_REQUIRE_CONFIRMATION', true),
         'system_prompt' => env('PANEL_CHATBOT_SYSTEM_PROMPT'),

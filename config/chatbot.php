@@ -50,6 +50,12 @@ use App\Services\Chatbot\Tools\Subusers\DeleteSubuserTool;
 use App\Services\Chatbot\Tools\Subusers\ListPermissionCatalogueTool;
 use App\Services\Chatbot\Tools\Subusers\ListSubuserAccountsTool;
 use App\Services\Chatbot\Tools\Subusers\UpdateSubuserPermissionsTool;
+use App\Services\Chatbot\Agents\FilesAgent;
+use App\Services\Chatbot\Agents\ModsAgent;
+use App\Services\Chatbot\Agents\PowerAgent;
+use App\Services\Chatbot\Agents\ServerAgent;
+use App\Services\Chatbot\Agents\StartupAgent;
+use App\Services\Chatbot\Agents\SubusersAgent;
 
 return [
     'tools' => [
@@ -127,5 +133,17 @@ return [
         CreateScheduleTool::class,
         ExecuteScheduleTool::class,
         DeleteScheduleTool::class,
+    ],
+
+    // The narrow sub-agents an orchestrating router may delegate to. Each one
+    // scopes itself to a subset of the tool groups above, so an agent can only
+    // ever hold the tools its own domain needs.
+    'agents' => [
+        FilesAgent::class,
+        ServerAgent::class,
+        PowerAgent::class,
+        StartupAgent::class,
+        ModsAgent::class,
+        SubusersAgent::class,
     ],
 ];

@@ -36,7 +36,7 @@ class ChatbotController extends ClientApiController
         $settings = $this->service->settings();
 
         if (! $settings->isEnabled()) {
-            return ['enabled' => false, 'model' => null, 'requires_confirmation' => true, 'tools' => []];
+            return ['enabled' => false, 'model' => null, 'requires_confirmation' => true, 'orchestration' => false, 'tools' => []];
         }
 
         $tools = $this->service->toolsFor($server, $request->user());
@@ -45,6 +45,7 @@ class ChatbotController extends ClientApiController
             'enabled' => true,
             'model' => $settings->model(),
             'requires_confirmation' => $settings->requiresConfirmation(),
+            'orchestration' => $settings->orchestrationEnabled(),
             'tools' => array_values(array_map(fn (ChatbotTool $tool) => [
                 'name' => $tool->name(),
                 'group' => $tool->group()->value,

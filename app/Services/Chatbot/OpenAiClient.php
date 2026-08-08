@@ -25,12 +25,13 @@ class OpenAiClient
      *
      * @param  array<int, array<string, mixed>>  $messages  provider-shaped message list
      * @param  array<int, array<string, mixed>>  $tools  provider-shaped tool definitions
+     * @param  string|null  $model  per-call model override; null uses the panel model
      *
      * @throws ChatbotException
      */
-    public function chat(array $messages, array $tools = []): ChatCompletion
+    public function chat(array $messages, array $tools = [], ?string $model = null): ChatCompletion
     {
-        $payload = $this->payload($messages, $tools);
+        $payload = $this->payload($messages, $tools, $model);
 
         try {
             $response = $this->request('post', '/chat/completions', $payload);
@@ -66,10 +67,10 @@ class OpenAiClient
      * @param  array<int, array<string, mixed>>  $tools
      * @return array<string, mixed>
      */
-    private function payload(array $messages, array $tools): array
+    private function payload(array $messages, array $tools, ?string $model = null): array
     {
         $payload = [
-            'model' => $this->settings->model(),
+            'model' => $model ?? $this->settings->model(),
             'messages' => $messages,
             'temperature' => $this->settings->temperature(),
             'max_tokens' => $this->settings->maxTokens(),
@@ -94,12 +95,13 @@ class OpenAiClient
      * @param  array<int, array<string, mixed>>  $messages
      * @param  array<int, array<string, mixed>>  $tools
      * @param  callable(string): void  $onText
+     * @param  string|null  $model  per-call model override; null uses the panel model
      *
      * @throws ChatbotException
      */
-    public function stream(array $messages, array $tools, callable $onText): ChatCompletion
+    public function stream(array $messages, array $tools, callable $onText, ?string $model = null): ChatCompletion
     {
-        $payload = $this->payload($messages, $tools) + ['stream' => true];
+        $payload = $this->payload($messages, $tools, $model) + ['stream' => true];
         $accumulator = new StreamAccumulator();
 
         try {
@@ -112,7 +114,7 @@ class OpenAiClient
         } catch (\Throwable $e) {
             Log::warning('Chatbot streaming request failed, falling back', ['error' => $e->getMessage()]);
 
-            return $this->chat($messages, $tools);
+            return $this->chat($messages, $tools, $model);
         }
 
         if (! $response->successful()) {
@@ -120,7 +122,7 @@ class OpenAiClient
                 'status' => $response->status(),
             ]);
 
-            return $this->chat($messages, $tools);
+            return $this->chat($messages, $tools, $model);
         }
 
         $body = $response->toPsrResponse()->getBody();
