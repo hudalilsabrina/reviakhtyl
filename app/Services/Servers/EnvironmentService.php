@@ -56,7 +56,31 @@ class EnvironmentService
             $variables->put($key, call_user_func($closure, $server));
         }
 
+        $variables->put('STARTUP_PARTS', $this->buildStartupParts($server));
+
         return $variables->toArray();
+    }
+
+    /**
+     * Builds the concatenated string of enabled modular startup parts for the server,
+     * exposed as the {{STARTUP_PARTS}} placeholder in startup commands.
+     */
+    private function buildStartupParts(Server $server): string
+    {
+        $parts = $server->egg->startupParts;
+
+        if ($parts->isEmpty()) {
+            return '';
+        }
+
+        $choices = collect($server->startup_parts ?? [])
+            ->filter(fn ($choice) => is_array($choice) && isset($choice['part_id']))
+            ->keyBy('part_id');
+
+        return $parts
+            ->filter(fn ($part) => ($choices[$part->id]['enabled'] ?? $part->default_enabled) && trim($part->value) !== '')
+            ->map(fn ($part) => trim($part->value))
+            ->implode(' ');
     }
 
     /**

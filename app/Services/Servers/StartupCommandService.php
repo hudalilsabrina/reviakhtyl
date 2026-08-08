@@ -7,6 +7,8 @@ use Illuminate\Support\Str;
 
 class StartupCommandService
 {
+    public function __construct(private EnvironmentService $environmentService) {}
+
     /**
      * Generates a startup command for a given server instance.
      */
@@ -19,6 +21,9 @@ class StartupCommandService
             $find[] = '{{'.$variable->env_variable.'}}';
             $replace[] = ($variable->user_viewable && ! $hideAllValues) ? ($variable->server_value ?? $variable->default_value) : '[hidden]';
         }
+
+        $find[] = '{{STARTUP_PARTS}}';
+        $replace[] = $hideAllValues ? '[hidden]' : $this->environmentService->handle($server)['STARTUP_PARTS'] ?? '';
 
         return Str::replace($find, $replace, $server->startup);
     }

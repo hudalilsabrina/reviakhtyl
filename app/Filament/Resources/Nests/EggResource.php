@@ -202,6 +202,47 @@ class EggResource extends Resource
                                     }),
                             ]),
 
+                        Tab::make('startup_parts')
+                            ->label('Startup Parts')
+                            ->icon('tabler-puzzle')
+                            ->schema([
+                                Forms\Components\Placeholder::make('startup_parts_hint')
+                                    ->label('')
+                                    ->content('Parts are appended where {{STARTUP_PARTS}} appears in the startup command, in the order defined here.'),
+                                Forms\Components\Repeater::make('startupParts')
+                                    ->label('')
+                                    ->relationship()
+                                    ->schema([
+                                        Forms\Components\TextInput::make('name')
+                                            ->required()
+                                            ->maxLength(191),
+                                        Forms\Components\TextInput::make('group_name')
+                                            ->label('Group')
+                                            ->maxLength(191),
+                                        Forms\Components\Hidden::make('sort_order')
+                                            ->default(0),
+                                        Forms\Components\Textarea::make('value')
+                                            ->required()
+                                            ->rows(2)
+                                            ->maxLength(191)
+                                            ->columnSpanFull(),
+                                        Forms\Components\Textarea::make('description')
+                                            ->rows(2)
+                                            ->maxLength(500)
+                                            ->columnSpanFull(),
+                                        Forms\Components\Toggle::make('default_enabled')
+                                            ->label('Enabled by default'),
+                                        Forms\Components\Toggle::make('required')
+                                            ->label('Required'),
+                                    ])
+                                    ->columns(3)
+                                    ->defaultItems(0)
+                                    ->reorderable()
+                                    ->orderColumn('sort_order')
+                                    ->collapsible()
+                                    ->itemLabel(fn (array $state): ?string => $state['name'] ?? null),
+                            ]),
+
                         Tab::make('install_script')
                             ->label(trans('admin/eggs.sections.install_script.title'))
                             ->icon('tabler-file-code')

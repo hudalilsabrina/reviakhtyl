@@ -45,6 +45,7 @@ use Znck\Eloquent\Traits\BelongsToThrough;
  * @property int $nest_id
  * @property int $egg_id
  * @property string $startup
+ * @property array|null $startup_parts
  * @property string $image
  * @property int|null $allocation_limit
  * @property int|null $database_limit
@@ -163,7 +164,7 @@ class Server extends Model implements Identifiable
     /**
      * The default relationships to load for all server models.
      */
-    protected $with = ['allocation'];
+    protected $with = ['allocation', 'egg.startupParts'];
 
     /**
      * Fields that are not mass assignable.
@@ -218,6 +219,7 @@ class Server extends Model implements Identifiable
         self::UPDATED_AT => 'datetime',
         'deleted_at' => 'datetime',
         'installed_at' => 'datetime',
+        'startup_parts' => 'array',
     ];
 
     /**

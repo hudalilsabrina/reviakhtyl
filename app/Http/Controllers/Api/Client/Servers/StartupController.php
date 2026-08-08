@@ -7,10 +7,12 @@ use App\Exceptions\Repository\RecordNotFoundException;
 use App\Facades\Activity;
 use App\Http\Controllers\Api\Client\ClientApiController;
 use App\Http\Requests\Api\Client\Servers\Startup\GetStartupRequest;
+use App\Http\Requests\Api\Client\Servers\Startup\UpdateStartupPartsRequest;
 use App\Http\Requests\Api\Client\Servers\Startup\UpdateStartupVariableRequest;
 use App\Models\Server;
 use App\Repositories\Eloquent\ServerVariableRepository;
 use App\Services\Servers\StartupCommandService;
+use App\Transformers\Api\Client\EggStartupPartTransformer;
 use App\Transformers\Api\Client\EggVariableTransformer;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -34,7 +36,7 @@ class StartupController extends ClientApiController
     {
         $startup = $this->startupCommandService->handle($server);
 
-        return $this->fractal->collection(
+        $response = $this->fractal->collection(
             $server->variables()->where('user_viewable', true)->get()
         )
             ->transformWith($this->getTransformer(EggVariableTransformer::class))
@@ -44,6 +46,28 @@ class StartupController extends ClientApiController
                 'raw_startup_command' => $server->startup,
             ])
             ->toArray();
+
+        $eggParts = $server->egg->startupParts;
+
+        if ($eggParts->isNotEmpty()) {
+            $choices = collect($server->startup_parts ?? [])
+                ->filter(fn ($choice) => is_array($choice) && isset($choice['part_id']))
+                ->keyBy('part_id');
+
+            $parts = $this->fractal->collection($eggParts)
+                ->transformWith($this->getTransformer(EggStartupPartTransformer::class))
+                ->toArray();
+
+            foreach ($parts['data'] as &$part) {
+                $part['attributes']['user_enabled'] = $choices[$part['attributes']['id']]['enabled']
+                    ?? $part['attributes']['default_enabled'];
+            }
+
+            $response['meta']['startup_parts'] = $parts['data'];
+            $response['meta']['has_modular_startup'] = true;
+        }
+
+        return $response;
     }
 
     /**
@@ -98,5 +122,60 @@ class StartupController extends ClientApiController
                 'raw_startup_command' => $server->startup,
             ])
             ->toArray();
+    }
+
+    /**
+     * Updates the enabled/disabled state of the egg's modular startup parts for a server.
+     *
+     * @throws ValidationException
+     */
+    public function updateParts(UpdateStartupPartsRequest $request, Server $server): array
+    {
+        $eggParts = $server->egg->startupParts;
+
+        if ($eggParts->isEmpty()) {
+            throw new BadRequestHttpException('This server does not have configurable startup parts.');
+        }
+
+        $requested = collect($request->input('parts', []));
+        $validIds = $eggParts->pluck('id');
+
+        if ($invalid = $requested->pluck('part_id')->diff($validIds)->first()) {
+            throw new BadRequestHttpException("Invalid startup part ID: {$invalid}");
+        }
+
+        foreach ($eggParts->where('required', true) as $part) {
+            $choice = $requested->firstWhere('part_id', $part->id);
+
+            if (! ($choice['enabled'] ?? $part->default_enabled)) {
+                throw new BadRequestHttpException("The startup part '{$part->name}' is required and cannot be disabled.");
+            }
+        }
+
+        // Only persist parts the user explicitly sent; omitted parts fall back to their default state.
+        $server->update([
+            'startup_parts' => $requested
+                ->map(fn ($part) => ['part_id' => $part['part_id'], 'enabled' => $part['enabled']])
+                ->values()
+                ->all(),
+        ]);
+
+        $startup = $this->startupCommandService->handle($server->refresh());
+
+        Activity::event('server:startup.edit')
+            ->subject($server)
+            ->property([
+                'variable' => 'startup_parts',
+                'old' => null,
+                'new' => json_encode($server->startup_parts),
+            ])
+            ->log();
+
+        return [
+            'meta' => [
+                'startup_command' => $startup,
+                'raw_startup_command' => $server->startup,
+            ],
+        ];
     }
 }
