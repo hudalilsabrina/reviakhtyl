@@ -141,6 +141,12 @@ class EditServerForm
                                             ->columns(2)
                                             ->columnSpan(['lg' => 5]),
 
+                                        Section::make('Hibernation')
+                                            ->description('Automatically stop the server when its average CPU stays below 5% for the full idle window. The server can be started again at any time.')
+                                            ->schema(self::hibernationFields())
+                                            ->columns(2)
+                                            ->columnSpan(['lg' => 5]),
+
                                         Group::make()
                                             ->schema([
                                                 Section::make(trans('admin/server.edit.sections.application_feature_limits'))
@@ -408,6 +414,24 @@ class EditServerForm
                 ->label(trans('admin/server.edit.fields.disable_oom_killer.label'))
                 ->default(true)
                 ->helperText(trans('admin/server.edit.fields.disable_oom_killer.helper')),
+        ];
+    }
+
+    private static function hibernationFields(): array
+    {
+        return [
+            Toggle::make('hibernate_enabled')
+                ->label('Hibernate when idle')
+                ->default(false)
+                ->helperText('Stop the server automatically after it has been idle for the configured window.'),
+            TextInput::make('hibernate_idle_minutes')
+                ->label('Idle window (minutes)')
+                ->numeric()
+                ->minValue(10)
+                ->maxValue(10080)
+                ->default(30)
+                ->suffix('minutes')
+                ->helperText('Idle period before hibernation triggers. Stats are sampled every 10 minutes.'),
         ];
     }
 
