@@ -28,6 +28,10 @@ const FONT_LIST: Record<string, FontInfo> = {
     Lato: { name: 'Lato', family: 'Lato' },
     Raleway: { name: 'Raleway', family: 'Raleway' },
     Nunito: { name: 'Nunito', family: 'Nunito' },
+    'Press+Start+2P': { name: 'Press Start 2P', family: 'Press Start 2P' },
+    VT323: { name: 'VT323', family: 'VT323' },
+    Silkscreen: { name: 'Silkscreen', family: 'Silkscreen' },
+    DotGothic16: { name: 'DotGothic16', family: 'DotGothic16' },
 };
 
 const loadGoogleFont = (fontKey: string) => {
