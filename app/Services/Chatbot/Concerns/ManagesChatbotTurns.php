@@ -7,7 +7,6 @@ use App\Models\ChatbotConversation;
 use App\Models\ChatbotMessage;
 use App\Services\Chatbot\Data\ToolCall;
 use App\Services\Chatbot\ToolContext;
-use App\Services\Chatbot\Tools\ChatbotTool;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;

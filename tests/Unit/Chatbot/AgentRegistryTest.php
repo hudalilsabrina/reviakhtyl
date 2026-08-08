@@ -28,11 +28,11 @@ use App\Services\Chatbot\ToolRegistry;
  */
 class TrustedToolContext extends ToolContext
 {
-    public function __construct()
+    public function __construct(?Server $server = null, ?User $user = null)
     {
         parent::__construct(
-            (new ReflectionClass(Server::class))->newInstanceWithoutConstructor(),
-            (new ReflectionClass(User::class))->newInstanceWithoutConstructor(),
+            $server ?? (new ReflectionClass(Server::class))->newInstanceWithoutConstructor(),
+            $user ?? (new ReflectionClass(User::class))->newInstanceWithoutConstructor(),
         );
     }
 
@@ -198,10 +198,7 @@ it('memoizes the available set per server and user', function () {
     $server->id = 42;
     $user = (new ReflectionClass(User::class))->newInstanceWithoutConstructor();
     $user->id = 7;
-    $context = new TrustedToolContext();
-
-    reflectionSet($context, 'server', $server);
-    reflectionSet($context, 'user', $user);
+    $context = new TrustedToolContext($server, $user);
 
     $registry->availableFor($context);
 

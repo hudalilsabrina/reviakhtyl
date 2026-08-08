@@ -10,6 +10,7 @@ use App\Services\Chatbot\Agents\ServerAgent;
 use App\Services\Chatbot\ChatbotSettings;
 use App\Services\Chatbot\SystemPromptBuilder;
 use App\Services\Chatbot\ToolContext;
+use App\Services\Chatbot\Tools\Files\ListFilesTool;
 
 /**
  * The builders are exercised against a context whose server carries its egg
@@ -20,7 +21,6 @@ use App\Services\Chatbot\ToolContext;
  * boots it, which needs the full application and would poison the boot state
  * for every test in this process.
  */
-
 function modelWithoutConstructor(string $class): object
 {
     return (new ReflectionClass($class))->newInstanceWithoutConstructor();
@@ -102,9 +102,10 @@ it('opens the agent prompt with the agent\'s own directive', function () {
 
 it('lists the agent\'s tools and names the server', function () {
     $agent = promptAgents()['files'];
-    $prompt = promptBuilder()->buildForAgent(promptBuilderContext(), $agent, []);
+    $tool = modelWithoutConstructor(ListFilesTool::class);
+    $prompt = promptBuilder()->buildForAgent(promptBuilderContext(), $agent, ['list_files' => $tool]);
 
-    expect($prompt)->toContain('Available tools: ')
+    expect($prompt)->toContain('Available tools: list_files')
         ->toContain('My Minecraft Server');
 });
 

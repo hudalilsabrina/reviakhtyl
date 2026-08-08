@@ -184,14 +184,14 @@ class RoutingService
             $emit && $emit('message', ['message' => $assistant]);
 
             $calls = $assistant->tool_calls;
-            $turnPaused = false;
+            $pendingCalls = null;
 
             foreach ($delegateCalls as $index => $call) {
-                if ($turnPaused) {
-                    [$result] = $this->skippedDelegateResult($context, $call);
-                } else {
-                    [$result, $turnPaused] = $this->executeDelegate($conversation, $context, $call);
-                }
+                [$result, $pausedCalls] = $pendingCalls !== null
+                    ? $this->skippedDelegateResult($context, $call)
+                    : $this->executeDelegate($conversation, $context, $call);
+
+                $pendingCalls ??= $pausedCalls;
 
                 $calls[$index]['status'] = ($result['ok'] ?? false) ? 'executed' : 'failed';
                 $calls[$index]['ok'] = (bool) ($result['ok'] ?? false);
@@ -200,27 +200,28 @@ class RoutingService
 
                 // One tool message per delegate call, exactly like the flat
                 // loop: the provider rejects the next request if a call id is
-                // left unanswered.
+                // left unanswered. Remaining calls in a paused batch are
+                // answered with the skipped digest rather than executed.
                 $created->push($this->store($conversation, [
                     'role' => ChatbotMessage::ROLE_TOOL,
                     'tool_call_id' => $call->id,
                     'tool_name' => 'delegate',
                     'content' => $this->encode($result),
                 ]));
+            }
 
-                if ($turnPaused) {
-                    // The sub-agent's pending calls take over the router's
-                    // message: the user approves or denies these, and
-                    // resolveConfirmation runs them directly.
-                    $projected = $this->persistAssistant($conversation, $assistant, [
-                        'tool_calls' => $this->describeCalls($context, $result['calls'], 'pending'),
-                        'status' => ChatbotMessage::STATUS_AWAITING_CONFIRMATION,
-                    ]);
+            if ($pendingCalls !== null) {
+                // The sub-agent's pending calls take over the router's
+                // message: the user approves or denies these, and
+                // resolveConfirmation runs them directly.
+                $projected = $this->persistAssistant($conversation, $assistant, [
+                    'tool_calls' => $this->describeCalls($context, $pendingCalls, 'pending'),
+                    'status' => ChatbotMessage::STATUS_AWAITING_CONFIRMATION,
+                ]);
 
-                    $emit && $emit('message', ['message' => $projected]);
+                $emit && $emit('message', ['message' => $projected]);
 
-                    return $created;
-                }
+                return $created;
             }
 
             $assistant->update(['tool_calls' => $calls]);
@@ -347,9 +348,10 @@ class RoutingService
 
     /**
      * Validates one delegate call, runs the first resolved agent, and returns
-     * the digest handed back to the router plus whether the turn paused.
+     * the digest handed back to the router plus the run's pending calls when
+     * the sub-agent paused for approval.
      *
-     * @return array{0: array<string, mixed>, 1: bool} the result digest, and whether the sub-agent paused for approval
+     * @return array{0: array<string, mixed>, 1: ToolCall[]|null} the result digest; the pending calls, or null when the sub-agent answered
      */
     private function executeDelegate(ChatbotConversation $conversation, ToolContext $context, ToolCall $call): array
     {
@@ -358,13 +360,13 @@ class RoutingService
         $request = $arguments['request'] ?? null;
 
         if (! is_string($request) || trim($request) === '') {
-            return [['ok' => false, 'error' => 'The delegate call carried no request text. Ask the router to restate the task and try again.'], false];
+            return [['ok' => false, 'error' => 'The delegate call carried no request text. Ask the router to restate the task and try again.'], null];
         }
 
         $agentIds = $arguments['to_agent_ids'] ?? null;
 
         if (! is_array($agentIds) || $agentIds === [] || ! collect($agentIds)->every(fn ($id) => is_string($id) && $id !== '')) {
-            return [['ok' => false, 'error' => 'The delegate call carried no valid agent ids. Pass exactly one known agent id.'], false];
+            return [['ok' => false, 'error' => 'The delegate call carried no valid agent ids. Pass exactly one known agent id.'], null];
         }
 
         $resolved = [];
@@ -373,7 +375,7 @@ class RoutingService
             $agent = $this->agents->resolveFor($context, (string) $id);
 
             if (! $agent) {
-                return [['ok' => false, 'error' => "The agent \"$id\" is not available on this server for this user."], false];
+                return [['ok' => false, 'error' => "The agent \"$id\" is not available on this server for this user."], null];
             }
 
             $resolved[] = $agent;
@@ -398,22 +400,21 @@ class RoutingService
                 'ok' => true,
                 'status' => 'awaiting_confirmation',
                 'note' => "The {$agent->name()} agent is waiting for the user to approve its proposed actions before continuing.",
-                'calls' => $outcome['calls'],
-            ], true];
+            ], $outcome['calls']];
         }
 
         return [[
             'ok' => true,
             'agent' => $agent->id(),
             'result' => Str::limit((string) $outcome['content'], self::RESULT_DIGEST_LENGTH),
-        ], false];
+        ], null];
     }
 
     /**
      * The digest for a delegate call that never started because an earlier
      * agent in the same batch paused the turn.
      *
-     * @return array{0: array<string, mixed>, 1: bool}
+     * @return array{0: array<string, mixed>, 1: null}
      */
     private function skippedDelegateResult(ToolContext $context, ToolCall $call): array
     {
@@ -424,7 +425,7 @@ class RoutingService
         return [[
             'ok' => false,
             'error' => 'The '.($agent?->name() ?? $id).' agent was not started because the turn paused for the user to approve another agent\'s action.',
-        ], false];
+        ], null];
     }
 
     /**

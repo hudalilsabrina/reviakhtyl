@@ -1,5 +1,11 @@
 <?php
 
+use App\Services\Chatbot\Agents\FilesAgent;
+use App\Services\Chatbot\Agents\ModsAgent;
+use App\Services\Chatbot\Agents\PowerAgent;
+use App\Services\Chatbot\Agents\ServerAgent;
+use App\Services\Chatbot\Agents\StartupAgent;
+use App\Services\Chatbot\Agents\SubusersAgent;
 use App\Services\Chatbot\Tools\Backups\CreateBackupTool;
 use App\Services\Chatbot\Tools\Backups\DeleteBackupTool;
 use App\Services\Chatbot\Tools\Backups\ListBackupsTool;
@@ -37,8 +43,8 @@ use App\Services\Chatbot\Tools\Schedules\DeleteScheduleTool;
 use App\Services\Chatbot\Tools\Schedules\ExecuteScheduleTool;
 use App\Services\Chatbot\Tools\Schedules\ListSchedulesTool;
 use App\Services\Chatbot\Tools\Server\GetServerActivityLogTool;
-use App\Services\Chatbot\Tools\Server\GetServerResourceHistoryTool;
 use App\Services\Chatbot\Tools\Server\GetServerDetailsTool;
+use App\Services\Chatbot\Tools\Server\GetServerResourceHistoryTool;
 use App\Services\Chatbot\Tools\Server\GetServerResourcesTool;
 use App\Services\Chatbot\Tools\Server\ReadServerLogTool;
 use App\Services\Chatbot\Tools\Server\RenameServerTool;
@@ -50,12 +56,6 @@ use App\Services\Chatbot\Tools\Subusers\DeleteSubuserTool;
 use App\Services\Chatbot\Tools\Subusers\ListPermissionCatalogueTool;
 use App\Services\Chatbot\Tools\Subusers\ListSubuserAccountsTool;
 use App\Services\Chatbot\Tools\Subusers\UpdateSubuserPermissionsTool;
-use App\Services\Chatbot\Agents\FilesAgent;
-use App\Services\Chatbot\Agents\ModsAgent;
-use App\Services\Chatbot\Agents\PowerAgent;
-use App\Services\Chatbot\Agents\ServerAgent;
-use App\Services\Chatbot\Agents\StartupAgent;
-use App\Services\Chatbot\Agents\SubusersAgent;
 
 return [
     'tools' => [
