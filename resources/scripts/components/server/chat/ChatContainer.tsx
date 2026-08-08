@@ -80,8 +80,18 @@ const EXAMPLE_PROMPTS: { group: string | null; prompt: string }[] = [
     { group: 'databases', prompt: 'Can you run a database query?' },
     { group: 'schedules', prompt: 'Can you set up a scheduled task?' },
     { group: 'power', prompt: 'Can you check the resource usage?' },
+    { group: 'console', prompt: 'Send a command to the console' },
+    { group: 'files', prompt: 'List the files in the root directory' },
+    { group: 'subusers', prompt: 'Who has access to this server?' },
+    { group: 'mods', prompt: 'Which mods are installed on this server?' },
+    { group: 'plugins', prompt: 'Which plugins are installed on this server?' },
+    { group: 'startup', prompt: 'Can you show me the startup command?' },
+    { group: 'files', prompt: 'Check the server configuration for errors' },
+    { group: 'power', prompt: 'How long has the server been up?' },
     { group: null, prompt: 'What can you help me with on this server?' },
     { group: null, prompt: 'Give me a summary of how this server is doing' },
+    { group: null, prompt: 'Suggest some ways to improve this server' },
+    { group: null, prompt: 'Explain something about how this panel works' },
 ];
 
 /**
@@ -183,7 +193,12 @@ const ChatContainer = () => {
         const all = EXAMPLE_PROMPTS.filter(
             (example) => example.group === null || new Set((config?.tools ?? []).map((t) => t.group)).has(example.group),
         );
-        return all.slice(exampleIndex % all.length, exampleIndex % all.length + 4).map((e) => e.prompt);
+
+        // Rotate on a shuffled pool so every new empty chat shows a fresh,
+        // random set rather than the same four in sequence.
+        const shuffled = [...all].sort(() => Math.random() - 0.5);
+
+        return shuffled.slice(0, 4).map((e) => e.prompt);
     }, [config, exampleIndex]);
 
     const lastMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
