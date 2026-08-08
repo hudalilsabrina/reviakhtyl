@@ -20,7 +20,10 @@ return [
         'name' => 'Server Name',
         'description' => 'Server Description',
         'icon' => 'Server Icon URL',
-        'icon-description' => 'Leave empty to use the default egg image.',
+        'icon-description' => 'Leave empty to use the default egg image. You can also upload an image.',
+        'icon-upload' => 'Upload',
+        'icon-uploading' => 'Uploading...',
+        'icon-remove' => 'Remove',
         'button' => 'Save',
     ],
     'reinstall' => [

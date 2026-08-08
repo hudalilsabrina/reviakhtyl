@@ -10,6 +10,7 @@ use App\Http\Requests\Api\Client\Servers\Settings\ReinstallServerRequest;
 use App\Http\Requests\Api\Client\Servers\Settings\RenameServerRequest;
 use App\Http\Requests\Api\Client\Servers\Settings\SetCategoryRequest;
 use App\Http\Requests\Api\Client\Servers\Settings\SetDockerImageRequest;
+use App\Http\Requests\Api\Client\Servers\Settings\UploadIconRequest;
 use App\Models\Server;
 use App\Repositories\Eloquent\ServerRepository;
 use App\Services\Servers\ReinstallServerService;
@@ -65,6 +66,41 @@ class SettingsController extends ClientApiController
         }
 
         return new JsonResponse([], Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * Uploads an image to use as the server icon.
+     *
+     * @throws \Throwable
+     */
+    public function uploadIcon(UploadIconRequest $request, Server $server): JsonResponse
+    {
+        $file = $request->file('image');
+
+        $directory = public_path('uploads/server-icons');
+        if (! is_dir($directory)) {
+            mkdir($directory, 0755, true);
+        }
+
+        $filename = $server->uuid.'.'.$file->getClientOriginalExtension();
+
+        if ($server->icon && str_starts_with($server->icon, '/uploads/server-icons/')) {
+            @unlink($directory.'/'.basename($server->icon));
+        }
+
+        $file->move($directory, $filename);
+
+        $original = $server->icon;
+        $url = '/uploads/server-icons/'.$filename;
+        $server->forceFill(['icon' => $url])->saveOrFail();
+
+        if ($original !== $url) {
+            Activity::event('server:settings.icon')
+                ->property(['old' => $original, 'new' => $url])
+                ->log();
+        }
+
+        return new JsonResponse(['icon' => $url]);
     }
 
     /**

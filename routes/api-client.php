@@ -259,5 +259,6 @@ Route::group([
         Route::post('/reinstall', [Client\Servers\SettingsController::class, 'reinstall']);
         Route::put('/docker-image', [Client\Servers\SettingsController::class, 'dockerImage']);
         Route::put('/category', [Client\Servers\SettingsController::class, 'setCategory'])->name('api:client:server.settings.category');
+        Route::post('/icon', [Client\Servers\SettingsController::class, 'uploadIcon']);
     });
 });
