@@ -304,6 +304,24 @@ class RoutingService
                 $emit('message', ['message' => $placeholder]);
             }
 
+            if ($outcome['status'] === 'pending') {
+                // The resumed agent needs approval again (a second destructive
+                // action). Project its calls exactly like the router loop does
+                // so the user decides, and resolveConfirmation can resume again.
+                $projected = $this->persistAssistant($conversation, $placeholder, [
+                    'tool_calls' => $this->describeCalls($context, $outcome['calls'], 'pending'),
+                    'status' => ChatbotMessage::STATUS_AWAITING_CONFIRMATION,
+                ]);
+
+                if (! $placeholder) {
+                    $created->push($projected);
+                }
+
+                $emit && $emit('message', ['message' => $projected]);
+
+                return $created;
+            }
+
             $answer = $this->persistAssistant($conversation, $placeholder, [
                 'content' => $outcome['content'],
             ]);
