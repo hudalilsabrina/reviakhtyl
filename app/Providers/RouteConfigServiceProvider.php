@@ -129,6 +129,18 @@ class RouteConfigServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($key);
         });
 
+        // Public status page: unauthenticated, so throttle per IP to slow
+        // UUID probing and status polling.
+        RateLimiter::for('api.public.status', function (Request $request) {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        // Telegram webhook: secret-verified, but cap per-IP attempts anyway to
+        // dampen secret brute-forcing.
+        RateLimiter::for('api.public.webhook', function (Request $request) {
+            return Limit::perMinute(60)->by($request->ip());
+        });
+
         RateLimiter::for('api.application', function (Request $request) {
             $key = optional($request->user())->uuid ?: $request->ip();
 

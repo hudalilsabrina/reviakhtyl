@@ -16,9 +16,10 @@ class TelegramWebhookController extends Controller
             return response()->json(['error' => 'Telegram bot is not enabled'], 403);
         }
 
-        // Verify webhook signature
+        // Verify webhook signature. The secret is mandatory: without it the
+        // endpoint would accept anyone's POST and let them spam the bot.
         $expectedToken = $this->telegram->getWebhookSecret();
-        if ($expectedToken && $request->header('X-Telegram-Bot-Api-Secret-Token') !== $expectedToken) {
+        if (! $expectedToken || $request->header('X-Telegram-Bot-Api-Secret-Token') !== $expectedToken) {
             return response()->json(['error' => 'Invalid signature'], 403);
         }
 
