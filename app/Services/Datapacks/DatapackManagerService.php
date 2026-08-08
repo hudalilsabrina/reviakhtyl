@@ -13,8 +13,6 @@ use Illuminate\Support\Facades\Cache;
 
 class DatapackManagerService
 {
-    private const MAX_SIZE = 64 * 1024 * 1024;
-
     /** @var array<string, DatapackProviderInterface> */
     private array $providers;
 

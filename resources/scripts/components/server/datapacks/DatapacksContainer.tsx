@@ -266,8 +266,7 @@ const DatapacksContainer = () => {
                             addFlash({
                                 type: 'success',
                                 key: 'server:datapacks',
-                                message:
-                                    t('link_success', { title: datapack.title }) ?? `Linked ${datapack.title}`,
+                                message: t('link_success', { title: datapack.title }) ?? `Linked ${datapack.title}`,
                             });
                         })
                         .catch((error) => {
@@ -291,9 +290,7 @@ const DatapacksContainer = () => {
                 setInstalling({ title: hit.title, step: 3, version: datapack.versionNumber });
                 setDatapacks((prev) => [...prev.filter((p) => p.id !== datapack.id), datapack]);
                 setHits((prev) =>
-                    prev.map((h) =>
-                        h.id === hit.id ? { ...h, installedVersion: datapack.versionNumber } : h
-                    )
+                    prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: datapack.versionNumber } : h))
                 );
                 addFlash({
                     type: 'success',
@@ -612,8 +609,7 @@ const DatapacksContainer = () => {
                                                     {version.versionNumber}
                                                 </p>
                                                 <p css={tw`text-xs text-gray-500 truncate`}>
-                                                    {version.gameVersions.length > 0 &&
-                                                        version.gameVersions.join(', ')}
+                                                    {version.gameVersions.length > 0 && version.gameVersions.join(', ')}
                                                 </p>
                                             </div>
                                             {installedRow === version.id ? (
@@ -625,9 +621,7 @@ const DatapacksContainer = () => {
                                                 <Button.Success
                                                     size={Button.Sizes.Small}
                                                     disabled={!!busy}
-                                                    onClick={() =>
-                                                        doInstall(versionsFor, version.id, 1)
-                                                    }
+                                                    onClick={() => doInstall(versionsFor, version.id, 1)}
                                                 >
                                                     {busy === `install:${versionsFor.id}` ? (
                                                         <Spinner size={'small'} />
@@ -772,9 +766,7 @@ const DatapacksContainer = () => {
                                                     {datapack.title}
                                                 </h3>
                                                 <Badge
-                                                    $variant={
-                                                        datapack.provider === 'manual' ? 'manual' : 'provider'
-                                                    }
+                                                    $variant={datapack.provider === 'manual' ? 'manual' : 'provider'}
                                                 >
                                                     {datapack.provider === 'manual'
                                                         ? t('manual_badge')
@@ -934,9 +926,7 @@ const DatapacksContainer = () => {
                                     <DatapackIcon url={hit.iconUrl} />
                                     <div css={tw`flex-1 min-w-0`}>
                                         <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
-                                                {hit.title}
-                                            </h3>
+                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
                                             {hit.installedVersion && (
                                                 <Badge $variant={'installed'} title={t('installed_badge') ?? ''}>
                                                     <FaCheck style={{ fontSize: '9px' }} />

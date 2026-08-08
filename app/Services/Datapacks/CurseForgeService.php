@@ -26,7 +26,7 @@ class CurseForgeService implements DatapackProviderInterface
 
     public function search(string $query, array $gameVersions, int $limit, int $offset, string $sort = 'relevance'): array
     {
-        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key');
+        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
             return ['hits' => [], 'total' => 0];
@@ -78,7 +78,7 @@ class CurseForgeService implements DatapackProviderInterface
 
     public function versions(string $projectId, array $gameVersions, int $limit = 25): array
     {
-        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key');
+        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
             return [];
@@ -124,7 +124,7 @@ class CurseForgeService implements DatapackProviderInterface
             return [];
         }
 
-        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key');
+        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
             return [];

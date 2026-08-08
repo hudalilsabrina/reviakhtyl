@@ -195,20 +195,14 @@ export interface BulkOperationResult {
     failed: { id: number; title: string; error: string }[];
 }
 
-export const bulkUpdateDatapacks = async (
-    uuid: string,
-    datapackIds: number[]
-): Promise<BulkOperationResult> => {
+export const bulkUpdateDatapacks = async (uuid: string, datapackIds: number[]): Promise<BulkOperationResult> => {
     const { data } = await http.post(`/api/client/servers/${uuid}/datapacks/bulk/update`, {
         datapack_ids: datapackIds,
     });
     return data;
 };
 
-export const bulkDeleteDatapacks = async (
-    uuid: string,
-    datapackIds: number[]
-): Promise<BulkOperationResult> => {
+export const bulkDeleteDatapacks = async (uuid: string, datapackIds: number[]): Promise<BulkOperationResult> => {
     const { data } = await http.delete(`/api/client/servers/${uuid}/datapacks/bulk`, {
         data: { datapack_ids: datapackIds },
     });
