@@ -1,4 +1,4 @@
-import { ChatMessage, ChatToolCall } from '@/api/server/chat/types';
+import { AgentProgress, ChatMessage, ChatToolCall } from '@/api/server/chat/types';
 
 /**
  * The pure part of keeping a thread on screen in step with the server: everything that turns
@@ -64,5 +64,22 @@ export const applyToolCall = (messages: ChatMessage[], uuid: string, call: ChatT
                 index === -1
                     ? [...message.toolCalls, call]
                     : message.toolCalls.map((existing, position) => (position === index ? call : existing)),
+        };
+    });
+
+/** Upserts an agent run by key — an agent is announced when it starts and again once it finishes. */
+export const applyAgentRun = (messages: ChatMessage[], uuid: string, agent: AgentProgress): ChatMessage[] =>
+    messages.map((message) => {
+        if (message.uuid !== uuid) return message;
+
+        const runs = message.agentRuns ?? [];
+        const index = runs.findIndex((existing) => existing.key === agent.key);
+
+        return {
+            ...message,
+            agentRuns:
+                index === -1
+                    ? [...runs, agent]
+                    : runs.map((existing, position) => (position === index ? agent : existing)),
         };
     });

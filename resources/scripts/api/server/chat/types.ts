@@ -15,6 +15,17 @@ export interface ChatToolCall {
     result?: { ok: boolean; [key: string]: unknown } | null;
 }
 
+export type AgentProgressStatus = 'running' | 'complete' | 'failed';
+
+export interface AgentProgress {
+    // The uuid of the assistant message the agent's work belongs to.
+    uuid: string;
+    key: string;
+    name: string;
+    status: AgentProgressStatus;
+    summary?: string | null;
+}
+
 export interface ChatMessage {
     uuid: string;
     // Set on the local echo of a message that has been typed but not yet
@@ -27,6 +38,12 @@ export interface ChatMessage {
     reasoning: string | null;
     status: ChatMessageStatus;
     toolCalls: ChatToolCall[];
+    // One entry per agent that worked on this message, updated as the `agent`
+    // stream events arrive.
+    // ponytail: agent runs are live-turn-only — they are never persisted in the
+    // message list, so a reload drops them. If runs ever become part of history
+    // this stays correct, only the source of the field changes.
+    agentRuns?: AgentProgress[];
     createdAt: Date;
 }
 
@@ -53,4 +70,5 @@ export interface ChatConfig {
     model: string | null;
     requiresConfirmation: boolean;
     tools: ChatTool[];
+    orchestration: boolean;
 }

@@ -21,7 +21,13 @@ import ChatMessageRow from '@/components/server/chat/ChatMessage';
 import ConversationList from '@/components/server/chat/ConversationList';
 import MessageComposer from '@/components/server/chat/MessageComposer';
 import PendingApproval from '@/components/server/chat/PendingApproval';
-import { applyDelta, applyToolCall, mergeMessages, optimisticMessage } from '@/components/server/chat/thread';
+import {
+    applyAgentRun,
+    applyDelta,
+    applyToolCall,
+    mergeMessages,
+    optimisticMessage,
+} from '@/components/server/chat/thread';
 import { useFlashKey } from '@/plugins/useFlash';
 import { Button } from '@/reviactyl/elements/button/index';
 import { ServerError } from '@/reviactyl/elements/ScreenBlock';
@@ -364,6 +370,7 @@ const ChatContainer = () => {
             updateThread(target, (current) => applyDelta(current, messageUuid, fragment));
         },
         onTool: (messageUuid, call) => updateThread(target, (current) => applyToolCall(current, messageUuid, call)),
+        onAgent: (messageUuid, agent) => updateThread(target, (current) => applyAgentRun(current, messageUuid, agent)),
         onStatus: () => setStreamingUuid(null),
         onDone: (incoming) => {
             outcome.reconciled = true;

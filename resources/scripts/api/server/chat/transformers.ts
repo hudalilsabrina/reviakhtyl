@@ -53,6 +53,7 @@ export interface RawChatConfig {
     model: string | null;
     requires_confirmation: boolean;
     tools?: RawChatTool[] | null;
+    orchestration: boolean;
 }
 
 export const rawDataToChatToolCall = (data: RawChatToolCall): ChatToolCall => ({
@@ -100,4 +101,5 @@ export const rawDataToChatConfig = (data: RawChatConfig): ChatConfig => ({
     model: data.model ?? null,
     requiresConfirmation: data.requires_confirmation,
     tools: (data.tools || []).map(rawDataToChatTool),
+    orchestration: data.orchestration,
 });

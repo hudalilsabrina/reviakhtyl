@@ -4,6 +4,7 @@ import { FaRobot, FaTriangleExclamation } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
 import { ChatMessage } from '@/api/server/chat/types';
+import AgentProgressChips from '@/components/server/chat/AgentProgressChips';
 import MessageActions from '@/components/server/chat/MessageActions';
 import MessageContent from '@/components/server/chat/MessageContent';
 import ReasoningDisclosure from '@/components/server/chat/ReasoningDisclosure';
@@ -39,7 +40,13 @@ const ChatMessageRow = ({ message, streaming = false, onRegenerate, onDelete }: 
     const isUser = message.role === 'user';
     const resolvedToolCalls = message.toolCalls.filter((toolCall) => toolCall.status !== 'pending');
 
-    if (!message.content && !message.reasoning && resolvedToolCalls.length === 0 && message.status !== 'failed') {
+    if (
+        !message.content &&
+        !message.reasoning &&
+        resolvedToolCalls.length === 0 &&
+        !message.agentRuns?.length &&
+        message.status !== 'failed'
+    ) {
         return null;
     }
 
@@ -55,6 +62,7 @@ const ChatMessageRow = ({ message, streaming = false, onRegenerate, onDelete }: 
             )}
             <div css={[tw`flex flex-col gap-1.5 min-w-0 max-w-full sm:max-w-[80%]`, isUser && tw`items-end`]}>
                 {message.reasoning && <ReasoningDisclosure reasoning={message.reasoning} />}
+                {message.agentRuns && message.agentRuns.length > 0 && <AgentProgressChips agents={message.agentRuns} />}
                 {resolvedToolCalls.length > 0 && (
                     <div css={tw`flex flex-wrap gap-1.5`}>
                         {resolvedToolCalls.map((toolCall) => (

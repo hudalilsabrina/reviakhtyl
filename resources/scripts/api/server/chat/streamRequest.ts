@@ -4,7 +4,7 @@ import {
     rawDataToChatMessage,
     rawDataToChatToolCall,
 } from '@/api/server/chat/transformers';
-import { ChatMessage, ChatToolCall } from '@/api/server/chat/types';
+import { AgentProgress, ChatMessage, ChatToolCall } from '@/api/server/chat/types';
 import { store } from '@/state';
 
 /**
@@ -20,6 +20,8 @@ export interface ChatStreamHandlers {
     onDelta?: (uuid: string, content: string) => void;
     /** A tool call on this message changed state. Upsert it by `call.id`. */
     onTool?: (uuid: string, call: ChatToolCall) => void;
+    /** An agent working on this message changed state. Upsert it by `key`. */
+    onAgent?: (uuid: string, agent: AgentProgress) => void;
     onStatus?: (status: ChatStreamStatus) => void;
     /** The authoritative message list for the exchange; replaces anything accumulated from deltas. */
     onDone?: (messages: ChatMessage[]) => void;
@@ -177,6 +179,11 @@ export const handleEvent = (event: ServerSentEvent, handlers: ChatStreamHandlers
         case 'tool':
             if (typeof payload.uuid === 'string' && payload.call) {
                 handlers.onTool?.(payload.uuid, rawDataToChatToolCall(payload.call as RawChatToolCall));
+            }
+            break;
+        case 'agent':
+            if (typeof payload.uuid === 'string' && typeof payload.agent === 'object' && payload.agent !== null) {
+                handlers.onAgent?.(payload.uuid, payload.agent as AgentProgress);
             }
             break;
         case 'status':

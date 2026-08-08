@@ -10,7 +10,7 @@ import streamRequest, {
     isStreamUnsupported,
 } from '@/api/server/chat/streamRequest';
 import { ChatMessage } from '@/api/server/chat/types';
-import { applyDelta, applyToolCall, mergeMessages } from '@/components/server/chat/thread';
+import { applyAgentRun, applyDelta, applyToolCall, mergeMessages } from '@/components/server/chat/thread';
 
 /** Feeds the parser a body split at the given offsets, returning everything it dispatched. */
 const parse = (chunks: string[]): ServerSentEvent[] => {
@@ -130,6 +130,7 @@ describe('handleEvent', () => {
             onMessage: (m) => calls.push(`message:${m.uuid}:${m.content ?? ''}`),
             onDelta: (uuid, content) => calls.push(`delta:${uuid}:${content}`),
             onTool: (uuid, call) => calls.push(`tool:${uuid}:${call.id}:${call.status}`),
+            onAgent: (uuid, agent) => calls.push(`agent:${uuid}:${agent.key}:${agent.status}`),
             onStatus: (status) => calls.push(`status:${status}`),
             onDone: (messages) => calls.push(`done:${messages.map((m) => m.uuid).join(',')}`),
             onError: (m) => calls.push(`error:${m}`),
@@ -167,6 +168,23 @@ describe('handleEvent', () => {
             'status:complete',
             'done:a,b',
         ]);
+    });
+
+    it('routes an agent event to its handler', () => {
+        const { calls, handlers } = collect();
+
+        handleEvent(
+            {
+                event: 'agent',
+                data: JSON.stringify({
+                    uuid: 'b',
+                    agent: { uuid: 'b', key: 'router', name: 'Router', status: 'running' },
+                }),
+            },
+            handlers
+        );
+
+        expect(calls).toEqual(['agent:b:router:running']);
     });
 
     it('reports a turn that ended in a refusal', () => {
@@ -389,6 +407,8 @@ describe('streamConfirmation', () => {
                 status: 'pending',
                 ok: null,
                 destructive: true,
+                arguments: {},
+                result: null,
             },
         ],
         createdAt: new Date('2026-07-26T12:00:00+00:00'),
@@ -564,5 +584,124 @@ describe('streamConfirmation', () => {
         // Replaying that against the blocking endpoint would fail the same way and hide why.
         expect(isStreamUnsupported(error)).toBe(false);
         expect((error as ChatStreamError).message).toBe('This message is no longer awaiting a decision.');
+    });
+});
+
+describe('agent events on a streamed turn', () => {
+    const assistant = (): ChatMessage => ({
+        uuid: 'assistant-1',
+        role: 'assistant',
+        content: '',
+        reasoning: null,
+        status: 'complete',
+        toolCalls: [],
+        createdAt: new Date('2026-07-26T12:00:00+00:00'),
+    });
+
+    const agent = (key: string, status: 'running' | 'complete' | 'failed', summary?: string | null) => ({
+        uuid: 'assistant-1',
+        key,
+        name: key === 'router' ? 'Router' : 'Scout',
+        status,
+        summary,
+    });
+
+    const apply = (thread: ChatMessage[], event: ServerSentEvent): ChatMessage[] => {
+        handleEvent(event, {
+            onAgent: (uuid, run) => {
+                thread = applyAgentRun(thread, uuid, run);
+            },
+        });
+        return thread;
+    };
+
+    it('upserts a run on the matching message and follows it to completion', () => {
+        let thread = [assistant()];
+
+        thread = apply(thread, {
+            event: 'agent',
+            data: JSON.stringify({ uuid: 'assistant-1', agent: agent('router', 'running') }),
+        });
+        thread = apply(thread, {
+            event: 'agent',
+            data: JSON.stringify({ uuid: 'assistant-1', agent: agent('router', 'complete', 'Delegated to 3 tools') }),
+        });
+
+        expect(thread[0]!.agentRuns).toEqual([
+            { uuid: 'assistant-1', key: 'router', name: 'Router', status: 'complete', summary: 'Delegated to 3 tools' },
+        ]);
+    });
+
+    it('ignores an agent event for a uuid with no matching message', () => {
+        const thread = [assistant()];
+
+        expect(() =>
+            apply(thread, {
+                event: 'agent',
+                data: JSON.stringify({ uuid: 'no-such-uuid', agent: agent('router', 'running') }),
+            })
+        ).not.toThrow();
+
+        expect(thread).toHaveLength(1);
+        expect(thread[0]!.agentRuns).toBeUndefined();
+    });
+
+    it('keeps separate runs for agents working on the same message', () => {
+        let thread = [assistant()];
+
+        thread = apply(thread, {
+            event: 'agent',
+            data: JSON.stringify({ uuid: 'assistant-1', agent: agent('router', 'running') }),
+        });
+        thread = apply(thread, {
+            event: 'agent',
+            data: JSON.stringify({ uuid: 'assistant-1', agent: agent('scout', 'running') }),
+        });
+
+        expect(thread[0]!.agentRuns!.map((run) => run.key)).toEqual(['router', 'scout']);
+    });
+
+    it('mixes agent events into a turn that ends with done', async () => {
+        stubStream([
+            frame('message', { message: message('a', 'user', 'hi') }),
+            frame('message', { message: message('b', 'assistant', null) }),
+            frame('agent', { uuid: 'b', agent: agent('router', 'running') }),
+            frame('agent', { uuid: 'b', agent: agent('scout', 'running') }),
+            frame('agent', { uuid: 'b', agent: agent('router', 'complete') }),
+            frame('delta', { uuid: 'b', content: 'Answer' }),
+            frame('status', { status: 'complete' }),
+            frame('done', {
+                messages: [message('a', 'user', 'hi'), message('b', 'assistant', 'Answer')],
+            }),
+        ]);
+
+        let thread: ChatMessage[] = [];
+        let done: ChatMessage[] = [];
+
+        await streamRequest(
+            '/api/client/servers/server-uuid/chat/conversations/conversation-uuid/messages/stream',
+            { content: 'hi' },
+            {
+                onMessage: (m) => {
+                    thread = mergeMessages(thread, [m]);
+                },
+                onAgent: (uuid, run) => {
+                    thread = applyAgentRun(thread, uuid, run);
+                },
+                onDelta: (uuid, fragment) => {
+                    thread = applyDelta(thread, uuid, fragment);
+                },
+                onDone: (messages) => {
+                    thread = mergeMessages(thread, messages);
+                    done = messages;
+                },
+            },
+            new AbortController().signal
+        );
+
+        expect(done).toHaveLength(2);
+        expect(thread[1]!.content).toBe('Answer');
+        // The authoritative `done` list carries no agent events, so the runs are gone.
+        expect(thread[1]!.agentRuns).toBeUndefined();
     });
 });
