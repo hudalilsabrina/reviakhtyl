@@ -120,7 +120,7 @@ class FileController extends ClientApiController
             if ($scan->isInfected()) {
                 throw new DisplayException("Uploaded file failed virus scan: {$scan->getSignature()}");
             }
-            if ($scan->isError() && config('panel.file_scan.strict')) {
+            if ($scan->isError() && $this->fileScanService->isStrict()) {
                 throw new DisplayException('File scanner error: '.$scan->getMessage());
             }
         }
@@ -283,19 +283,19 @@ class FileController extends ClientApiController
         );
 
         if (str_ends_with(strtolower($filename), '.jar')) {
-            $remotePath = $directory === '' ? '/'.$filename : $directory.'/'.$filename;
+            $directory = $directory === '' ? '/' : $directory;
+            $remotePath = $directory.'/'.$filename;
 
-            try {
-                $content = $this->fileRepository->setServer($server)->getContent($remotePath);
-            } catch (\Throwable $e) {
-                throw new DisplayException('Failed to verify pulled file: '.$e->getMessage());
-            }
+            $scan = $this->fileScanService->scanRemoteFile($this->fileRepository, $server, $remotePath);
 
-            $scan = $this->fileScanService->scanContent($content, $filename);
-            if ($scan->isInfected()) {
-                throw new DisplayException("Pulled file failed virus scan: {$scan->getSignature()}");
-            }
-            if ($scan->isError() && config('panel.file_scan.strict')) {
+            if ($scan->isInfected() || ($scan->isError() && $this->fileScanService->isStrict())
+                || ($scan->isError() && str_contains((string) $scan->getMessage(), 'Failed to fetch remote file'))) {
+                $this->fileRepository->setServer($server)->deleteFiles($directory, [$filename]);
+
+                if ($scan->isInfected()) {
+                    throw new DisplayException("Pulled file failed virus scan: {$scan->getSignature()}");
+                }
+
                 throw new DisplayException('File scanner error: '.$scan->getMessage());
             }
         }

@@ -56,13 +56,6 @@ const TabButton = styled.button<{ $active: boolean }>`
 
 const DatapacksContainer = () => {
     const { t } = useTranslation('server/datapacks');
-    console.log('[DEBUG] DatapacksContainer render, t:', typeof t, t ? 'loaded' : 'missing');
-    try {
-        const s = ServerContext.useStoreState((state) => state.server.data);
-        console.log('[DEBUG] server.data:', s);
-    } catch (e) {
-        console.log('[DEBUG] server.data threw:', e);
-    }
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
     const { addError, addFlash, clearFlashes } = useStoreActions(
         (actions: Actions<ApplicationStore>) => actions.flashes

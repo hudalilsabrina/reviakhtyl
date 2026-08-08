@@ -26,10 +26,15 @@ trait ScansRemoteJars
     private function assertCleanJarScan(Server $server, string $remotePath): void
     {
         $scan = app(FileScanService::class)->scanRemoteFile(app(DaemonFileRepository::class), $server, $remotePath);
-        if ($scan->isInfected()) {
-            throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
-        }
-        if ($scan->isError() && config('panel.file_scan.strict')) {
+
+        if ($scan->isInfected() || ($scan->isError() && app(FileScanService::class)->isStrict())
+            || ($scan->isError() && str_contains((string) $scan->getMessage(), 'Failed to fetch remote file'))) {
+            app(DaemonFileRepository::class)->setServer($server)->deleteFiles(dirname($remotePath), [basename($remotePath)]);
+
+            if ($scan->isInfected()) {
+                throw new DisplayException("Jar file failed virus scan: {$scan->getSignature()}");
+            }
+
             throw new DisplayException('File scanner error: '.$scan->getMessage());
         }
     }

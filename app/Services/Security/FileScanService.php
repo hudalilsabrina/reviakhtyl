@@ -94,7 +94,26 @@ class FileScanService
 
     private function isEnabled(): bool
     {
-        return $this->enabled && (bool) $this->settings->get('settings::panel:files:scan_enabled', false);
+        if (! $this->enabled) {
+            return false;
+        }
+
+        if ((bool) config('panel.file_scan.enabled', false)) {
+            return true;
+        }
+
+        return (bool) $this->settings->get('settings::panel:file_scan:enabled', false);
+    }
+
+    /**
+     * Whether scanner errors should fail closed (block the file) instead of
+     * passing the file through. Reads the strict flag from the env/config or
+     * the panel settings.
+     */
+    public function isStrict(): bool
+    {
+        return (bool) config('panel.file_scan.strict', false)
+            || (bool) $this->settings->get('settings::panel:file_scan:strict', false);
     }
 
     private function getProcessRunner(): ProcessRunner

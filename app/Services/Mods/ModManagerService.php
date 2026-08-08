@@ -281,10 +281,15 @@ class ModManagerService
     private function assertCleanScan(Server $server, string $remotePath): void
     {
         $scan = $this->fileScanService->scanRemoteFile($this->fileRepository, $server, $remotePath);
-        if ($scan->isInfected()) {
-            throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
-        }
-        if ($scan->isError() && config('panel.file_scan.strict')) {
+
+        if ($scan->isInfected() || ($scan->isError() && $this->fileScanService->isStrict())
+            || ($scan->isError() && str_contains((string) $scan->getMessage(), 'Failed to fetch remote file'))) {
+            $this->fileRepository->setServer($server)->deleteFiles(dirname($remotePath), [basename($remotePath)]);
+
+            if ($scan->isInfected()) {
+                throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
+            }
+
             throw new DisplayException('File scanner error: '.$scan->getMessage());
         }
     }

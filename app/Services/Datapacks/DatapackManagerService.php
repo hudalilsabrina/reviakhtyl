@@ -245,7 +245,7 @@ class DatapackManagerService
             throw new DisplayException('Download completed but file not found in /datapacks directory.');
         }
 
-        $this->assertCleanScan($server, '/datapacks/'.$version['file_name']);
+        $this->assertCleanScan($server, '/datapacks', $version['file_name']);
 
         // Verify pack.mcmeta exists; delete the bad ZIP if not found.
         if (! $this->zipService->hasPackMcmeta($server, $version['file_name'], self::MAX_SIZE)) {
@@ -255,13 +255,18 @@ class DatapackManagerService
         }
     }
 
-    private function assertCleanScan(Server $server, string $remotePath): void
+    private function assertCleanScan(Server $server, string $directory, string $fileName): void
     {
-        $scan = $this->fileScanService->scanRemoteFile($this->fileRepository, $server, $remotePath);
-        if ($scan->isInfected()) {
-            throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
-        }
-        if ($scan->isError() && config('panel.file_scan.strict')) {
+        $scan = $this->fileScanService->scanRemoteFile($this->fileRepository, $server, $directory.'/'.$fileName);
+
+        if ($scan->isInfected() || ($scan->isError() && $this->fileScanService->isStrict())
+            || ($scan->isError() && str_contains((string) $scan->getMessage(), 'Failed to fetch remote file'))) {
+            $this->fileRepository->setServer($server)->deleteFiles($directory, [$fileName]);
+
+            if ($scan->isInfected()) {
+                throw new DisplayException("Downloaded file failed virus scan: {$scan->getSignature()}");
+            }
+
             throw new DisplayException('File scanner error: '.$scan->getMessage());
         }
     }
