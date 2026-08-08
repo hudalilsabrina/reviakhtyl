@@ -13,28 +13,47 @@ Reviactyl Panel — fork of Pterodactyl. Laravel 13 + Filament v5 admin, React 1
 - `resources/scripts/reviactyl/` — Reviactyl's own UI layer (elements/ui/layouts), distinct from upstream Pterodactyl `components/`.
 - `extensions/` — Extensions API code; compiled via `resources/scripts/extensions/compile-extension.mjs`.
 - `routes/api-*.php` — API split: application, client, public, remote.
-- No `tests/` directory exists. PHP test setup (Pest) is declared in composer but no suite is present.
+- `app/helpers.php` — auto-loaded helper functions: `is_digit()`, `object_get_strict()`.
 - No CI workflows in repo.
+
+### Frontend path aliases (vite.config.ts + tsconfig.json)
+
+- `@` → `resources/scripts/`
+- `@definitions` → `resources/scripts/api/definitions/`
+- `@feature` → `resources/scripts/components/server/features/`
 
 ## Commands
 
 - Frontend: `pnpm install`, `pnpm run build` (prod assets → `public/build`), `pnpm run watch`, `pnpm dev` (HMR).
 - Verify TS: `pnpm tsc` (alias `tsc --noEmit`), `pnpm lint`, `pnpm test` (vitest).
-- Backend: `composer install`, `php artisan serve`.
+- Backend: `composer install`, `php artisan serve`, `php artisan migrate --force`.
 - Lint PHP: `composer pint:fix` (fix) / `composer pint:check` (check). Pint preset `laravel`, custom rule `new_with_parentheses.anonymous_class: false`.
 - Static analysis: `./vendor/bin/phpstan analyse` (level 5, `app/` only; `app/Livewire`, `app/Repositories` excluded).
 - Missing `public/build/manifest.json` → 500 error; run `pnpm run build` once.
+
+### Run a single test
+
+```bash
+pnpm vitest run path/to/test.spec.ts   # JS
+vendor/bin/pest --filter="TestName"    # PHP
+```
+
+## Tests
+
+- PHP: Pest (Unit + Feature suites in `phpunit.xml`). Uses in-memory SQLite (`:memory:`) with no migrations. **`tests/TestCase::setUp()` fails on any DB query** — tests must use mocks/fakes, never hit a real database.
+- JS: vitest with happy-dom environment. Test files match `**/*.{spec,test}.{ts,tsx}`.
 
 ## Feature docs
 
 Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
 
-- [`docs/subdomain/AGENTS.md`](docs/subdomain/AGENTS.md) — Cloudflare SRV-record subdomains (client API, service, admin, frontend).
-- [`docs/modular-startup/AGENTS.md`](docs/modular-startup/AGENTS.md) — Egg-defined toggle-able startup command fragments (`{{STARTUP_PARTS}}` placeholder).
-- [`docs/mods/AGENTS.md`](docs/mods/AGENTS.md) — Minecraft client-side mod installer (Modrinth integration, Fabric/Forge/NeoForge/Quilt).
-- [`docs/plugins/AGENTS.md`](docs/plugins/AGENTS.md) — Minecraft server plugin installer (Modrinth/Hangar/SpigotMC, multi-registry support).
-- [`docs/properties/AGENTS.md`](docs/properties/AGENTS.md) — Minecraft `server.properties` form editor (file-backed, no DB table).
-- [`docs/chatbot/AGENTS.md`](docs/chatbot/AGENTS.md) — AI assistant with tool calling (OpenAI-compatible provider, per-tool subuser permissions, destructive-action confirmation).
+- [`docs/chatbot/AGENTS.md`](docs/chatbot/AGENTS.md)
+- [`docs/datapacks/AGENTS.md`](docs/datapacks/AGENTS.md)
+- [`docs/mods/AGENTS.md`](docs/mods/AGENTS.md)
+- [`docs/modular-startup/AGENTS.md`](docs/modular-startup/AGENTS.md)
+- [`docs/plugins/AGENTS.md`](docs/plugins/AGENTS.md)
+- [`docs/properties/AGENTS.md`](docs/properties/AGENTS.md)
+- [`docs/subdomain/AGENTS.md`](docs/subdomain/AGENTS.md)
 
 ## Gotchas
 
@@ -42,3 +61,4 @@ Cross-cutting features have dedicated `AGENTS.md` files under `docs/<feature>/`:
 - composer platform pinned to PHP 8.3.
 - JS tests: vitest (not jest, despite jest deps in package.json — legacy). Config in `vite.config.ts`; when `VITEST` env is set, laravel plugin is skipped.
 - i18n: translations in `resources/lang/<locale>/` (PHP) and loaded client-side via i18next multiload backend.
+- `servers.id` is `int(10) unsigned` — foreign keys referencing it must use `->unsignedInteger()`.
