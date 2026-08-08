@@ -61,7 +61,7 @@ Registered in `config/chatbot.php`; each extends `App\Services\Chatbot\Tools\Cha
 | `server` | `get_server_details`, `get_server_resources`, `get_resource_history`, `get_activity_log` | — |
 | `power` | `power_action` | yes |
 | `console` | `send_console_command` | yes |
-| `files` | `list_files`, `read_file`, `write_file`, `create_folder`, `rename_files`, `copy_file`, `delete_files`, `compress_files`, `decompress_file` | write, rename, delete, decompress, copy, compress |
+| `files` | `list_files`, `read_file`, `write_file`, `edit_file`, `create_folder`, `rename_files`, `copy_file`, `delete_files`, `compress_files`, `decompress_file` | write, rename, delete, decompress, copy, compress, edit |
 | `subusers` | `list_subusers`, `list_subuser_permissions`, `create_subuser`, `update_subuser_permissions`, `delete_subuser` | create, update, delete |
 | `startup` | `get_startup`, `update_startup_variable`, `update_startup_parts` | the two updates |
 | `plugins` | `list_plugins`, `search_plugins`, `install_plugin`, `update_plugin`, `remove_plugin`, `toggle_plugin` | install, update, remove, toggle |

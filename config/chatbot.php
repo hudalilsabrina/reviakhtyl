@@ -20,6 +20,7 @@ use App\Services\Chatbot\Tools\Files\CopyFileTool;
 use App\Services\Chatbot\Tools\Files\CreateFolderTool;
 use App\Services\Chatbot\Tools\Files\DecompressFileTool;
 use App\Services\Chatbot\Tools\Files\DeleteFilesTool;
+use App\Services\Chatbot\Tools\Files\EditFileTool;
 use App\Services\Chatbot\Tools\Files\ListFilesTool;
 use App\Services\Chatbot\Tools\Files\ReadFileTool;
 use App\Services\Chatbot\Tools\Files\RenameFilesTool;
@@ -81,6 +82,7 @@ return [
         ListFilesTool::class,
         ReadFileTool::class,
         WriteFileTool::class,
+        EditFileTool::class,
         CreateFolderTool::class,
         RenameFilesTool::class,
         CopyFileTool::class,
