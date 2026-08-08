@@ -1104,6 +1104,8 @@ class Settings extends Page implements HasSchemas
             );
         }
 
+        Cache::forget('panel:mods:egg_ids_cache');
+        Cache::forget('panel:plugins:egg_ids_cache');
         Cache::forget('panel:datapacks:egg_ids_cache');
 
         try {

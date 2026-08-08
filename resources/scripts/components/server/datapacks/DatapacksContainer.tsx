@@ -179,6 +179,7 @@ const DatapacksContainer = () => {
 
     useEffect(() => {
         if (tab !== 'browse') return;
+        if (query.length === 0 && hits.length === 0) return;
         setSearching(true);
         const timer = setTimeout(() => doSearch(0), 350);
 
