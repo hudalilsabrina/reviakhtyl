@@ -74,6 +74,8 @@ class StartupModificationService
             $server = $server->forceFill([
                 'egg_id' => $egg->id,
                 'nest_id' => $egg->nest_id,
+                // Saved startup part choices reference part IDs of the previous egg.
+                'startup_parts' => null,
             ]);
         }
 

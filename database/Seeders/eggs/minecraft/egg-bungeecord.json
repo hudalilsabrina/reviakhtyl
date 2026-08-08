@@ -6,7 +6,7 @@
     },
     "exported_at": "2026-06-14T03:56:50+00:00",
     "name": "Bungeecord",
-    "image": "https:\/\/cdn.reviactyl.app\/@reviactyl\/eggs\/minecraft\/bungeecord.webp",
+    "image": "https://cdn.reviactyl.app/@reviactyl/eggs/minecraft/bungeecord.webp",
     "author": "authors@reviactyl.app",
     "description": "For a long time, Minecraft server owners have had a dream that encompasses a free, easy, and reliable way to connect multiple Minecraft servers together. BungeeCord is the answer to said dream. Whether you are a small server wishing to string multiple game-modes together, or the owner of the ShotBow Network, BungeeCord is the ideal solution for you. With the help of BungeeCord, you will be able to unlock your community's full potential.",
     "features": [
@@ -15,17 +15,17 @@
         "pid_limit"
     ],
     "docker_images": {
-        "Java 25": "ghcr.io\/reviactyl\/images:java_25",
-        "Java 21": "ghcr.io\/reviactyl\/images:java_21",
-        "Java 19": "ghcr.io\/reviactyl\/images:java_19",
-        "Java 18": "ghcr.io\/reviactyl\/images:java_18",
-        "Java 17": "ghcr.io\/reviactyl\/images:java_17",
-        "Java 16": "ghcr.io\/reviactyl\/images:java_16",
-        "Java 11": "ghcr.io\/reviactyl\/images:java_11",
-        "Java 8": "ghcr.io\/reviactyl\/images:java_8"
+        "Java 25": "ghcr.io/reviactyl/images:java_25",
+        "Java 21": "ghcr.io/reviactyl/images:java_21",
+        "Java 19": "ghcr.io/reviactyl/images:java_19",
+        "Java 18": "ghcr.io/reviactyl/images:java_18",
+        "Java 17": "ghcr.io/reviactyl/images:java_17",
+        "Java 16": "ghcr.io/reviactyl/images:java_16",
+        "Java 11": "ghcr.io/reviactyl/images:java_11",
+        "Java 8": "ghcr.io/reviactyl/images:java_8"
     },
     "file_denylist": [],
-    "startup": "java -Xms128M -XX:MaxRAMPercentage=95.0 -jar {{SERVER_JARFILE}}",
+    "startup": "java -Xms128M -XX:MaxRAMPercentage=95.0 {{STARTUP_PARTS}} -jar {{SERVER_JARFILE}}",
     "config": {
         "files": "{\r\n    \"config.yml\": {\r\n        \"parser\": \"yaml\",\r\n        \"find\": {\r\n            \"listeners[0].query_port\": \"{{server.build.default.port}}\",\r\n            \"listeners[0].host\": \"0.0.0.0:{{server.build.default.port}}\",\r\n            \"servers.*.address\": {\r\n                \"regex:^(127\\\\.0\\\\.0\\\\.1|localhost)(:\\\\d{1,5})?$\": \"{{config.docker.interface}}$2\"\r\n            }\r\n        }\r\n    }\r\n}",
         "startup": "{\r\n    \"done\": \"Listening on \"\r\n}",
@@ -34,8 +34,8 @@
     },
     "scripts": {
         "installation": {
-            "script": "#!\/bin\/ash\n# Bungeecord Installation Script\n#\n# Server Files: \/mnt\/server\n\ncd \/mnt\/server\n\nif [ -z \"${BUNGEE_VERSION}\" ] || [ \"${BUNGEE_VERSION}\" == \"latest\" ]; then\n    BUNGEE_VERSION=\"lastStableBuild\"\nfi\n\ncurl -o ${SERVER_JARFILE} https:\/\/hub.spigotmc.org\/jenkins\/job\/BungeeCord\/${BUNGEE_VERSION}\/artifact\/bootstrap\/target\/BungeeCord.jar",
-            "container": "ghcr.io\/reviactyl\/installers:alpine",
+            "script": "#!/bin/ash\n# Bungeecord Installation Script\n#\n# Server Files: /mnt/server\n\ncd /mnt/server\n\nif [ -z \"${BUNGEE_VERSION}\" ] || [ \"${BUNGEE_VERSION}\" == \"latest\" ]; then\n    BUNGEE_VERSION=\"lastStableBuild\"\nfi\n\ncurl -o ${SERVER_JARFILE} https://hub.spigotmc.org/jenkins/job/BungeeCord/${BUNGEE_VERSION}/artifact/bootstrap/target/BungeeCord.jar",
+            "container": "ghcr.io/reviactyl/installers:alpine",
             "entrypoint": "ash"
         }
     },
@@ -57,8 +57,64 @@
             "default_value": "bungeecord.jar",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|regex:\/^([\\w\\d._-]+)(\\.jar)$\/",
+            "rules": "required|regex:/^([\\w\\d._-]+)(\\.jar)$/",
             "field_type": "text"
+        }
+    ],
+    "startup_parts": [
+        {
+            "name": "UseG1GC",
+            "value": "-XX:+UseG1GC",
+            "description": "Use the G1 Garbage Collector for better performance.",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 0,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "ParallelRefProcEnabled",
+            "value": "-XX:+ParallelRefProcEnabled",
+            "description": "Enable parallel reference processing for GC.",
+            "default_enabled": true,
+            "required": false,
+            "sort_order": 1,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "MaxGCPauseMillis",
+            "value": "-XX:MaxGCPauseMillis=200",
+            "description": "Target max GC pause time in milliseconds.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 2,
+            "group_name": "Garbage Collection"
+        },
+        {
+            "name": "AlwaysPreTouch",
+            "value": "-XX:+AlwaysPreTouch",
+            "description": "Pre-touch memory pages during JVM initialization.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 3,
+            "group_name": "Performance"
+        },
+        {
+            "name": "DisableAttachMechanism",
+            "value": "-XX:+DisableAttachMechanism",
+            "description": "Disable the JVM attach mechanism for security.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 4,
+            "group_name": "Security"
+        },
+        {
+            "name": "UseAikarFlags",
+            "value": "-XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:TargetSurvivorRatio=90 -XX:G1MixedGCCountTarget=4",
+            "description": "Aikar's optimized G1GC tuning flags for Minecraft servers.",
+            "default_enabled": false,
+            "required": false,
+            "sort_order": 5,
+            "group_name": "Tuning"
         }
     ]
 }

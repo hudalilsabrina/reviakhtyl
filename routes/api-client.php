@@ -252,6 +252,7 @@ Route::group([
     Route::group(['prefix' => '/startup'], function () {
         Route::get('/', [Client\Servers\StartupController::class, 'index']);
         Route::put('/variable', [Client\Servers\StartupController::class, 'update']);
+        Route::put('/parts', [Client\Servers\StartupController::class, 'updateParts']);
     });
 
     Route::group(['prefix' => '/chat'], function () {

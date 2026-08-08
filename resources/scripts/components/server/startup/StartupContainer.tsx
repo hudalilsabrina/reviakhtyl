@@ -13,13 +13,17 @@ import Select from '@/reviactyl/elements/Select';
 import isEqual from 'react-fast-compare';
 import Input from '@/reviactyl/elements/Input';
 import setSelectedDockerImage from '@/api/server/setSelectedDockerImage';
+import updateStartupParts from '@/api/server/updateStartupParts';
 import InputSpinner from '@/reviactyl/elements/InputSpinner';
 import useFlash from '@/plugins/useFlash';
 import { useTranslation } from 'react-i18next';
+import Button from '@/reviactyl/elements/Button';
+import StartupPartsModal from '@/components/server/startup/StartupPartsModal';
 
 const StartupContainer = () => {
     const { t } = useTranslation('server/startup');
     const [loading, setLoading] = useState(false);
+    const [partsModalVisible, setPartsModalVisible] = useState(false);
     const { clearFlashes, clearAndAddHttpError } = useFlash();
 
     const uuid = ServerContext.useStoreState((state) => state.server.data!.uuid);
@@ -35,9 +39,28 @@ const StartupContainer = () => {
     const { data, error, isValidating, mutate } = getServerStartup(uuid, {
         ...variables,
         dockerImages: { [variables.dockerImage]: variables.dockerImage },
+        startupParts: [],
+        hasModularStartup: false,
     });
 
     const setServerFromState = ServerContext.useStoreActions((actions) => actions.server.setServerFromState);
+
+    const handleSaveParts = useCallback(
+        async (parts: { part_id: number; enabled: boolean }[]) => {
+            clearFlashes('startup:parts');
+
+            try {
+                const invocation = await updateStartupParts(uuid, parts);
+                setServerFromState((s) => ({ ...s, invocation }));
+                await mutate();
+            } catch (error) {
+                clearAndAddHttpError({ key: 'startup:parts', error });
+                throw error;
+            }
+        },
+        [uuid]
+    );
+
     const isCustomImage =
         data &&
         !Object.values(data.dockerImages)
@@ -93,6 +116,13 @@ const StartupContainer = () => {
                             {data.invocation}
                         </p>
                     </div>
+                    {data.hasModularStartup && (
+                        <div css={tw`mt-3`}>
+                            <Button size={'xsmall'} onClick={() => setPartsModalVisible(true)}>
+                                Customize Startup Parts
+                            </Button>
+                        </div>
+                    )}
                 </TitledGreyBox>
                 <TitledGreyBox title={t('docker-image')} css={tw`flex-1 lg:flex-none lg:w-1/3 mt-8 md:mt-0 md:ml-10`}>
                     {Object.keys(data.dockerImages).length > 1 && !isCustomImage ? (
@@ -126,6 +156,14 @@ const StartupContainer = () => {
                     <VariableBox key={variable.envVariable} variable={variable} />
                 ))}
             </div>
+            {data.hasModularStartup && (
+                <StartupPartsModal
+                    visible={partsModalVisible}
+                    onDismissed={() => setPartsModalVisible(false)}
+                    parts={data.startupParts}
+                    onSave={handleSaveParts}
+                />
+            )}
         </ServerContentBlock>
     );
 };

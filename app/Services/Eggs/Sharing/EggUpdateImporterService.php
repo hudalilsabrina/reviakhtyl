@@ -4,6 +4,7 @@ namespace App\Services\Eggs\Sharing;
 
 use App\Exceptions\Service\InvalidFileUploadException;
 use App\Models\Egg;
+use App\Models\EggStartupPart;
 use App\Models\EggVariable;
 use App\Services\Eggs\EggParserService;
 use Illuminate\Database\ConnectionInterface;
@@ -42,6 +43,21 @@ class EggUpdateImporterService
             $imported = array_map(fn ($value) => $value['env_variable'], $parsed['variables'] ?? []);
 
             $egg->variables()->whereNotIn('env_variable', $imported)->delete();
+
+            // Update existing startup parts or create new ones. Last occurrence wins on duplicate names.
+            $parsedParts = collect($parsed['startup_parts'] ?? [])->keyBy('name');
+
+            foreach ($parsedParts as $part) {
+                EggStartupPart::unguarded(function () use ($egg, $part) {
+                    $egg->startupParts()->updateOrCreate([
+                        'name' => $part['name'],
+                    ], Collection::make($part)->except('egg_id', 'name')->toArray());
+                });
+            }
+
+            $importedParts = $parsedParts->keys()->all();
+
+            $egg->startupParts()->whereNotIn('name', $importedParts)->delete();
 
             return $egg->refresh();
         });
