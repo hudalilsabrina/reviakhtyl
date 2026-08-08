@@ -56,17 +56,19 @@ class DatapackManagerService
             return $this->eggIdsCache;
         }
 
-        $value = $this->settings->get('settings::panel:datapacks:egg_ids', null);
+        return $this->eggIdsCache = Cache::remember('panel:datapacks:egg_ids_cache', now()->addHours(1), function () {
+            $value = $this->settings->get('settings::panel:datapacks:egg_ids', null);
 
-        if (empty($value)) {
-            return $this->eggIdsCache = [];
-        }
+            if (empty($value)) {
+                return [];
+            }
 
-        if (is_array($value)) {
-            return $this->eggIdsCache = array_map('intval', $value);
-        }
+            if (is_array($value)) {
+                return array_map('intval', $value);
+            }
 
-        return $this->eggIdsCache = array_map('intval', json_decode($value, true) ?: []);
+            return array_map('intval', json_decode($value, true) ?: []);
+        });
     }
 
     public function provider(string $name): DatapackProviderInterface

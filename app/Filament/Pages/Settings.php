@@ -34,6 +34,7 @@ use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Contracts\Console\Kernel;
 use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Mail\MailManager;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
@@ -1102,6 +1103,8 @@ class Settings extends Page implements HasSchemas
                 is_bool($value) ? ($value ? 'true' : 'false') : $value
             );
         }
+
+        Cache::forget('panel:datapacks:egg_ids_cache');
 
         try {
             $kernel->call('queue:restart');

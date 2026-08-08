@@ -85,14 +85,10 @@ const DatapacksContainer = () => {
     const loadAll = async () => {
         setLoading(true);
         try {
-            const [dp, untracked] = await Promise.all([
-                getServerDatapacks(uuid),
-                getUntrackedDatapacks(uuid),
-            ]);
+            const dp = await getServerDatapacks(uuid);
 
             setDatapacks(dp.datapacks);
             setGameVersion(dp.gameVersion);
-            setUntracked(untracked);
         } catch (error) {
             addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
         } finally {
@@ -101,9 +97,19 @@ const DatapacksContainer = () => {
         }
     };
 
+    const loadUntracked = async () => {
+        try {
+            const untracked = await getUntrackedDatapacks(uuid);
+            setUntracked(untracked);
+        } catch {
+            // Untracked fetch is best-effort; do not show errors
+        }
+    };
+
     useEffect(() => {
         if (loadedOnce.current) return;
         loadAll();
+        loadUntracked();
     }, []);
 
     const doSearch = async () => {
