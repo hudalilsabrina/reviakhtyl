@@ -200,6 +200,8 @@ class Server extends Model implements Identifiable
         'parent_id' => 'sometimes|nullable|integer|exists:servers,id',
         'split_limit' => 'sometimes|integer|min:0',
         'expires_at' => 'sometimes|nullable|date',
+        'hibernate_enabled' => 'sometimes|boolean',
+        'hibernate_idle_minutes' => 'sometimes|integer|min:10|max:10080',
     ];
 
     /**
