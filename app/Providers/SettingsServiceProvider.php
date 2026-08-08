@@ -41,6 +41,7 @@ class SettingsServiceProvider extends ServiceProvider
         'panel:auth:github_enabled',
         'panel:auth:github_client_id',
         'panel:auth:github_client_secret',
+        'panel:telegram:enabled',
         'captcha:provider',
         'captcha:recaptcha:secret_key',
         'captcha:recaptcha:website_key',

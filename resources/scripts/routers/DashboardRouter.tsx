@@ -46,6 +46,7 @@ const NavItem = ({ route }: Props) => {
 const DashboardNavigation = () => {
     const { t } = useTranslation('routes');
     const customSidebarButtons = useStoreState((state) => state.designify.data?.sidebarButtons ?? []);
+    const telegramEnabled = useStoreState((state) => state.settings.data?.telegramEnabled ?? false);
     const { data: extensionData } = useExtensions();
 
     const dashboardExtensionRoutes = (Array.isArray(extensionData) ? extensionData : []).flatMap((extension) =>
@@ -85,6 +86,7 @@ const DashboardNavigation = () => {
                     <span className='label'>{t('account.overview')}</span>
                     {routes.account
                         .filter((route) => !!route.name)
+                        .filter((route) => route.route !== 'telegram' || telegramEnabled)
                         .map((route) => (
                             <NavItem key={route.name} route={route} />
                         ))}

@@ -5,6 +5,7 @@ export interface SiteSettings {
     logo: string;
     locale: string;
     registrationEnabled: boolean;
+    telegramEnabled: boolean;
     captcha: {
         provider: 'none' | 'recaptcha' | 'turnstile';
         recaptcha: {
