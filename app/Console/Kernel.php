@@ -6,6 +6,7 @@ use App\Console\Commands\Maintenance\CleanServiceBackupFilesCommand;
 use App\Console\Commands\Maintenance\PruneOrphanedBackupsCommand;
 use App\Console\Commands\Schedule\ProcessRunnableCommand;
 use App\Console\Commands\Server\ExpireServersCommand;
+use App\Console\Commands\Server\HibernateServersCommand;
 use App\Exceptions\Model\DataValidationException;
 use App\Models\ActivityLog;
 use App\Repositories\Eloquent\SettingsRepository;
@@ -50,6 +51,8 @@ class Kernel extends ConsoleKernel
         }
 
         $schedule->command('server:capture-stats')->everyTenMinutes();
+
+        $schedule->command(HibernateServersCommand::class)->everyTenMinutes();
 
         $schedule->command(ExpireServersCommand::class)->hourly();
 
