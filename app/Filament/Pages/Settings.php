@@ -122,6 +122,7 @@ class Settings extends Page implements HasSchemas
         'panel:chatbot:history_limit',
         'panel:chatbot:context_tokens',
         'panel:chatbot:compaction',
+        'panel:chatbot:orchestration',
         'panel:chatbot:timeout',
         'panel:chatbot:require_confirmation',
         'panel:chatbot:system_prompt',
@@ -678,6 +679,16 @@ class Settings extends Page implements HasSchemas
                         ->onColor('success')
                         ->offColor('danger')
                         ->live()
+                        ->columnSpan(2),
+
+                    Toggle::make('panel:chatbot:orchestration')
+                        ->label('Orchestration (multi-agent routing)')
+                        ->helperText('When enabled, the assistant routes requests through a router agent that delegates to specialized sub-agents (files, server, power, startup, mods, subusers) instead of a single flat tool list. Requires a provider with tool calling, same as the base assistant. Falls back to the flat single-model loop when off.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
                         ->columnSpan(2),
 
                     TextInput::make('panel:chatbot:base_url')
