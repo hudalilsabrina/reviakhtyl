@@ -13,6 +13,7 @@ return [
         'overview' => 'Account Overview',
         'api' => 'API Keys',
         'ssh' => 'SSH Keys',
+        'telegram' => 'Telegram',
         'activity' => 'Activity',
     ],
     'server' => [
