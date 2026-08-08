@@ -112,21 +112,37 @@ export const installDatapack = async (
     slug?: string,
     replace = false
 ): Promise<ServerDatapack> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/datapacks`, {
-        provider,
-        project_id: projectId,
-        title,
-        icon_url: iconUrl,
-        version_id: versionId,
-        slug,
-        replace,
-    });
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/datapacks`,
+        {
+            provider,
+            project_id: projectId,
+            title,
+            icon_url: iconUrl,
+            version_id: versionId,
+            slug,
+            replace,
+        },
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like this datapack is taking a long time to download. Once completed the datapack will appear in your installed datapacks.',
+        }
+    );
 
     return rawDataToServerDatapack(data);
 };
 
 export const updateDatapack = async (uuid: string, datapackId: number): Promise<ServerDatapack> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/datapacks/${datapackId}/update`);
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/datapacks/${datapackId}/update`,
+        {},
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like this datapack is taking a long time to download. Once completed the datapack will be updated.',
+        }
+    );
 
     return rawDataToServerDatapack(data);
 };
@@ -196,9 +212,17 @@ export interface BulkOperationResult {
 }
 
 export const bulkUpdateDatapacks = async (uuid: string, datapackIds: number[]): Promise<BulkOperationResult> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/datapacks/bulk/update`, {
-        datapack_ids: datapackIds,
-    });
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/datapacks/bulk/update`,
+        {
+            datapack_ids: datapackIds,
+        },
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like these datapacks are taking a long time to download. Once completed they will be updated.',
+        }
+    );
     return data;
 };
 
