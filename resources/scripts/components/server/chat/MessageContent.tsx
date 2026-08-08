@@ -4,8 +4,9 @@ import tw from 'twin.macro';
 import Md2React from '@/reviactyl/ui/Md2React';
 
 const CodeBlock = styled.pre`
-    ${tw`font-mono text-xs bg-gray-950/70 border border-gray-800 rounded-ui px-3 py-2 my-2 overflow-x-auto`};
-    white-space: pre;
+    ${tw`font-mono text-xs bg-gray-950/70 border border-gray-800 rounded-ui px-3 py-2 my-2`};
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 `;
 
 const InlineCode = styled.code`

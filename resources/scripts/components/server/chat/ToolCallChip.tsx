@@ -44,7 +44,9 @@ const Chevron = styled(FaChevronDown)<{ $open: boolean }>`
 `;
 
 const ArgsBlock = styled.pre`
-    ${tw`text-2xs bg-gray-900/60 border border-gray-700/60 rounded-ui p-2 overflow-x-auto max-h-48`};
+    ${tw`text-2xs bg-gray-900/60 border border-gray-700/60 rounded-ui p-2 max-h-48`};
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 `;
 
 const ResultSuccess = styled.div`

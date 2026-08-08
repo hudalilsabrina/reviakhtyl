@@ -11,7 +11,7 @@ import ReasoningDisclosure from '@/components/server/chat/ReasoningDisclosure';
 import ToolCallChip from '@/components/server/chat/ToolCallChip';
 
 const Bubble = styled.div<{ $role: ChatMessage['role']; $failed: boolean; $pending?: boolean }>`
-    ${tw`rounded-ui border px-3 py-2 text-sm leading-relaxed max-w-full`};
+    ${tw`rounded-ui border px-3 py-2 text-sm leading-relaxed max-w-full break-words`};
 
     ${({ $role }) =>
         $role === 'user'
