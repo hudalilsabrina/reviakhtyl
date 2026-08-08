@@ -94,12 +94,13 @@ class OpenAiClient
      *
      * @param  array<int, array<string, mixed>>  $messages
      * @param  array<int, array<string, mixed>>  $tools
-     * @param  callable(string): void  $onText
+     * @param  callable(string): void  $onText  receives the visible answer as it streams
      * @param  string|null  $model  per-call model override; null uses the panel model
+     * @param  callable(string): void  $onReasoning  receives chain-of-thought as it streams, when the provider exposes it
      *
      * @throws ChatbotException
      */
-    public function stream(array $messages, array $tools, callable $onText, ?string $model = null): ChatCompletion
+    public function stream(array $messages, array $tools, callable $onText, ?string $model = null, ?callable $onReasoning = null): ChatCompletion
     {
         $payload = $this->payload($messages, $tools, $model) + ['stream' => true];
         $accumulator = new StreamAccumulator();
@@ -148,8 +149,14 @@ class OpenAiClient
                         continue;
                     }
 
-                    if ($text = $accumulator->push($decoded)) {
-                        $onText($text);
+                    $fragments = $accumulator->push($decoded);
+
+                    if ($fragments['content'] !== '') {
+                        $onText($fragments['content']);
+                    }
+
+                    if ($fragments['reasoning'] !== '' && $onReasoning) {
+                        $onReasoning($fragments['reasoning']);
                     }
                 }
             }

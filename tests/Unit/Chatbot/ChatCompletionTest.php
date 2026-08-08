@@ -264,3 +264,28 @@ it('ignores tool call entries that are not arrays', function () {
     expect($completion->toolCalls)->toHaveCount(1)
         ->and($completion->toolCalls[0]->name)->toBe('get_server_details');
 });
+
+it('forwards streamed reasoning and content fragments separately', function () {
+    $accumulator = new \App\Services\Chatbot\Data\StreamAccumulator();
+
+    $first = $accumulator->push([
+        'choices' => [['delta' => ['reasoning_content' => 'The logs show ']]],
+    ]);
+
+    $second = $accumulator->push([
+        'choices' => [['delta' => ['reasoning_content' => 'a stalled thread.', 'content' => 'I found it.']]],
+    ]);
+
+    $third = $accumulator->push([
+        'choices' => [['delta' => ['content' => ' The issue is the config.']]],
+    ]);
+
+    expect($first)->toBe(['content' => '', 'reasoning' => 'The logs show '])
+        ->and($second)->toBe(['content' => 'I found it.', 'reasoning' => 'a stalled thread.'])
+        ->and($third)->toBe(['content' => ' The issue is the config.', 'reasoning' => '']);
+
+    $completion = $accumulator->toCompletion();
+
+    expect($completion->content)->toBe('I found it. The issue is the config.')
+        ->and($completion->reasoning)->toBe('The logs show a stalled thread.');
+});

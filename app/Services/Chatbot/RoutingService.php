@@ -138,9 +138,17 @@ class RoutingService
 
             try {
                 // Sub-agent work is deliberately not streamed in v1: only the
-                // router's own visible text is, and it streams via the flat
-                // path's placeholder+delta contract.
-                $completion = $this->client->chat($providerMessages, $definitions);
+                // router's own visible text and thinking are, via the same
+                // placeholder+delta contract as the flat loop.
+                $completion = $emit
+                    ? $this->client->stream(
+                        $providerMessages,
+                        $definitions,
+                        fn (string $text) => $emit('delta', ['uuid' => $placeholder->uuid, 'content' => $text]),
+                        null,
+                        fn (string $reasoning) => $emit('reasoning', ['uuid' => $placeholder->uuid, 'content' => $reasoning]),
+                    )
+                    : $this->client->chat($providerMessages, $definitions);
             } catch (ChatbotException $e) {
                 $failed = $this->persistAssistant($conversation, $placeholder, [
                     'content' => $e->getMessage(),

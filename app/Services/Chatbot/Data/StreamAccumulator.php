@@ -26,12 +26,13 @@ class StreamAccumulator
     private array $usage = [];
 
     /**
-     * Folds one streamed chunk in, returning the text fragment it contributed
-     * so the caller can forward it to the client immediately.
+     * Folds one streamed chunk in, returning the fragments it contributed so the
+     * caller can forward them to the client immediately.
      *
      * @param  array<string, mixed>  $chunk
+     * @return array{content: string, reasoning: string}
      */
-    public function push(array $chunk): string
+    public function push(array $chunk): array
     {
         if (isset($chunk['usage']) && is_array($chunk['usage'])) {
             $this->usage = $chunk['usage'];
@@ -40,7 +41,7 @@ class StreamAccumulator
         $choice = $chunk['choices'][0] ?? null;
 
         if (! is_array($choice)) {
-            return '';
+            return ['content' => '', 'reasoning' => ''];
         }
 
         if (! empty($choice['finish_reason'])) {
@@ -50,12 +51,15 @@ class StreamAccumulator
         $delta = $choice['delta'] ?? [];
 
         if (! is_array($delta)) {
-            return '';
+            return ['content' => '', 'reasoning' => ''];
         }
+
+        $reasoning = '';
 
         foreach (['reasoning_content', 'reasoning'] as $key) {
             if (isset($delta[$key]) && is_string($delta[$key])) {
                 $this->reasoning .= $delta[$key];
+                $reasoning .= $delta[$key];
             }
         }
 
@@ -68,12 +72,12 @@ class StreamAccumulator
         $text = $delta['content'] ?? null;
 
         if (! is_string($text) || $text === '') {
-            return '';
+            return ['content' => '', 'reasoning' => $reasoning];
         }
 
         $this->content .= $text;
 
-        return $text;
+        return ['content' => $text, 'reasoning' => $reasoning];
     }
 
     /**

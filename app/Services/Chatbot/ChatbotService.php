@@ -283,6 +283,8 @@ class ChatbotService
                         $providerMessages,
                         $definitions,
                         fn (string $text) => $emit('delta', ['uuid' => $placeholder->uuid, 'content' => $text]),
+                        null,
+                        fn (string $reasoning) => $emit('reasoning', ['uuid' => $placeholder->uuid, 'content' => $reasoning]),
                     )
                     : $this->client->chat($providerMessages, $definitions);
             } catch (ChatbotException $e) {

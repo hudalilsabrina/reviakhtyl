@@ -10,7 +10,7 @@ import streamRequest, {
     isStreamUnsupported,
 } from '@/api/server/chat/streamRequest';
 import { ChatMessage } from '@/api/server/chat/types';
-import { applyAgentRun, applyDelta, applyToolCall, mergeMessages } from '@/components/server/chat/thread';
+import { applyAgentRun, applyDelta, applyReasoning, applyToolCall, mergeMessages } from '@/components/server/chat/thread';
 
 /** Feeds the parser a body split at the given offsets, returning everything it dispatched. */
 const parse = (chunks: string[]): ServerSentEvent[] => {
@@ -704,5 +704,48 @@ describe('agent events on a streamed turn', () => {
         expect(thread[1]!.content).toBe('Answer');
         // The authoritative `done` list carries no agent events, so the runs are gone.
         expect(thread[1]!.agentRuns).toBeUndefined();
+    });
+});
+
+describe('reasoning events on a streamed turn', () => {
+    const assistant = (): ChatMessage => ({
+        uuid: 'assistant-1',
+        role: 'assistant',
+        content: '',
+        reasoning: null,
+        status: 'complete',
+        toolCalls: [],
+        createdAt: new Date('2026-07-26T12:00:00+00:00'),
+    });
+
+    it('appends reasoning fragments to the matching message', () => {
+        let thread = [assistant()];
+
+        handleEvent({ event: 'reasoning', data: JSON.stringify({ uuid: 'assistant-1', content: 'The logs show ' }) }, {
+            onReasoning: (uuid, fragment) => {
+                thread = applyReasoning(thread, uuid, fragment);
+            },
+        });
+        handleEvent({ event: 'reasoning', data: JSON.stringify({ uuid: 'assistant-1', content: 'a stalled thread.' }) }, {
+            onReasoning: (uuid, fragment) => {
+                thread = applyReasoning(thread, uuid, fragment);
+            },
+        });
+
+        expect(thread[0]!.reasoning).toBe('The logs show a stalled thread.');
+        // Reasoning never touches the visible answer.
+        expect(thread[0]!.content).toBe('');
+    });
+
+    it('ignores a reasoning event for a uuid with no matching message', () => {
+        const thread = [assistant()];
+
+        expect(() =>
+            handleEvent({ event: 'reasoning', data: JSON.stringify({ uuid: 'no-such-uuid', content: 'x' }) }, {
+                onReasoning: (uuid, fragment) => {
+                    applyReasoning(thread, uuid, fragment);
+                },
+            })
+        ).not.toThrow();
     });
 });

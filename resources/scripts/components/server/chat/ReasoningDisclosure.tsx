@@ -25,6 +25,8 @@ const Body = styled.div`
 
 interface Props {
     reasoning: string;
+    /** When the turn is streaming, the reasoning is shown as it arrives. */
+    streaming?: boolean;
 }
 
 /**
@@ -32,20 +34,27 @@ interface Props {
  *
  * It is kept out of the answer on purpose: it is often long, frequently
  * contradicts itself before arriving somewhere, and is not something a user
- * should have to read to get their answer.
+ * should have to read to get their answer. While a turn is streaming it is
+ * shown open instead — a live read of what the model is doing beats a spinner.
  */
-const ReasoningDisclosure = ({ reasoning }: Props) => {
+const ReasoningDisclosure = ({ reasoning, streaming = false }: Props) => {
     const { t } = useTranslation('server/chat');
     const [open, setOpen] = useState(false);
 
+    const visible = open || streaming;
+
     return (
         <div css={tw`w-full`}>
-            <Toggle type={'button'} onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+            <Toggle
+                type={'button'}
+                onClick={() => setOpen((value) => !value)}
+                aria-expanded={visible}
+            >
                 <FaBrain css={tw`w-2.5 h-2.5`} />
-                <span>{open ? t('thinking-hide') : t('thinking-show')}</span>
-                <Chevron $open={open} />
+                <span>{visible ? t('thinking-hide') : t('thinking-show')}</span>
+                <Chevron $open={visible} />
             </Toggle>
-            {open && <Body>{reasoning}</Body>}
+            {visible && <Body>{reasoning}</Body>}
         </div>
     );
 };

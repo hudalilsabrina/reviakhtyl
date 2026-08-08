@@ -51,6 +51,12 @@ export const applyDelta = (messages: ChatMessage[], uuid: string, fragment: stri
         message.uuid === uuid ? { ...message, content: (message.content ?? '') + fragment } : message
     );
 
+/** Appends a streamed chain-of-thought fragment to the message it belongs to. */
+export const applyReasoning = (messages: ChatMessage[], uuid: string, fragment: string): ChatMessage[] =>
+    messages.map((message) =>
+        message.uuid === uuid ? { ...message, reasoning: (message.reasoning ?? '') + fragment } : message
+    );
+
 /** Upserts a tool call by id — a call is announced when proposed and again once it has run. */
 export const applyToolCall = (messages: ChatMessage[], uuid: string, call: ChatToolCall): ChatMessage[] =>
     messages.map((message) => {

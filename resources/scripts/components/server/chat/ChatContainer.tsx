@@ -24,6 +24,7 @@ import PendingApproval from '@/components/server/chat/PendingApproval';
 import {
     applyAgentRun,
     applyDelta,
+    applyReasoning,
     applyToolCall,
     mergeMessages,
     optimisticMessage,
@@ -141,6 +142,16 @@ const ChatContainer = () => {
     const [threadRevision, setThreadRevision] = useState(0);
 
     const busy = activity !== 'idle';
+
+    // The message currently streaming has visible content (thinking or answer
+    // text), so the generic "working…" row would be redundant — hide it.
+    const streamingMessageVisible =
+        streamingUuid !== null &&
+        messages.some(
+            (message) =>
+                message.uuid === streamingUuid &&
+                (message.content?.length || message.reasoning?.length),
+        );
 
     const threadRef = useRef<HTMLDivElement>(null);
     // Conversations we opened ourselves already have their (empty) state in memory; re-fetching
@@ -368,6 +379,10 @@ const ChatContainer = () => {
         onDelta: (messageUuid, fragment) => {
             setStreamingUuid(messageUuid);
             updateThread(target, (current) => applyDelta(current, messageUuid, fragment));
+        },
+        onReasoning: (messageUuid, fragment) => {
+            setStreamingUuid(messageUuid);
+            updateThread(target, (current) => applyReasoning(current, messageUuid, fragment));
         },
         onTool: (messageUuid, call) => updateThread(target, (current) => applyToolCall(current, messageUuid, call)),
         onAgent: (messageUuid, agent) => updateThread(target, (current) => applyAgentRun(current, messageUuid, agent)),
@@ -629,8 +644,10 @@ const ChatContainer = () => {
 
                         {/* The one thing on screen for the whole of a turn: it is already showing
                             when the approval panel takes itself away on the decision landing, and
-                            stays until the last word of the reply has streamed in. */}
-                        {activity !== 'idle' && (
+                            stays until the last word of the reply has streamed in. It is only
+                            worth showing while nothing visible has arrived yet — live thinking or
+                            an in-flight answer already say what the assistant is doing. */}
+                        {activity !== 'idle' && !streamingMessageVisible && (
                             <div css={tw`flex items-center gap-2 text-xs text-gray-400 px-1`} role={'status'}>
                                 <Dot $delay={'0s'} />
                                 <Dot $delay={'0.2s'} />

@@ -18,6 +18,8 @@ export interface ChatStreamHandlers {
     onMessage?: (message: ChatMessage) => void;
     /** Append a text fragment to the message with this uuid. Fragments arrive in order. */
     onDelta?: (uuid: string, content: string) => void;
+    /** Append a chain-of-thought fragment to the message with this uuid. Fragments arrive in order. */
+    onReasoning?: (uuid: string, content: string) => void;
     /** A tool call on this message changed state. Upsert it by `call.id`. */
     onTool?: (uuid: string, call: ChatToolCall) => void;
     /** An agent working on this message changed state. Upsert it by `key`. */
@@ -174,6 +176,11 @@ export const handleEvent = (event: ServerSentEvent, handlers: ChatStreamHandlers
         case 'delta':
             if (typeof payload.uuid === 'string' && typeof payload.content === 'string') {
                 handlers.onDelta?.(payload.uuid, payload.content);
+            }
+            break;
+        case 'reasoning':
+            if (typeof payload.uuid === 'string' && typeof payload.content === 'string') {
+                handlers.onReasoning?.(payload.uuid, payload.content);
             }
             break;
         case 'tool':

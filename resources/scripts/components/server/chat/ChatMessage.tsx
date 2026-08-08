@@ -61,7 +61,7 @@ const ChatMessageRow = ({ message, streaming = false, onRegenerate, onDelete }: 
                 </Avatar>
             )}
             <div css={[tw`flex flex-col gap-1.5 min-w-0 max-w-full sm:max-w-[80%]`, isUser && tw`items-end`]}>
-                {message.reasoning && <ReasoningDisclosure reasoning={message.reasoning} />}
+                {message.reasoning && <ReasoningDisclosure reasoning={message.reasoning} streaming={streaming} />}
                 {message.agentRuns && message.agentRuns.length > 0 && <AgentProgressChips agents={message.agentRuns} />}
                 {resolvedToolCalls.length > 0 && (
                     <div css={tw`flex flex-wrap gap-1.5`}>
