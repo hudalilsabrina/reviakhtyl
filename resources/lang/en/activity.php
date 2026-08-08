@@ -140,6 +140,15 @@ return [
             'update-raw' => 'Replaced the contents of server.properties',
             'eula' => 'Accepted the Minecraft EULA',
         ],
+        'datapack' => [
+            'install' => 'Installed the :datapack datapack',
+            'update' => 'Updated the :datapack datapack',
+            'delete' => 'Removed the :datapack datapack',
+            'toggle' => 'Toggled the :datapack datapack',
+            'link' => 'Linked :datapack to a registry for updates',
+            'bulk-update' => 'Updated :count datapacks',
+            'bulk-delete' => 'Removed :count datapacks',
+        ],
         'startup' => [
             'edit' => 'Changed the :variable variable from ":old" to ":new"',
             'image' => 'Updated the Docker Image for the server from :old to :new',
