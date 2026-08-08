@@ -12,7 +12,7 @@ of it, and every rule there that is reused is linked, not restated.
 ## Why, in one paragraph
 
 Today a single model gets one giant flat tool list and one all-purpose system prompt every
-turn (`ChatbotService::run()`, `chat/AGENTS.md:245`). That has three costs:
+turn (`ChatbotService::run()`, `chat/AGENTS.md:78`). That has three costs:
 
 1. **Context bloat** — every turn sends definitions for ~50 tools, most irrelevant to the
    request, and a system prompt that must cater to all of them.
@@ -37,14 +37,14 @@ narrow **sub-agents**, each with a small tool list it is already good at.
  │  small tools  │                                         │  only file    │  compress/rename/
  │  cheap model  │        ┌────────────────────┐           │  tools        │  copy/delete
  └───────────────┘  ─────▶│                    │           └───────────────┘
-      │   │        result │  SERVER-OPS AGENT  │          ┌───────────────┐
-      │   └──────────────▶│  power/console/    │          │   MODS AGENT  │
-      │                   │  logs/resources    │          │  plugin+mods  │
-      │  composes final   └───────────┬────────┘          └───────────────┘
-      ▼   answer                      │                   ┌───────────────┐
- user sees                            └──────────────────▶│  LIFECYCLE     │
-                                                        │  startup/sched │
-                                                        └───────────────┘
+      │   │        result │   SERVER AGENT     │          ┌───────────────┐
+      │   └──────────────▶│  server/backups/   │          │   MODS AGENT  │
+      │                   │  databases/        │          │  plugin+mods  │
+      │  composes final   │  schedules         │          └───────────────┘
+      ▼   answer          └───────────┬────────┘          ┌───────────────┐
+ user sees                            └──────────────────▶│  POWER AGENT  │
+                                                         │  power/console│
+                                                         └───────────────┘
 ```
 
 Additional optional tiers (not in v1): a **guardrail agent** standing in front of every
@@ -58,13 +58,30 @@ Everything below either already exists or is a strict reuse. Map:
 | Concern | Flat today | Orchestra |
 |---|---|---|
 | Loop | `ChatbotService::run()` (`chat/AGENTS.md:78`) | same loop reused for router *and* each sub-agent |
-| Permissions | `ToolRegistry::availableFor()` → `ToolContext::can()/canAll()` (`chat/AGENTS.md:46, 7`) | unchanged; reused verbatim |
+| Permissions | `ToolRegistry::availableFor()` → `ToolContext::can()/canAll()` (`chat/AGENTS.md:7, 34`) | unchanged; reused verbatim |
 | Tool result framing | `renderForProvider()` / `digestToolResult()` (`chat/AGENTS.md:92`) | unchanged at the sub-agent level |
 | Confirmation | `resolveConfirmation()` + `status=awaiting_confirmation` (`chat/AGENTS.md:79`) | extended — the router must resolve sub-agent chains too (`nested confirm`, below) |
 | Streaming | `run($emit)` + `StreamAccumulator` (`chat/AGENTS.md:80–82`) | reused per agent; router composes sub-agent transcripts |
 | Compaction | `ChatbotSettings` + `summarizeDropped()` (`chat/AGENTS.md:93`) | unchanged at conversation level; per-agent internal history relies on tool digest only |
 | Turn serialization | `withTurnLock()` (`chat/AGENTS.md:98`) | unchanged |
 | Token windowing | `selectHistory()` (`chat/AGENTS.md:91`) | unchanged at conversation level |
+
+### Plumbing that must change (not just reuse)
+
+Two existing pieces are single-model-shaped and need surgery before orchestration works:
+
+- **`OpenAiClient` hardcodes one model.** `payload()` (`OpenAiClient.php:69-84`) reads
+  `$this->settings->model()` for every call, and `chat()`/`stream()` pass no model down. A
+  per-agent model override means threading a `?string $model` (and per-role temperature, if
+  desired) through `payload()`, `chat()`, `stream()`. `ChatbotSettings::keys()` has no
+  `router_model` or per-agent keys yet — new `panel:chatbot:*` keys are required.
+- **`SystemPromptBuilder` is one-assistant-shaped.** `build()` (`SystemPromptBuilder.php:17`)
+  receives the full available tool set and emits "You are the server assistant… use tools to
+  find things out". The **router** must instead get a prompt describing the delegation model,
+  the agent names, and its read-only role (its only tool is `delegate()`); the **sub-agents**
+  need the existing safety rules (lines 51-55) but with their narrow capabilities. The doc
+  should specify a `buildForRouter()`/`buildForAgent()` split that reuses the shared safety
+  block verbatim.
 
 ## Sub-agents as a declared concept
 
@@ -76,7 +93,7 @@ Add `app/Services/Chatbot/Agents/` with one class per sub-agent. Each declares:
 - **`model()`?** — optional per-agent model override (defaults to panel model).
 - **`can(RoutingContext)`** — true only when the requesting user passes `Gate` checks for
   *at least one* tool in its groups; an agent offering nothing to this user is not routable
-  to them (`chat/AGENTS.md:46`).
+  to them (`chat/AGENTS.md:7, 34`).
 
 The router's tool definitions are **not** the server-tool list. The router's single custom
 tool is `delegate(request, to_agent_ids, context_budget)`. It never holds a handle to any
