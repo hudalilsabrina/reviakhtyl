@@ -39,9 +39,11 @@ class SettingsController extends ClientApiController
     {
         $name = $request->input('name');
         $description = $request->has('description') ? (string) $request->input('description') : $server->description;
+        $icon = $request->has('icon') ? $request->input('icon') : $server->icon;
         $this->repository->update($server->id, [
             'name' => $name,
             'description' => $description,
+            'icon' => $icon,
         ]);
 
         if ($server->name !== $name) {
@@ -53,6 +55,12 @@ class SettingsController extends ClientApiController
         if ($server->description !== $description) {
             Activity::event('server:settings.description')
                 ->property(['old' => $server->description, 'new' => $description])
+                ->log();
+        }
+
+        if ($server->icon !== $icon) {
+            Activity::event('server:settings.icon')
+                ->property(['old' => $server->icon, 'new' => $icon])
                 ->log();
         }
 

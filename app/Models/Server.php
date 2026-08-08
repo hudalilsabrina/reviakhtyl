@@ -177,6 +177,7 @@ class Server extends Model implements Identifiable
         'external_id' => 'sometimes|nullable|string|between:1,191|unique:servers',
         'owner_id' => 'required|integer|exists:users,id',
         'name' => 'required|string|min:1|max:191',
+        'icon' => 'sometimes|nullable|string|max:191',
         'node_id' => 'required|exists:nodes,id',
         'description' => 'string',
         'status' => 'nullable|string',

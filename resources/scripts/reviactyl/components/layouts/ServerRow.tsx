@@ -116,7 +116,7 @@ export default ({
             )}
             <StatusIndicatorBox as={Link} to={`/server/${server.id}`} className={className} $status={stats?.status}>
                 <div css={tw`flex items-center col-span-12 sm:col-span-5 lg:col-span-6`}>
-                    <img src={server.eggImage ? server.eggImage : '/reviactyl/icon.png'} className='h-10 w-10 mr-4' />
+                    <img src={server.icon || server.eggImage || '/reviactyl/icon.png'} className='h-10 w-10 mr-4' />
                     <div>
                         <Title css={tw`text-lg break-words`}>{server.name}</Title>
                         <div css={tw`flex items-center gap-2 flex-wrap`}>

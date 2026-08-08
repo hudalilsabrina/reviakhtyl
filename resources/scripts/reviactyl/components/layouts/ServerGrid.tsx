@@ -90,7 +90,7 @@ export default ({
             <Link to={`/server/${server.id}/`} className={className}>
                 <Card className='!p-6 relative overflow-hidden'>
                     <img
-                        src={server.eggImage || '/reviactyl/icon.png'}
+                        src={server.icon || server.eggImage || '/reviactyl/icon.png'}
                         className={`absolute right-4 top-1/2 -translate-y-1/2 h-[120px] w-[120px] opacity-20 pointer-events-none select-none`}
                     />
                     <div className='flex items-center justify-between pb-5 gap-x-2'>

@@ -19,6 +19,8 @@ return [
         'title' => 'Change Server Details',
         'name' => 'Server Name',
         'description' => 'Server Description',
+        'icon' => 'Server Icon URL',
+        'icon-description' => 'Leave empty to use the default egg image.',
         'button' => 'Save',
     ],
     'reinstall' => [

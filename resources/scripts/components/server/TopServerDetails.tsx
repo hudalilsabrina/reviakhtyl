@@ -48,6 +48,7 @@ const TopServerDetails = () => {
 
     const [showStats, setShowStats] = useState(false);
     const name = ServerContext.useStoreState((state) => state.server.data?.name);
+    const server = ServerContext.useStoreState((state) => state.server.data!);
     const id = ServerContext.useStoreState((state) => state.server.data!.id);
     const status = ServerContext.useStoreState((state) => state.status.value);
     const connected = ServerContext.useStoreState((state) => state.socket.connected);
@@ -103,6 +104,11 @@ const TopServerDetails = () => {
             <Card className={`!p-4 !px-8 mx-auto`}>
                 <UtilContainer>
                     <div className={'flex items-center gap-x-3'}>
+                        <img
+                            src={server.icon || server.eggImage || '/reviactyl/icon.png'}
+                            onError={(e) => ((e.target as HTMLImageElement).style.display = 'none')}
+                            className={'h-14 w-14 object-cover rounded-ui border border-gray-700'}
+                        />
                         <Title className='text-3xl truncate flex-1 max-w-[400px]' title={name}>
                             {name}
                         </Title>
