@@ -118,6 +118,8 @@ class ServerTransformer extends BaseClientTransformer
                 'allocations' => $server->allocation_limit,
                 'backups' => $server->backup_limit,
             ],
+            'split_limit' => $server->split_limit,
+            'split_allowed' => $server->canSplit(),
             'status' => $server->status,
             // This field is deprecated, please use "status".
             'is_suspended' => $server->isSuspended(),

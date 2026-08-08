@@ -75,6 +75,8 @@ interface ServerRouteDefinition extends RouteDefinition {
     nestIds?: number[];
     eggIds?: number[];
     eggFeature?: string;
+    // Requires the server to have at least one split slot configured (split_limit > 0).
+    splitSlots?: boolean;
 }
 
 interface Routes {
@@ -254,6 +256,7 @@ export default {
             {
                 route: 'splitter/*',
                 permission: null,
+                splitSlots: true,
                 name: 'server.splitter',
                 component: SplitterContainer,
                 icon: FaCodeBranch,
