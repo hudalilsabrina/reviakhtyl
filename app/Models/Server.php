@@ -525,16 +525,6 @@ class Server extends Model implements Identifiable
     }
 
     /**
-     * Returns datapacks installed on this server through the datapack installer.
-     *
-     * @return HasMany<ServerDatapack, $this>
-     */
-    public function datapacks(): HasMany
-    {
-        return $this->hasMany(ServerDatapack::class);
-    }
-
-    /**
      * Returns the parent server this server was split from, if any.
      *
      * @return BelongsTo<Server, $this>

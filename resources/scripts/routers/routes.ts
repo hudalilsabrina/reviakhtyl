@@ -246,14 +246,6 @@ export default {
                 icon: FaCube,
             },
             {
-                route: 'datapacks/*',
-                permission: 'datapack.*',
-                eggFeature: 'datapacks',
-                name: 'server.datapacks',
-                component: () => import('@/components/server/datapacks/DatapacksContainer'),
-                icon: FaCube,
-            },
-            {
                 route: 'splitter/*',
                 permission: null,
                 splitSlots: true,

@@ -208,28 +208,6 @@ Route::group([
         Route::delete('/{mod}', [Client\Servers\ModController::class, 'destroy']);
     });
 
-    Route::group(['prefix' => '/datapacks'], function () {
-        Route::get('/', [Client\Servers\DatapackController::class, 'index']);
-        Route::get('/search', [Client\Servers\DatapackController::class, 'search']);
-        Route::get('/versions', [Client\Servers\DatapackController::class, 'versions']);
-        Route::middleware('throttle:api.datapacks')
-            ->get('/untracked', [Client\Servers\DatapackController::class, 'untracked']);
-        Route::middleware('throttle:api.datapacks')
-            ->post('/register', [Client\Servers\DatapackController::class, 'register']);
-        Route::middleware('throttle:api.datapacks')
-            ->post('/', [Client\Servers\DatapackController::class, 'store']);
-        Route::middleware('throttle:api.datapacks')
-            ->post('/bulk/update', [Client\Servers\DatapackController::class, 'bulkUpdate']);
-        Route::middleware('throttle:api.datapacks')
-            ->delete('/bulk', [Client\Servers\DatapackController::class, 'bulkDestroy']);
-        Route::middleware('throttle:api.datapacks')
-            ->patch('/{datapack}/update', [Client\Servers\DatapackController::class, 'update']);
-        Route::middleware('throttle:api.datapacks')
-            ->post('/{datapack}/link', [Client\Servers\DatapackController::class, 'link']);
-        Route::post('/{datapack}/toggle', [Client\Servers\DatapackController::class, 'toggle']);
-        Route::delete('/{datapack}', [Client\Servers\DatapackController::class, 'destroy']);
-    });
-
     Route::group(['prefix' => '/users'], function () {
         Route::get('/', [Client\Servers\SubuserController::class, 'index']);
         Route::middleware([ResourceLimit::Subuser->middleware()])

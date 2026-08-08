@@ -101,8 +101,6 @@ class Permission extends Model
 
     public const ACTION_MOD_MANAGE = 'mod.manage';
 
-    public const ACTION_DATAPACK_MANAGE = 'datapack.manage';
-
     public const ACTION_PROPERTIES_MANAGE = 'properties.manage';
 
     /**
@@ -265,13 +263,6 @@ class Permission extends Model
             'description' => 'Permissions that control a user\'s access to the mod installer for this server.',
             'keys' => [
                 'manage' => 'Allows a user to search, install, update, and remove Minecraft mods on this server.',
-            ],
-        ],
-
-        'datapack' => [
-            'description' => 'Permissions that control a user\'s access to the datapack installer for this server.',
-            'keys' => [
-                'manage' => 'Allows a user to search, install, update, and remove Minecraft datapacks on this server.',
             ],
         ],
 
