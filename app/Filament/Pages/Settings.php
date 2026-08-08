@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Enum\ChatbotToolGroup;
 use App\Filament\Components\ImageInput;
+use App\Jobs\InstallClamavJob;
 use App\Models\Egg;
 use App\Notifications\MailTested;
 use App\Services\Chatbot\OpenAiClient;
@@ -12,6 +13,7 @@ use App\Services\Telegram\TelegramBotService;
 use App\Traits\Helpers\AvailableLanguages;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -873,7 +875,7 @@ class Settings extends Page implements HasSchemas
                 ]),
 
             Section::make('File Scanning')
-                ->description('Optional antivirus scanning for JAR/ZIP uploads and downloads using clamscan. Requires clamav installed on the Panel server.')
+                ->description('Optional antivirus scanning for JAR/ZIP uploads and downloads using clamscan. If clamav is not installed yet, use the button below to install it on this server.')
                 ->columns(2)
                 ->schema([
                     Toggle::make('panel:file_scan:enabled')
@@ -891,6 +893,27 @@ class Settings extends Page implements HasSchemas
                         ->helperText('Block files when the scanner itself fails (fail closed). Otherwise scanner errors are ignored. Can also be enabled with the PANEL_FILE_SCAN_STRICT env var.')
                         ->inline(false)
                         ->columnSpan(2),
+
+                    Placeholder::make('clamav_status')
+                        ->label('clamav')
+                        ->content(fn () => $this->clamavStatusLabel())
+                        ->columnSpan(2),
+
+                    Actions::make([
+                        Action::make('install_clamav')
+                            ->label(fn () => $this->clamavInstallLabel())
+                            ->icon('tabler-shield-check')
+                            ->action('installClamav')
+                            ->color('success')
+                            ->visible(fn () => ! $this->clamavInstalled())
+                            ->disabled(fn () => $this->clamavStatus() === 'installing'),
+
+                        Action::make('check_clamav_status')
+                            ->label('Check status')
+                            ->icon('tabler-refresh')
+                            ->action('checkClamavStatus')
+                            ->color('gray'),
+                    ])->columnSpan(2),
                 ]),
 
             Section::make('Server Properties')
@@ -1134,6 +1157,103 @@ class Settings extends Page implements HasSchemas
             ->body($body)
             ->success()
             ->send();
+    }
+
+    public function installClamav(): void
+    {
+        if ($this->clamavInstalled()) {
+            Notification::make()
+                ->title('clamav is already installed')
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        $settings = app(SettingsRepositoryInterface::class);
+        $settings->set('settings::panel:file_scan:clamav_status', 'installing');
+        $settings->set('settings::panel:file_scan:clamav_message', 'Installation started in the background.');
+
+        InstallClamavJob::dispatch()->onQueue('high');
+
+        Notification::make()
+            ->title('clamav installation started')
+            ->body('The installation runs in the background. Click "Check status" in a few minutes to see the result.')
+            ->success()
+            ->send();
+
+        $this->dispatch('$refresh');
+    }
+
+    public function checkClamavStatus(): void
+    {
+        $settings = app(SettingsRepositoryInterface::class);
+        $status = $settings->get('settings::panel:file_scan:clamav_status', 'unknown');
+        $message = $settings->get('settings::panel:file_scan:clamav_message', '');
+
+        if ($this->clamavInstalled()) {
+            Notification::make()
+                ->title('clamav is installed')
+                ->body($message ?: null)
+                ->success()
+                ->send();
+        } elseif ($status === 'installing') {
+            Notification::make()
+                ->title('clamav is still installing')
+                ->body('The background installation has not finished yet. Check again in a few minutes.')
+                ->warning()
+                ->send();
+        } elseif ($status === 'failed') {
+            Notification::make()
+                ->title('clamav installation failed')
+                ->body($message)
+                ->danger()
+                ->send();
+        } else {
+            Notification::make()
+                ->title('clamav is not installed')
+                ->body('Click "Install clamav" to install it on this server.')
+                ->warning()
+                ->send();
+        }
+
+        $this->dispatch('$refresh');
+    }
+
+    private function clamavInstalled(): bool
+    {
+        return is_file('/usr/bin/clamscan');
+    }
+
+    private function clamavStatus(): string
+    {
+        return (string) app(SettingsRepositoryInterface::class)->get('settings::panel:file_scan:clamav_status', 'unknown');
+    }
+
+    private function clamavStatusLabel(): string
+    {
+        $settings = app(SettingsRepositoryInterface::class);
+        $status = $settings->get('settings::panel:file_scan:clamav_status', 'unknown');
+        $message = (string) $settings->get('settings::panel:file_scan:clamav_message', '');
+
+        if ($this->clamavInstalled()) {
+            return 'Installed — '.($message !== '' ? $message : 'clamscan is available on this server.');
+        }
+
+        if ($status === 'installing') {
+            return 'Installing… the virus definitions download may take a few minutes.';
+        }
+
+        if ($status === 'failed') {
+            return 'Install failed — '.($message !== '' ? $message : 'Run the install again to see the error.');
+        }
+
+        return 'Not installed.';
+    }
+
+    private function clamavInstallLabel(): string
+    {
+        return $this->clamavStatus() === 'installing' ? 'Installing clamav…' : 'Install clamav';
     }
 
     protected function getHeaderActions(): array
