@@ -106,6 +106,13 @@ class RouteConfigServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($key);
         });
 
+        // Datapack installs/updates hit external registries and Wings pulls.
+        RateLimiter::for('api.datapacks', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinute(10)->by($key);
+        });
+
         // Every properties write is a read plus a write against Wings, and the
         // save button is easy to lean on.
         RateLimiter::for('api.properties', function (Request $request) {
