@@ -3,9 +3,12 @@ import tw from 'twin.macro';
 import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
-import { FaCheck, FaCircle } from 'react-icons/fa6';
+import { FaCheck, FaCircle, FaDownload, FaListUl, FaMagnifyingGlass, FaCube, FaTrash } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
+import Select from '@/reviactyl/elements/Select';
+import { Button } from '@/reviactyl/elements/button/index';
+import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
 import Modal from '@/reviactyl/elements/Modal';
 import FlashMessageRender from '@/components/FlashMessageRender';
 import { ServerContext } from '@/state/server';
@@ -16,40 +19,101 @@ import {
     getDatapackVersions,
     getServerDatapacks,
     installDatapack,
+    linkDatapack,
     searchDatapacks,
+    ServerDatapack,
+    DatapackHit,
+    DatapackProvider,
+    DatapackSort,
     toggleDatapack,
     updateDatapack,
     getUntrackedDatapacks,
     registerDatapack,
-    DatapackHit,
-    ServerDatapack,
-    DatapackProvider,
-    DatapackSort,
     UntrackedZip,
+    bulkUpdateDatapacks,
+    bulkDeleteDatapacks,
 } from '@/api/server/datapacks/datapacks';
-import { ProgressBar } from './ProgressBar';
-import { InstalledTab } from './InstalledTab';
-import { BrowseTab } from './BrowseTab';
-import { VersionPickerModal } from './VersionPickerModal';
-import { useProgress } from './useProgress';
 
-const TabsContainer = styled.div<{ $active: boolean }>`
-    ${tw`flex items-center justify-between mb-4`};
-    ${({ $active }) => $active && tw`mb-0`};
+const Card = styled.div`
+    ${tw`bg-gray-900 border border-gray-800 rounded-ui p-3 sm:p-4 flex gap-3 sm:gap-4 transition-colors duration-150 hover:border-gray-700`}
 `;
 
-const TabList = styled.div`
-    ${tw`flex items-center gap-1 p-1 bg-gray-900/70 border border-gray-800 rounded-ui w-auto`}
+const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' | 'manual' }>`
+    ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded`}
+    font-size: 10px;
+
+    ${(props) =>
+        props.$variant === 'manual' &&
+        css`
+            ${tw`bg-blue-600/30 text-blue-200`};
+        `}
+    ${(props) =>
+        props.$variant === 'provider' &&
+        css`
+            ${tw`bg-gray-700/70 text-gray-300`};
+        `}
+    ${(props) =>
+        props.$variant === 'disabled' &&
+        css`
+            ${tw`bg-yellow-600/30 text-yellow-200`};
+        `}
+    ${(props) =>
+        props.$variant === 'installed' &&
+        css`
+            background-color: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+        `}
 `;
 
-const TabButton = styled.button<{ $active: boolean }>`
-    ${tw`px-3 py-1.5 rounded text-sm font-medium transition-colors duration-150`}
+const ProgressBar = styled.div`
+    height: 4px;
+    border-radius: 9999px;
+    background-color: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
 
-    ${({ $active }) =>
-        $active
-            ? tw`bg-gray-700 text-white shadow-sm`
-            : tw`text-gray-400 hover:text-gray-200 hover:bg-gray-800/60`}
+    & > div {
+        height: 100%;
+        border-radius: 9999px;
+        background-color: #4ade80;
+        transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
 `;
+
+const useProgress = (active: boolean) => {
+    const [width, setWidth] = useState(0);
+
+    useEffect(() => {
+        if (!active) {
+            setWidth(0);
+            return;
+        }
+        setWidth(10);
+        const timer = setInterval(() => setWidth((w) => (w >= 90 ? w : w + (90 - w) * 0.08 + 1)), 400);
+
+        return () => clearInterval(timer);
+    }, [active]);
+
+    return width;
+};
+
+const DatapackIcon = ({ url }: { url: string | null }) =>
+    url ? (
+        <img src={url} alt={''} css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui object-cover flex-shrink-0`} />
+    ) : (
+        <div
+            css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0`}
+        >
+            <FaCube css={tw`text-gray-500 text-lg`} />
+        </div>
+    );
 
 const DatapacksContainer = () => {
     const { t } = useTranslation('server/datapacks');
@@ -58,124 +122,111 @@ const DatapacksContainer = () => {
         (actions: Actions<ApplicationStore>) => actions.flashes
     );
 
-    const [tab, setTab] = useState<'installed' | 'browse'>('installed');
+    const [tab, setTab] = useState<'installed' | 'browse'>('browse');
     const [loading, setLoading] = useState(true);
     const [datapacks, setDatapacks] = useState<ServerDatapack[]>([]);
-    const [_gameVersion, setGameVersion] = useState<string | null>(null);
-    const [untracked, setUntracked] = useState<UntrackedZip[]>([]);
-    const [hits, setHits] = useState<DatapackHit[]>([]);
-    const [_total, setTotal] = useState(0);
+    const [gameVersion, setGameVersion] = useState<string | null>(null);
+
     const [provider, setProvider] = useState<DatapackProvider>('modrinth');
     const [sort, setSort] = useState<DatapackSort>('relevance');
     const [query, setQuery] = useState('');
+    const [hits, setHits] = useState<DatapackHit[]>([]);
+    const [total, setTotal] = useState(0);
     const [searching, setSearching] = useState(false);
-    const [busy, setBusy] = useState<string | null>(null);
 
-    // Install progress state
+    const [busy, setBusy] = useState<string | null>(null);
     const [installing, setInstalling] = useState<{ title: string; step: number; version?: string } | null>(null);
+    const [confirmRemove, setConfirmRemove] = useState<ServerDatapack | null>(null);
+    const [versionsFor, setVersionsFor] = useState<DatapackHit | null>(null);
+    const [versions, setVersions] = useState<any[] | null>(null);
+    const [installedRow, setInstalledRow] = useState<string | null>(null);
+    const [untracked, setUntracked] = useState<UntrackedZip[]>([]);
+    const [trackJar, setTrackJar] = useState<UntrackedZip | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [bulkOperation, setBulkOperation] = useState<{
+        type: 'update' | 'delete';
+        progress: number;
+        total: number;
+    } | null>(null);
+    const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
 
-    // Version picker state
-    const [selectedHit, setSelectedHit] = useState<DatapackHit | null>(null);
-    const [versions, setVersions] = useState<any[] | null>(null);
-    const [_versionsLoading, setVersionsLoading] = useState(false);
-
-    const loadedOnce = useRef(false);
-
-    const loadAll = async () => {
-        setLoading(true);
-        try {
-            const dp = await getServerDatapacks(uuid);
-
-            setDatapacks(dp.datapacks);
-            setGameVersion(dp.gameVersion);
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setLoading(false);
-            loadedOnce.current = true;
-        }
-    };
-
-    const loadUntracked = async () => {
-        try {
-            const untracked = await getUntrackedDatapacks(uuid);
-            setUntracked(untracked);
-        } catch {
-            // Untracked fetch is best-effort; do not show errors
-        }
-    };
-
     useEffect(() => {
-        if (loadedOnce.current) return;
-        loadAll();
-        loadUntracked();
+        clearFlashes('server:datapacks');
+        getServerDatapacks(uuid)
+            .then((data) => {
+                setDatapacks(data.datapacks);
+                setGameVersion(data.gameVersion);
+            })
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => setLoading(false));
     }, []);
 
-    const doSearch = async () => {
+    const doSearch = (offset = 0, term = query) => {
+        const id = ++searchId.current;
         setSearching(true);
-        try {
-            const result = await searchDatapacks(uuid, provider, query, 0, sort);
-            setHits(result.hits);
-            setTotal(result.total);
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setSearching(false);
-        }
+        searchDatapacks(uuid, provider, term, offset, sort)
+            .then((data) => {
+                if (id !== searchId.current) return;
+                setHits(offset === 0 ? data.hits : (prev) => [...prev, ...data.hits]);
+                setTotal(data.total);
+            })
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => id === searchId.current && setSearching(false));
     };
 
-    const doInstall = async (hit: DatapackHit) => {
-        setBusy(`install:${hit.id}`);
-        setInstalling({ title: hit.title, step: 0 });
+    useEffect(() => setHits([]), [provider, sort]);
+
+    useEffect(() => {
+        if (tab !== 'browse') return;
+        setSearching(true);
+        const timer = setTimeout(() => doSearch(0), 350);
+
+        return () => clearTimeout(timer);
+    }, [tab, provider, sort, query]);
+
+    useEffect(() => {
+        if (tab !== 'installed') return;
+        getUntrackedDatapacks(uuid)
+            .then(setUntracked)
+            .catch(() => setUntracked([]));
+    }, [tab]);
+
+    const track = (zip: UntrackedZip) => {
+        setBusy(`track:${zip.file_name}`);
         clearFlashes('server:datapacks');
-
-        try {
-            // Fetch the latest version to know version_number
-            const versionData = await getDatapackVersions(uuid, provider, hit.id);
-            const latest = versionData.versions[0];
-
-            const installed = await installDatapack(uuid, {
-                provider,
-                projectId: hit.id,
-                title: hit.title,
-                iconUrl: hit.iconUrl ?? undefined,
-                versionId: latest.id,
-                slug: hit.slug,
-            });
-
-            setDatapacks((prev) => [...prev, installed]);
-            setHits((prev) =>
-                prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: installed.versionNumber } : h))
-            );
-            setInstalling((prev) => (prev ? { ...prev, step: 3, version: installed.versionNumber } : prev));
-
-            addFlash({
-                type: 'success',
-                key: 'server:datapacks',
-                message: t('install_success', { title: installed.title, version: installed.versionNumber }) ?? '',
-            });
-
-            setTimeout(() => setInstalling(null), 1600);
-        } catch (error) {
-            if (!handleInstallError(error)) {
-                addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-                setInstalling(null);
-            }
-        } finally {
-            setBusy(null);
-        }
+        registerDatapack(uuid, {
+            file_name: zip.file_name,
+            title: zip.title,
+            slug: zip.slug,
+            version: zip.pack_format ? String(zip.pack_format) : 'unknown',
+        })
+            .then((dp) => {
+                setDatapacks((prev) => [...prev, dp]);
+                setUntracked((prev) => prev.filter((z) => z.file_name !== zip.file_name));
+                setTrackJar(null);
+                addFlash({
+                    type: 'success',
+                    key: 'server:datapacks',
+                    message: t('track_success', { title: dp.title }) ?? '',
+                });
+            })
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => setBusy(null));
     };
 
-    const handleInstallError = (error: any): boolean => {
-        if (error?.response?.status === 409) {
-            const detail = error.response.data?.errors?.[0]?.detail ?? '';
+    const [replaceConflict, setReplaceConflict] = useState<{
+        provider: string;
+        title: string;
+        retry: () => void;
+    } | null>(null);
 
-            addFlash({
-                type: 'error',
-                key: 'server:datapacks',
-                message: detail || 'A conflicting datapack is already installed.',
-            });
+    const handleInstallError = (error: any, retry: () => void) => {
+        const err = error?.response?.data?.errors?.[0];
+        if (error?.response?.status === 409 && err?.code === 'CrossProviderDuplicate') {
+            setInstalling(null);
+            setBusy(null);
+            setReplaceConflict({ provider: err.meta.provider, title: err.meta.title, retry });
 
             return true;
         }
@@ -183,205 +234,712 @@ const DatapacksContainer = () => {
         return false;
     };
 
-    const doUpdate = async (datapack: ServerDatapack) => {
-        setBusy(`update-${datapack.id}`);
-        try {
-            const updated = await updateDatapack(uuid, datapack.id);
-            setDatapacks((prev) =>
-                prev.map((dp) => (dp.id === updated.id ? updated : dp))
-            );
-            addFlash({
-                type: 'success',
-                key: 'server:datapacks',
-                message: t('update_success', { title: updated.title, version: updated.versionNumber }) ?? '',
-            });
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-        }
+    const doInstall = (hit: DatapackHit, versionId?: string, step = 0, replace = false) => {
+        setBusy(`install:${hit.id}`);
+        setInstalling({ title: hit.title, step: versionId ? Math.max(step, 1) : step });
+        clearFlashes('server:datapacks');
+        installDatapack(uuid, {
+            provider,
+            projectId: hit.id,
+            title: hit.title,
+            iconUrl: hit.iconUrl ?? undefined,
+            versionId,
+            slug: hit.slug,
+            replace,
+        })
+            .then((dp) => {
+                if (versionId) setInstalledRow(versionId);
+                setInstalling({ title: hit.title, step: 3, version: dp.versionNumber });
+                setDatapacks((prev) => [...prev.filter((p) => p.id !== dp.id), dp]);
+                setHits((prev) =>
+                    prev.map((h) => (h.id === hit.id ? { ...h, installedVersion: dp.versionNumber } : h))
+                );
+                addFlash({
+                    type: 'success',
+                    key: 'server:datapacks',
+                    message: t('install_success', { title: dp.title, version: dp.versionNumber }) ?? '',
+                });
+                setTimeout(() => setInstalling(null), 1600);
+            })
+            .catch((error) => {
+                if (!handleInstallError(error, () => doInstall(hit, versionId, step, true))) {
+                    addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
+                    setInstalling(null);
+                }
+            })
+            .finally(() => setBusy(null));
     };
 
-    const doToggle = async (datapack: ServerDatapack) => {
-        setBusy(`toggle-${datapack.id}`);
-        try {
-            const toggled = await toggleDatapack(uuid, datapack.id);
-            setDatapacks((prev) =>
-                prev.map((dp) => (dp.id === toggled.id ? toggled : dp))
-            );
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-        }
+    const install = (hit: DatapackHit) => {
+        setBusy(`install:${hit.id}`);
+        setInstalling({ title: hit.title, step: 0 });
+        clearFlashes('server:datapacks');
+        getDatapackVersions(uuid, provider, hit.id)
+            .then(({ versions: vs }) => {
+                const latest = vs[0];
+
+                setInstalling({ title: hit.title, step: 1 });
+                doInstall(hit, latest?.id, 1);
+            })
+            .catch((error) => {
+                addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
+                setInstalling(null);
+                setBusy(null);
+            });
     };
 
-    const doRemove = async (datapack: ServerDatapack) => {
-        if (!confirm(t('delete_confirm', { title: datapack.title }))) {
-            return;
-        }
-
-        setBusy(`delete-${datapack.id}`);
-        try {
-            await deleteDatapack(uuid, datapack.id);
-            setDatapacks((prev) => prev.filter((dp) => dp.id !== datapack.id));
-            addFlash({
-                type: 'success',
-                key: 'server:datapacks',
-                message: t('delete_success', { title: datapack.title }) ?? '',
-            });
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-        }
-    };
-
-    const doTrack = async (zip: UntrackedZip) => {
-        setBusy(`track:${zip.file_name}`);
-        try {
-            const registered = await registerDatapack(uuid, {
-                file_name: zip.file_name,
-                title: zip.title,
-                slug: zip.slug,
-                version: zip.pack_format ? String(zip.pack_format) : 'unknown',
-            });
-            setDatapacks((prev) => [...prev, registered]);
-            setUntracked((prev) => prev.filter((z) => z.file_name !== zip.file_name));
-            addFlash({
-                type: 'success',
-                key: 'server:datapacks',
-                message: t('track_success', { title: registered.title }) ?? '',
-            });
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-        }
-    };
-
-    const openVersions = async (hit: DatapackHit) => {
-        setSelectedHit(hit);
-        setVersionsLoading(true);
+    const openVersions = (hit: DatapackHit) => {
+        setVersionsFor(hit);
         setVersions(null);
-        try {
-            const data = await getDatapackVersions(uuid, provider, hit.id);
-            setVersions(data.versions);
-        } catch {
-            addError({ key: 'server:datapacks', message: t('versions_error') ?? '' });
-        } finally {
-            setVersionsLoading(false);
-        }
+        setInstalledRow(null);
+        getDatapackVersions(uuid, provider, hit.id)
+            .then(({ versions: vs }) => {
+                setVersions(vs);
+            })
+            .catch((error) => {
+                addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
+                setVersionsFor(null);
+            });
     };
+
+    const mutate = (key: string, action: Promise<ServerDatapack>) => {
+        setBusy(key);
+        clearFlashes('server:datapacks');
+        action
+            .then((dp) => setDatapacks((prev) => prev.map((p) => (p.id === dp.id ? dp : p))))
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => setBusy(null));
+    };
+
+    const runUpdate = (dp: ServerDatapack) => {
+        setBusy(`update:${dp.id}`);
+        setInstalling({ title: dp.title, step: 0 });
+        clearFlashes('server:datapacks');
+        getDatapackVersions(uuid, dp.provider, dp.projectId)
+            .then(({ versions: vs }) => {
+                if (!vs[0] || vs[0].id === dp.versionId) {
+                    addError({ key: 'server:datapacks', message: t('up_to_date') ?? '' });
+                    setInstalling(null);
+                    setBusy(null);
+                    return;
+                }
+                setInstalling({ title: dp.title, step: 1 });
+                updateDatapack(uuid, dp.id)
+                    .then((p) => {
+                        setInstalling({ title: dp.title, step: 3, version: p.versionNumber });
+                        setDatapacks((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+                        addFlash({
+                            type: 'success',
+                            key: 'server:datapacks',
+                            message: t('update_success', { title: p.title, version: p.versionNumber }) ?? '',
+                        });
+                        setTimeout(() => setInstalling(null), 1600);
+                    })
+                    .catch((error) => {
+                        addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
+                        setInstalling(null);
+                    })
+                    .finally(() => setBusy(null));
+            })
+            .catch((error) => {
+                addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
+                setInstalling(null);
+                setBusy(null);
+            });
+    };
+
+    const remove = (dp: ServerDatapack) => {
+        setBusy(`delete:${dp.id}`);
+        clearFlashes('server:datapacks');
+        deleteDatapack(uuid, dp.id)
+            .then(() => setDatapacks((prev) => prev.filter((p) => p.id !== dp.id)))
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => {
+                setBusy(null);
+                setConfirmRemove(null);
+            });
+    };
+
+    const doLink = (dp: ServerDatapack) => {
+        setBusy(`link:${dp.id}`);
+        clearFlashes('server:datapacks');
+        linkDatapack(uuid, dp.id, {
+            provider,
+            projectId: dp.projectId,
+            title: dp.title,
+            slug: dp.projectId,
+        })
+            .then((linked) => {
+                setDatapacks((prev) => prev.map((p) => (p.id === linked.id ? linked : p)));
+                addFlash({
+                    type: 'success',
+                    key: 'server:datapacks',
+                    message: t('link_success', { title: linked.title }) ?? '',
+                });
+            })
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => setBusy(null));
+    };
+
+    const toggleSelection = (id: number) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (!next.delete(id)) next.add(id);
+
+            return next;
+        });
+    };
+
+    const selectAll = () => {
+        setSelectedIds(new Set(datapacks.filter((d) => d.provider !== 'manual').map((d) => d.id)));
+    };
+
+    const clearSelection = () => setSelectedIds(new Set());
+
+    const runBulkUpdate = () => {
+        const ids = Array.from(selectedIds);
+        setBulkOperation({ type: 'update', progress: 0, total: ids.length });
+        clearFlashes('server:datapacks');
+        bulkUpdateDatapacks(uuid, ids)
+            .then((result) => {
+                result.success.forEach((item) => {
+                    setDatapacks((prev) =>
+                        prev.map((d) =>
+                            d.id === item.id ? { ...d, versionNumber: item.version || d.versionNumber } : d
+                        )
+                    );
+                });
+                if (result.success.length > 0) {
+                    addFlash({
+                        type: 'success',
+                        key: 'server:datapacks',
+                        message:
+                            t('bulk_update_success', { count: result.success.length }) ??
+                            `Updated ${result.success.length} datapacks`,
+                    });
+                }
+                if (result.failed.length > 0) {
+                    addError({
+                        key: 'server:datapacks',
+                        message:
+                            t('bulk_update_failed', { count: result.failed.length }) ??
+                            `Failed to update ${result.failed.length} datapacks`,
+                    });
+                }
+                clearSelection();
+            })
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => setBulkOperation(null));
+    };
+
+    const runBulkDelete = () => {
+        const ids = Array.from(selectedIds);
+        setBulkOperation({ type: 'delete', progress: 0, total: ids.length });
+        clearFlashes('server:datapacks');
+        bulkDeleteDatapacks(uuid, ids)
+            .then((result) => {
+                result.success.forEach((item) => {
+                    setDatapacks((prev) => prev.filter((d) => d.id !== item.id));
+                });
+                if (result.success.length > 0) {
+                    addFlash({
+                        type: 'success',
+                        key: 'server:datapacks',
+                        message:
+                            t('bulk_delete_success', { count: result.success.length }) ??
+                            `Deleted ${result.success.length} datapacks`,
+                    });
+                }
+                if (result.failed.length > 0) {
+                    addError({
+                        key: 'server:datapacks',
+                        message:
+                            t('bulk_delete_failed', { count: result.failed.length }) ??
+                            `Failed to delete ${result.failed.length} datapacks`,
+                    });
+                }
+                clearSelection();
+            })
+            .catch((error) => addError({ key: 'server:datapacks', message: httpErrorToHuman(error) }))
+            .finally(() => setBulkOperation(null));
+    };
+
+    const tabButtonCss = (active: boolean) => css`
+        ${tw`px-4 py-2 text-sm font-semibold rounded-ui transition-colors duration-150 border-b-2 -mb-px rounded-b-none`}
+        ${active
+            ? tw`text-gray-100 border-reviactyl bg-gray-800/60`
+            : tw`text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800/30`}
+    `;
+
+    const installSteps = [t('step_resolve'), t('step_download'), t('step_finish')];
 
     return (
         <ServerContentBlock title={t('title')}>
-            <FlashMessageRender byKey={'server:datapacks'} />
+            <FlashMessageRender byKey={'server:datapacks'} css={tw`mb-4`} />
+
+            <Modal visible={!!installing} onDismissed={() => setInstalling(null)} dismissable={false} size={'sm'}>
+                {installing && (
+                    <>
+                        <h2 css={tw`text-lg sm:text-xl font-semibold mb-1 truncate`}>
+                            {installing.step >= 3
+                                ? t('install_done', { title: installing.title })
+                                : t('installing_title', { title: installing.title })}
+                        </h2>
+                        <div css={tw`space-y-2.5 my-4`}>
+                            {installSteps.map((label, i) => {
+                                const done = installing.step > i;
+                                const current = installing.step === i;
+                                const isLast = i === installSteps.length - 1;
+                                return (
+                                    <div key={label} css={tw`flex items-center gap-2.5 text-sm`}>
+                                        {done ? (
+                                            <FaCheck style={{ color: '#4ade80', fontSize: '12px', flexShrink: 0 }} />
+                                        ) : current ? (
+                                            <Spinner size={'small'} />
+                                        ) : (
+                                            <FaCircle style={{ color: '#374151', fontSize: '8px', flexShrink: 0 }} />
+                                        )}
+                                        <span
+                                            css={done || current ? tw`text-gray-200` : tw`text-gray-500`}
+                                            style={done ? { color: '#9ca3af' } : undefined}
+                                        >
+                                            {isLast && done && installing.version
+                                                ? t('step_finish_done', { version: installing.version })
+                                                : label}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <ProgressBar>
+                            <div style={{ width: `${installing.step >= 3 ? 100 : progressWidth}%` }} />
+                        </ProgressBar>
+                    </>
+                )}
+            </Modal>
+
+            <ConfirmationModal
+                visible={!!confirmRemove}
+                title={t('remove')}
+                buttonText={t('remove')}
+                onConfirmed={() => confirmRemove && remove(confirmRemove)}
+                showSpinnerOverlay={!!busy}
+                onModalDismissed={() => setConfirmRemove(null)}
+            >
+                {confirmRemove && t('confirm_remove', { datapack: confirmRemove.title })}
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                visible={!!trackJar}
+                title={t('track')}
+                buttonText={t('track')}
+                onConfirmed={() => trackJar && track(trackJar)}
+                showSpinnerOverlay={!!busy}
+                onModalDismissed={() => setTrackJar(null)}
+            >
+                {trackJar && t('track_confirm', { title: trackJar.title, version: trackJar.pack_format })}
+            </ConfirmationModal>
+
+            <ConfirmationModal
+                visible={!!replaceConflict}
+                title={t('replace_title')}
+                buttonText={t('replace_confirm')}
+                onConfirmed={() => {
+                    replaceConflict?.retry();
+                    setReplaceConflict(null);
+                }}
+                onModalDismissed={() => setReplaceConflict(null)}
+            >
+                {replaceConflict &&
+                    t('replace_body', { title: replaceConflict.title, provider: replaceConflict.provider })}
+            </ConfirmationModal>
+
+            <Modal visible={!!versionsFor} onDismissed={() => setVersionsFor(null)} size={'lg'}>
+                {versionsFor && (
+                    <>
+                        <h2 css={tw`text-xl sm:text-2xl mb-1 truncate`}>{versionsFor.title}</h2>
+                        <p css={tw`text-sm text-gray-400 mb-4 sm:mb-6`}>{t('pick_version')}</p>
+                        {!versions ? (
+                            <Spinner centered />
+                        ) : versions.length === 0 ? (
+                            <p css={tw`text-sm text-gray-500 text-center py-6`}>{t('no_results')}</p>
+                        ) : (
+                            <div css={tw`overflow-y-auto max-h-96 divide-y divide-gray-800`}>
+                                {versions.map((version) => (
+                                    <div key={version.id} css={tw`py-2.5`}>
+                                        <div css={tw`flex items-center gap-2`}>
+                                            <div css={tw`flex-1 min-w-0`}>
+                                                <p css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                    {version.version_number}
+                                                </p>
+                                                <p css={tw`text-xs text-gray-500 truncate`}>
+                                                    {version.gameVersions?.length > 0 &&
+                                                        version.gameVersions.join(', ')}
+                                                </p>
+                                            </div>
+                                            {installedRow === version.id ? (
+                                                <Badge $variant={'installed'}>
+                                                    <FaCheck style={{ fontSize: '9px' }} />
+                                                    <span css={tw`font-mono`}>{version.version_number}</span>
+                                                </Badge>
+                                            ) : (
+                                                <Button.Success
+                                                    size={Button.Sizes.Small}
+                                                    disabled={!!busy}
+                                                    onClick={() => doInstall(versionsFor, version.id)}
+                                                >
+                                                    {busy === `install:${versionsFor.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        t('install')
+                                                    )}
+                                                </Button.Success>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
+            </Modal>
+
+            <div css={tw`flex items-end justify-between border-b border-gray-700 mb-4 flex-wrap gap-2`}>
+                <div css={tw`flex`}>
+                    <button css={tabButtonCss(tab === 'browse')} onClick={() => setTab('browse')}>
+                        {t('tab_browse')}
+                    </button>
+                    <button css={tabButtonCss(tab === 'installed')} onClick={() => setTab('installed')}>
+                        {t('tab_installed')} ({datapacks.length})
+                    </button>
+                </div>
+                {gameVersion && (
+                    <span css={tw`text-xs text-gray-400 pb-2`}>
+                        {t('detected', { version: gameVersion })}
+                    </span>
+                )}
+            </div>
+            <p css={tw`text-xs text-gray-500 mb-4`}>{t('restart_notice')}</p>
 
             {loading ? (
                 <Spinner centered />
-            ) : (<>
-            <TabsContainer $active={tab === 'browse'}>
-                <TabList>
-                    <TabButton $active={tab === 'installed'} onClick={() => setTab('installed')}>
-                        {t('tab_installed')}
-                    </TabButton>
-                    <TabButton $active={tab === 'browse'} onClick={() => setTab('browse')}>
-                        {t('tab_browse')}
-                    </TabButton>
-                </TabList>
-            </TabsContainer>
-
-            {tab === 'installed' ? (
-                <InstalledTab
-                    datapacks={datapacks}
-                    untracked={untracked}
-                    busy={busy}
-                    onUpdate={doUpdate}
-                    onToggle={doToggle}
-                    onRemove={doRemove}
-                    onLink={(dp) => {
-                        setSelectedHit({
-                            id: dp.projectId,
-                            slug: dp.projectId,
-                            title: dp.title,
-                            description: '',
-                            author: '',
-                            iconUrl: dp.iconUrl,
-                            downloads: 0,
-                            installedVersion: dp.versionNumber,
-                        });
-                    }}
-                    onTrack={doTrack}
-                />
-            ) : (
-                <BrowseTab
-                    provider={provider}
-                    sort={sort}
-                    query={query}
-                    hits={hits}
-                    searching={searching}
-                    onProviderChange={setProvider}
-                    onSortChange={setSort}
-                    onQueryChange={setQuery}
-                    onSearch={doSearch}
-                    onOpenVersions={openVersions}
-                />
-            )}
-
-            {installing && (
-                <Modal visible={!!installing} onDismissed={() => setInstalling(null)} dismissable={false} size={'sm'}>
-                    <h2 css={tw`text-lg sm:text-xl font-semibold mb-1 truncate`}>
-                        {installing.step >= 3
-                            ? t('install_done', { title: installing.title })
-                            : t('installing_title', { title: installing.title })}
-                    </h2>
-                    <div css={tw`space-y-2.5 my-4`}>
-                        {[t('step_resolve'), t('step_download'), t('step_finish')].map((label, i) => {
-                            const done = installing.step > i;
-                            const current = installing.step === i;
-
-                            return (
-                                <div key={label} css={tw`flex items-center gap-2.5 text-sm`}>
-                                    {done ? (
-                                        <FaCheck style={{ color: '#4ade80', fontSize: '12px', flexShrink: 0 }} />
-                                    ) : current ? (
-                                        <Spinner size={'small'} />
-                                    ) : (
-                                        <FaCircle style={{ color: 'rgba(255,255,255,0.15)', fontSize: '12px', flexShrink: 0 }} />
+            ) : tab === 'installed' ? (
+                <>
+                    {untracked.length > 0 && (
+                        <div css={tw`mb-4`}>
+                            <p css={tw`text-xs text-gray-400 mb-2`}>{t('untracked_title')}</p>
+                            <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                                {untracked.map((zip) => (
+                                    <Card key={zip.file_name}>
+                                        <DatapackIcon url={null} />
+                                        <div css={tw`flex-1 min-w-0`}>
+                                            <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                                <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                    {zip.title}
+                                                </h3>
+                                                <Badge $variant={'manual'}>{t('manual_badge')}</Badge>
+                                            </div>
+                                            <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
+                                                {zip.file_name}
+                                            </p>
+                                            <div css={tw`flex gap-2 mt-3`}>
+                                                <Button
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => setTrackJar(zip)}
+                                                >
+                                                    {busy === `track:${zip.file_name}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        t('track')
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {datapacks.length === 0 ? (
+                        <div css={tw`text-center py-16 text-gray-500`}>
+                            <FaCube css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
+                            <p css={tw`text-sm`}>{t('empty_installed')}</p>
+                        </div>
+                    ) : (
+                        <>
+                            {datapacks.some((d) => d.provider !== 'manual') && (
+                                <div css={tw`mb-4 flex items-center gap-3 flex-wrap`}>
+                                    <Button
+                                        size={Button.Sizes.Small}
+                                        onClick={selectAll}
+                                        disabled={!!busy || !!bulkOperation}
+                                    >
+                                        {t('select_all')}
+                                    </Button>
+                                    <Button
+                                        size={Button.Sizes.Small}
+                                        onClick={clearSelection}
+                                        disabled={!!busy || !!bulkOperation}
+                                    >
+                                        {t('clear_selection')}
+                                    </Button>
+                                    {selectedIds.size > 0 && (
+                                        <>
+                                            <Button
+                                                size={Button.Sizes.Small}
+                                                variant={Button.Variants.Secondary}
+                                                onClick={runBulkUpdate}
+                                                disabled={!!busy || !!bulkOperation}
+                                            >
+                                                {bulkOperation?.type === 'update' ? (
+                                                    <Spinner size={'small'} />
+                                                ) : (
+                                                    `${t('update_selected')} (${selectedIds.size})`
+                                                )}
+                                            </Button>
+                                            <Button.Danger
+                                                size={Button.Sizes.Small}
+                                                onClick={runBulkDelete}
+                                                disabled={!!busy || !!bulkOperation}
+                                            >
+                                                {bulkOperation?.type === 'delete' ? (
+                                                    <Spinner size={'small'} />
+                                                ) : (
+                                                    `${t('delete_selected')} (${selectedIds.size})`
+                                                )}
+                                            </Button.Danger>
+                                        </>
                                     )}
-                                    <span css={tw`flex-1 text-gray-300`}>{label}</span>
                                 </div>
-                            );
-                        })}
-                    </div>
-                    <ProgressBar>
-                        <div css={css`width: ${progressWidth}%;`} />
-                    </ProgressBar>
-                </Modal>
-            )}
+                            )}
+                            <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                                {datapacks.map((dp) => (
+                                    <Card key={dp.id}>
+                                        {dp.provider !== 'manual' && (
+                                            <input
+                                                type='checkbox'
+                                                checked={selectedIds.has(dp.id)}
+                                                onChange={() => toggleSelection(dp.id)}
+                                                disabled={!!busy || !!bulkOperation}
+                                                css={tw`w-4 h-4 rounded border-gray-700 bg-gray-800 text-reviactyl focus:ring-reviactyl focus:ring-offset-gray-900 cursor-pointer disabled:opacity-50 flex-shrink-0`}
+                                            />
+                                        )}
+                                        <DatapackIcon url={dp.iconUrl} />
+                                        <div css={tw`flex-1 min-w-0`}>
+                                            <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                                <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                    {dp.title}
+                                                </h3>
+                                                <Badge $variant={dp.provider === 'manual' ? 'manual' : 'provider'}>
+                                                    {dp.provider === 'manual' ? t('manual_badge') : dp.provider}
+                                                </Badge>
+                                                {dp.disabled && (
+                                                    <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>
+                                                )}
+                                            </div>
+                                            <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
+                                                {dp.fileName}
+                                            </p>
+                                            <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
+                                                <Badge $variant={'installed'}>
+                                                    <FaCheck style={{ fontSize: '9px' }} />
+                                                    <span css={tw`font-mono`}>{dp.versionNumber}</span>
+                                                </Badge>
+                                            </p>
+                                            <div css={tw`flex gap-2 mt-3 flex-wrap`}>
+                                                {dp.provider === 'manual' && (
+                                                    <Button
+                                                        size={Button.Sizes.Small}
+                                                        variant={Button.Variants.Secondary}
+                                                        disabled={!!busy}
+                                                        onClick={() => doLink(dp)}
+                                                    >
+                                                        {busy === `link:${dp.id}` ? (
+                                                            <Spinner size={'small'} />
+                                                        ) : (
+                                                            t('link')
+                                                        )}
+                                                    </Button>
+                                                )}
+                                                {!dp.disabled && dp.provider !== 'manual' && (
+                                                    <Button
+                                                        size={Button.Sizes.Small}
+                                                        variant={Button.Variants.Secondary}
+                                                        disabled={!!busy}
+                                                        onClick={() => runUpdate(dp)}
+                                                    >
+                                                        {busy === `update:${dp.id}` ? (
+                                                            <Spinner size={'small'} />
+                                                        ) : (
+                                                            t('update')
+                                                        )}
+                                                    </Button>
+                                                )}
+                                                <Button
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => mutate(`toggle:${dp.id}`, toggleDatapack(uuid, dp.id))}
+                                                >
+                                                    {busy === `toggle:${dp.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : dp.disabled ? (
+                                                        t('enable')
+                                                    ) : (
+                                                        t('disable')
+                                                    )}
+                                                </Button>
+                                                <Button.Danger
+                                                    size={Button.Sizes.Small}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => setConfirmRemove(dp)}
+                                                >
+                                                    <FaTrash css={tw`inline mr-1 -mt-0.5`} />
+                                                    {t('remove')}
+                                                </Button.Danger>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </>
+            ) : (
+                <>
+                    <form
+                        css={tw`flex flex-wrap gap-2 mb-4`}
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            doSearch(0);
+                        }}
+                    >
+                        <div css={tw`relative flex-1 flex items-center`} style={{ minWidth: '200px' }}>
+                            <FaMagnifyingGlass
+                                css={tw`absolute left-3 text-gray-500 text-sm pointer-events-none`}
+                                style={{ top: '50%', transform: 'translateY(-50%)' }}
+                            />
+                            <input
+                                value={query}
+                                onChange={(e) => setQuery(e.target.value)}
+                                placeholder={t('search_placeholder') ?? ''}
+                                css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
+                            />
+                        </div>
+                        <div css={tw`flex gap-2 w-full sm:w-auto`}>
+                            <Select
+                                value={provider}
+                                onChange={(e) => setProvider(e.target.value as DatapackProvider)}
+                                css={tw`flex-1 sm:flex-none sm:w-40`}
+                            >
+                                <option value={'modrinth'}>Modrinth</option>
+                                <option value={'curseforge'}>CurseForge</option>
+                            </Select>
+                            <Select
+                                value={sort}
+                                onChange={(e) => setSort(e.target.value as DatapackSort)}
+                                css={tw`flex-1 sm:flex-none sm:w-32`}
+                            >
+                                <option value={'relevance'}>{t('sort_relevance')}</option>
+                                <option value={'downloads'}>{t('sort_downloads')}</option>
+                                <option value={'updated'}>{t('sort_updated')}</option>
+                            </Select>
+                            <Button type={'submit'} disabled={searching}>
+                                {searching ? <Spinner size={'small'} /> : t('search')}
+                            </Button>
+                        </div>
+                    </form>
 
-            <VersionPickerModal
-                hit={selectedHit}
-                versions={versions}
-                installedRow={null}
-                busy={busy}
-                onInstall={async (_, version) => {
-                    if (!selectedHit) return;
-                    const hitWithVersion = {
-                        ...selectedHit,
-                        versionId: version.id,
-                        versionNumber: version.version_number,
-                    } as DatapackHit & { versionId: string; versionNumber: string };
-                    await doInstall(hitWithVersion);
-                    setSelectedHit(null);
-                }}
-                onDismiss={() => {
-                    setSelectedHit(null);
-                    setVersions(null);
-                }}
-            />
-            </>)}
+                    {searching && hits.length === 0 ? (
+                        <div css={tw`py-16`}>
+                            <Spinner centered />
+                        </div>
+                    ) : hits.length === 0 ? (
+                        <div css={tw`text-center py-16 text-gray-500`}>
+                            <FaMagnifyingGlass css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
+                            <p css={tw`text-sm`}>{t('no_results')}</p>
+                        </div>
+                    ) : (
+                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                            {hits.map((hit) => (
+                                <Card key={hit.id}>
+                                    <DatapackIcon url={hit.iconUrl} />
+                                    <div css={tw`flex-1 min-w-0`}>
+                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
+                                            {hit.installedVersion && (
+                                                <Badge $variant={'installed'} title={t('installed_badge') ?? ''}>
+                                                    <FaCheck style={{ fontSize: '9px' }} />
+                                                    <span css={tw`font-mono`}>{hit.installedVersion}</span>
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
+                                            {hit.author && <span>{t('by', { author: hit.author })}</span>}
+                                            <span css={tw`inline-flex items-center gap-1`}>
+                                                <FaDownload css={tw`text-[10px]`} />
+                                                {hit.downloads.toLocaleString()}
+                                            </span>
+                                        </p>
+                                        <p
+                                            css={tw`text-xs text-gray-400 mt-1 overflow-hidden`}
+                                            style={{
+                                                display: '-webkit-box',
+                                                WebkitLineClamp: 2,
+                                                WebkitBoxOrient: 'vertical',
+                                            }}
+                                        >
+                                            {hit.description}
+                                        </p>
+                                        <div css={tw`mt-3 flex gap-2`}>
+                                            {!hit.installedVersion && (
+                                                <Button.Success
+                                                    size={Button.Sizes.Small}
+                                                    disabled={!!busy}
+                                                    onClick={() => install(hit)}
+                                                >
+                                                    {busy === `install:${hit.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        <>
+                                                            <FaDownload css={tw`inline mr-1 -mt-0.5`} />
+                                                            {t('install')}
+                                                        </>
+                                                    )}
+                                                </Button.Success>
+                                            )}
+                                            <Button
+                                                size={Button.Sizes.Small}
+                                                variant={Button.Variants.Secondary}
+                                                disabled={!!busy}
+                                                onClick={() => openVersions(hit)}
+                                            >
+                                                <FaListUl css={tw`inline mr-1 -mt-0.5`} />
+                                                {t('versions')}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
+
+                    {hits.length < total && (
+                        <div css={tw`mt-6 text-center`}>
+                            <Button
+                                variant={Button.Variants.Secondary}
+                                disabled={searching}
+                                onClick={() => doSearch(hits.length)}
+                            >
+                                {searching ? <Spinner size={'small'} /> : t('load_more')}
+                            </Button>
+                        </div>
+                    )}
+                </>
+            )}
         </ServerContentBlock>
     );
 };
