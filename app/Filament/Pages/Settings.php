@@ -100,6 +100,9 @@ class Settings extends Page implements HasSchemas
         'panel:datapacks:egg_ids',
         'panel:properties:egg_ids',
 
+        'panel:file_scan:enabled',
+        'panel:file_scan:strict',
+
         'panel:telegram:enabled',
         'panel:telegram:bot_token',
         'panel:telegram:bot_username',
@@ -867,6 +870,27 @@ class Settings extends Page implements HasSchemas
                         ->options(fn () => Egg::query()->orderBy('name')->pluck('name', 'id'))
                         ->columnSpan(1)
                         ->native(false),
+                ]),
+
+            Section::make('File Scanning')
+                ->description('Optional antivirus scanning for JAR/ZIP uploads and downloads using clamscan. Requires clamav installed on the Panel server.')
+                ->columns(2)
+                ->schema([
+                    Toggle::make('panel:file_scan:enabled')
+                        ->label('Enable Virus Scanning')
+                        ->helperText('Scan JAR/ZIP files with clamscan when they are uploaded, pulled, or installed. Can also be enabled with the PANEL_FILE_SCAN_ENABLED env var.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
+                        ->columnSpan(2),
+
+                    Toggle::make('panel:file_scan:strict')
+                        ->label('Strict Mode')
+                        ->helperText('Block files when the scanner itself fails (fail closed). Otherwise scanner errors are ignored. Can also be enabled with the PANEL_FILE_SCAN_STRICT env var.')
+                        ->inline(false)
+                        ->columnSpan(2),
                 ]),
 
             Section::make('Server Properties')

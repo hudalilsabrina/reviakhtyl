@@ -10,7 +10,8 @@ return new class extends Migration
     {
         Schema::create('server_datapacks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('server_id')->constrained()->cascadeOnDelete();
+            $table->unsignedInteger('server_id');
+            $table->foreign('server_id')->references('id')->on('servers')->onDelete('cascade');
             $table->string('provider', 64);
             $table->string('project_id', 191);
             $table->string('slug', 191);
