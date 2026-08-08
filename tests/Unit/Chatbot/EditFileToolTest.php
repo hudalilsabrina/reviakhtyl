@@ -53,6 +53,19 @@ it('fails without writing when the old text is not present', function () {
     ]);
 })->throws(DisplayException::class, 'not found');
 
+it('fails without writing when the old text is whitespace only', function () {
+    [$tool, $repository] = editFileToolFixture();
+
+    $repository->shouldReceive('getContent')->with('/server.properties', Mockery::any())->andReturn("motd=A boring server\n");
+    $repository->shouldNotReceive('putContent');
+
+    $tool->handle(editFileContext(), [
+        'path' => '/server.properties',
+        'old' => '   ',
+        'new' => 'x',
+    ]);
+})->throws(DisplayException::class, 'whitespace');
+
 it('fails without writing when the old text matches more than once', function () {
     [$tool, $repository] = editFileToolFixture();
 

@@ -26,7 +26,7 @@ class EditFileTool extends ChatbotTool
 
     public function description(): string
     {
-        return 'Apply a targeted search-and-replace edit to a text file on the server. Provide the exact text to find (old) and the exact text to replace it with (new). The old text must match the file content exactly, including whitespace, and appear exactly once, or the edit fails — then read the file again and copy the exact text. Prefer this over write_file for small changes to large files: it rewrites only the matched region instead of the whole file. Changes to configuration files usually require a restart to take effect.';
+        return 'Apply a targeted search-and-replace edit to a text file on the server. Provide the exact text to find (old) and the exact text to replace it with (new). The old text must match the file content exactly, including whitespace, and appear exactly once, or the edit fails — then read the file again and copy the exact text. Prefer this over write_file for small changes to large files: it rewrites only the matched region instead of the whole file. Files over 200 KB cannot be edited this way. Changes to configuration files usually require a restart to take effect.';
     }
 
     public function group(): ChatbotToolGroup
@@ -79,8 +79,8 @@ class EditFileTool extends ChatbotTool
     public function summarize(array $arguments): string
     {
         $clip = fn (string $value) => trim(preg_replace('/\s+/', ' ', mb_substr($value, 0, 60)) ?? '');
-        $old = $clip((string) ($arguments['old'] ?? ''));
-        $new = $clip((string) ($arguments['new'] ?? ''));
+        $old = str_replace('"', "'", $clip((string) ($arguments['old'] ?? '')));
+        $new = str_replace('"', "'", $clip((string) ($arguments['new'] ?? '')));
 
         return 'Edit '.($arguments['path'] ?? 'a file').': replace "'.$old.'" with "'.$new.'"';
     }
@@ -94,18 +94,28 @@ class EditFileTool extends ChatbotTool
         $repository = $this->repository->setServer($context->server);
         $content = $repository->getContent($path, self::MAX_BYTES);
 
-        if (substr_count($content, $old) === 0) {
+        if (trim($old) === '') {
+            throw new DisplayException(
+                'The text to replace must contain something other than whitespace. Include more context from the file.'
+            );
+        }
+
+        $matches = substr_count($content, $old);
+        if ($matches === 0) {
             throw new DisplayException(
                 'The text to replace was not found in '.$path.'. Read the file again and send the exact text, including whitespace.'
             );
         }
 
-        if (substr_count($content, $old) > 1) {
+        if ($matches > 1) {
             throw new DisplayException(
                 'The text to replace appears more than once in '.$path.'. Include more surrounding context so it matches exactly once.'
             );
         }
 
+        // ponytail: the read-modify-write here is not atomic — Wings has no
+        // compare-and-swap, so a concurrent editor could be clobbered. Same
+        // ceiling as write_file; upgrade only if Wings gains conditional writes.
         $repository->putContent($path, substr_replace($content, $new, strpos($content, $old), strlen($old)));
 
         return [
