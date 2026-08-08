@@ -94,8 +94,8 @@ class GetServerResourceHistoryTool extends ChatbotTool
                 'cpu_percent' => $server->cpu > 0 ? $server->cpu : null,
             ],
             'cpu_percent' => [
-                'average' => round((float) $summary->avg_cpu, 2),
-                'peak' => round((float) $summary->peak_cpu, 2),
+                'average' => round((float) $summary->avg_cpu),
+                'peak' => round((float) $summary->peak_cpu),
                 'peak_at' => $this->peakAt($server->id, $since, 'cpu_usage'),
             ],
             'memory_bytes' => [
@@ -154,7 +154,7 @@ class GetServerResourceHistoryTool extends ChatbotTool
             ->filter(fn ($row, $index) => $index % $step === 0)
             ->map(fn ($row) => [
                 'at' => $row->created_at->toIso8601String(),
-                'cpu_percent' => round((float) $row->cpu_usage, 2),
+                'cpu_percent' => round((float) $row->cpu_usage),
                 'memory_bytes' => (int) $row->memory_bytes,
             ])
             ->values()
