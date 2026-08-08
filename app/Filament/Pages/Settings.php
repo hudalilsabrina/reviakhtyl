@@ -102,6 +102,7 @@ class Settings extends Page implements HasSchemas
 
         'panel:plugins:egg_ids',
         'panel:mods:egg_ids',
+        'panel:datapacks:egg_ids',
         'panel:properties:egg_ids',
 
         'panel:file_scan:enabled',
@@ -178,7 +179,7 @@ class Settings extends Page implements HasSchemas
                 $value = (int) $value;
             }
 
-            if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids', 'panel:properties:egg_ids'], true)) {
+            if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids', 'panel:datapacks:egg_ids', 'panel:properties:egg_ids'], true)) {
                 $value = is_array($value) ? $value : ($value ? (json_decode($value, true) ?: []) : []);
             }
 
@@ -910,6 +911,20 @@ class Settings extends Page implements HasSchemas
                         ->columnSpan(1),
                 ]),
 
+            Section::make('Datapacks')
+                ->description('Client datapack installer (Modrinth, CurseForge). Only servers on selected eggs see the Datapacks page.')
+                ->columns(2)
+                ->schema([
+                    Select::make('panel:datapacks:egg_ids')
+                        ->label('Enabled Eggs')
+                        ->helperText('Servers on these eggs can search and install datapacks. Leave empty to disable for all.')
+                        ->multiple()
+                        ->searchable()
+                        ->options(fn () => Egg::query()->orderBy('name')->pluck('name', 'id'))
+                        ->columnSpan(1)
+                        ->native(false),
+                ]),
+
             Section::make('File Scanning')
                 ->description('Optional antivirus scanning for JAR/ZIP uploads and downloads using clamscan. If clamav is not installed yet, use the button below to install it on this server.')
                 ->columns(2)
@@ -1087,7 +1102,7 @@ class Settings extends Page implements HasSchemas
             if (in_array($key, ['mail:mailers:smtp:password', 'panel:cloudflare:api_token', 'panel:telegram:bot_token', 'panel:chatbot:api_key'], true) && ! empty($value)) {
                 $value = $encrypter->encrypt($value);
             }
-            if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids', 'panel:properties:egg_ids'], true)) {
+            if (in_array($key, ['panel:cloudflare:egg_ids', 'panel:plugins:egg_ids', 'panel:mods:egg_ids', 'panel:datapacks:egg_ids', 'panel:properties:egg_ids'], true)) {
                 $value = json_encode(array_map('intval', array_filter((array) $value)));
             }
             if ($key === 'panel:chatbot:tool_groups') {
@@ -1102,6 +1117,7 @@ class Settings extends Page implements HasSchemas
 
         Cache::forget('panel:mods:egg_ids_cache');
         Cache::forget('panel:plugins:egg_ids_cache');
+        Cache::forget('panel:datapacks:egg_ids_cache');
 
         try {
             $kernel->call('queue:restart');
