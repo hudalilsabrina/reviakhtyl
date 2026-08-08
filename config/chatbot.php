@@ -6,6 +6,7 @@ use App\Services\Chatbot\Agents\PowerAgent;
 use App\Services\Chatbot\Agents\ServerAgent;
 use App\Services\Chatbot\Agents\StartupAgent;
 use App\Services\Chatbot\Agents\SubusersAgent;
+use App\Services\Chatbot\Agents\WebAgent;
 use App\Services\Chatbot\Tools\Backups\CreateBackupTool;
 use App\Services\Chatbot\Tools\Backups\DeleteBackupTool;
 use App\Services\Chatbot\Tools\Backups\ListBackupsTool;
@@ -56,6 +57,7 @@ use App\Services\Chatbot\Tools\Subusers\DeleteSubuserTool;
 use App\Services\Chatbot\Tools\Subusers\ListPermissionCatalogueTool;
 use App\Services\Chatbot\Tools\Subusers\ListSubuserAccountsTool;
 use App\Services\Chatbot\Tools\Subusers\UpdateSubuserPermissionsTool;
+use App\Services\Chatbot\Tools\Web\FetchUrlTool;
 
 return [
     'tools' => [
@@ -133,6 +135,9 @@ return [
         CreateScheduleTool::class,
         ExecuteScheduleTool::class,
         DeleteScheduleTool::class,
+
+        // Web access.
+        FetchUrlTool::class,
     ],
 
     // The narrow sub-agents an orchestrating router may delegate to. Each one
@@ -145,5 +150,6 @@ return [
         StartupAgent::class,
         ModsAgent::class,
         SubusersAgent::class,
+        WebAgent::class,
     ],
 ];

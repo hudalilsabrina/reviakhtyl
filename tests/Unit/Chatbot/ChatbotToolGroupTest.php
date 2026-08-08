@@ -51,5 +51,5 @@ it('keeps its backing values stable', function () {
     // These strings are persisted in the settings table and referenced from
     // the admin UI, so renaming one silently disables a group.
     expect(array_column(ChatbotToolGroup::cases(), 'value'))
-        ->toBe(['server', 'power', 'console', 'files', 'subusers', 'startup', 'plugins', 'mods']);
+        ->toBe(['server', 'power', 'console', 'files', 'subusers', 'startup', 'plugins', 'mods', 'web']);
 });

@@ -136,8 +136,8 @@ it('loads every agent from the config register', function () {
 
     $ids = array_keys($registry->all());
 
-    expect($ids)->toHaveCount(6)
-        ->toContain('files', 'server', 'power', 'startup', 'mods', 'subusers');
+    expect($ids)->toHaveCount(7)
+        ->toContain('files', 'server', 'power', 'startup', 'mods', 'subusers', 'web');
 });
 
 it('offers every agent when all groups are enabled', function () {
@@ -146,7 +146,7 @@ it('offers every agent when all groups are enabled', function () {
 
     $available = $registry->availableFor(new TrustedToolContext());
 
-    expect(array_keys($available))->toBe(['files', 'server', 'power', 'startup', 'mods', 'subusers'])
+    expect(array_keys($available))->toBe(['files', 'server', 'power', 'startup', 'mods', 'subusers', 'web'])
         ->and($available)->each->toBeInstanceOf(ChatbotAgent::class);
 });
 

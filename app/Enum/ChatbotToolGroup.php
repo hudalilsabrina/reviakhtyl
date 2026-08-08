@@ -17,6 +17,7 @@ enum ChatbotToolGroup: string
     case Startup = 'startup';
     case Plugins = 'plugins';
     case Mods = 'mods';
+    case Web = 'web';
 
     public function label(): string
     {
@@ -29,6 +30,7 @@ enum ChatbotToolGroup: string
             self::Startup => 'Startup & variables',
             self::Plugins => 'Plugin management',
             self::Mods => 'Mod management',
+            self::Web => 'Web access',
         };
     }
 
@@ -43,6 +45,7 @@ enum ChatbotToolGroup: string
             self::Startup => 'Read and change startup variables and modular startup parts.',
             self::Plugins => 'Search, install, update and remove plugins from the configured registries.',
             self::Mods => 'Search, install, update and remove mods from the configured registries.',
+            self::Web => 'Fetch and read public web pages. Off by default: web content is untrusted, and fetching can leak the panel\'s network if misused.',
         };
     }
 
