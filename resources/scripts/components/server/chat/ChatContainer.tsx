@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { FaComments, FaRobot } from 'react-icons/fa6';
 import styled, { keyframes } from 'styled-components';
 import tw from 'twin.macro';
-import confirmToolCalls from '@/api/server/chat/confirmToolCalls';
+import confirmToolCalls, { ChatDecision } from '@/api/server/chat/confirmToolCalls';
 import createConversation from '@/api/server/chat/createConversation';
 import deleteConversation from '@/api/server/chat/deleteConversation';
 import deleteMessage from '@/api/server/chat/deleteMessage';
@@ -460,11 +460,12 @@ const ChatContainer = () => {
      * takes just as long, so it is streamed for the same reason: the alternative is a click
      * followed by minutes of nothing.
      */
-    const handleDecision = async (approved: boolean) => {
+    const handleDecision = async (decisions: ChatDecision[]) => {
         if (!active || !awaitingConfirmation || busy) return;
 
         const conversation = active;
         const decided = awaitingConfirmation.uuid;
+        const approved = decisions.some((decision) => decision.approved);
 
         setActivity(approved ? 'approving' : 'denying');
         clearFlashes();
@@ -481,7 +482,7 @@ const ChatContainer = () => {
                     uuid,
                     conversation,
                     decided,
-                    approved,
+                    decisions,
                     streamHandlers(conversation, outcome),
                     controller.signal
                 );
@@ -490,7 +491,7 @@ const ChatContainer = () => {
 
                 // An older backend, or a proxy that will not carry an event stream. The
                 // blocking endpoint records the same decision, just all at once.
-                const incoming = await confirmToolCalls(uuid, conversation, decided, approved);
+                const incoming = await confirmToolCalls(uuid, conversation, decided, decisions);
 
                 outcome.reconciled = true;
                 updateThread(conversation, (current) => mergeMessages(current, incoming));

@@ -10,7 +10,9 @@ class ConfirmChatActionRequest extends ClientApiRequest
     {
         return [
             'message_uuid' => 'required|uuid',
-            'approved' => 'required|boolean',
+            'decisions' => 'required|array|min:1',
+            'decisions.*.id' => 'required|string',
+            'decisions.*.approved' => 'required|boolean',
         ];
     }
 }

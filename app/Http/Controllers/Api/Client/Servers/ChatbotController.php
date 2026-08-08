@@ -139,10 +139,10 @@ class ChatbotController extends ClientApiController
             throw new NotFoundHttpException('The requested message was not found in this conversation.');
         }
 
-        $approved = $request->boolean('approved');
+        $decisions = $this->decisions($request);
 
-        return $this->sse($chatbotConversation, function (callable $emit) use ($chatbotConversation, $message, $approved) {
-            $messages = $this->service->resolveConfirmation($chatbotConversation, $message, $approved, $emit);
+        return $this->sse($chatbotConversation, function (callable $emit) use ($chatbotConversation, $message, $decisions) {
+            $messages = $this->service->resolveConfirmation($chatbotConversation, $message, $decisions, $emit);
 
             // The resolved message leads the authoritative list, as it does on the
             // blocking endpoint: its status and per-call outcomes have changed.
@@ -228,13 +228,36 @@ class ChatbotController extends ClientApiController
             throw new NotFoundHttpException('The requested message was not found in this conversation.');
         }
 
-        $messages = $this->service->resolveConfirmation($chatbotConversation, $message, $request->boolean('approved'));
+        $decisions = $this->decisions($request);
+
+        $messages = $this->service->resolveConfirmation($chatbotConversation, $message, $decisions);
 
         // The message that was awaiting a decision is returned first: its status
         // and per-call outcomes have changed, so the client replaces its copy.
         return ['data' => ['messages' => $this->messages(
             collect([$message->refresh()])->concat($messages)
         )]];
+    }
+
+    /**
+     * Turns the request's per-call decisions into a call-id → bool map. A call
+     * that is absent from the batch is treated as denied by the service.
+     *
+     * @return array<string, bool>
+     */
+    private function decisions(ClientApiRequest $request): array
+    {
+        $decisions = [];
+
+        foreach ($request->input('decisions', []) as $decision) {
+            $id = (string) ($decision['id'] ?? '');
+
+            if ($id !== '') {
+                $decisions[$id] = (bool) ($decision['approved'] ?? false);
+            }
+        }
+
+        return $decisions;
     }
 
     public function delete(ClientApiRequest $request, Server $server, ChatbotConversation $chatbotConversation): Response

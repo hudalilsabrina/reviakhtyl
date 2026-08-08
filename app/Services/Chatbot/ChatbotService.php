@@ -81,17 +81,24 @@ class ChatbotService
     /**
      * Resolves a pending confirmation and continues the conversation.
      *
+     * The decision is per tool call: `$decisions` maps call ids to true
+     * (run) or false (deny), so a user can approve one action in a batch and
+     * refuse the rest. Every call still receives a tool result — a denial is
+     * a result too — because the provider rejects the next request with an
+     * unanswered tool_call_id.
+     *
+     * @param  array<string, bool>  $decisions
      * @return Collection<int, ChatbotMessage>
      */
     public function resolveConfirmation(
         ChatbotConversation $conversation,
         ChatbotMessage $message,
-        bool $approved,
+        array $decisions,
         ?callable $emit = null,
     ): Collection {
         $this->assertEnabled();
 
-        return $this->withTurnLock($conversation, fn () => $this->runConfirmation($conversation, $message, $approved, $emit));
+        return $this->withTurnLock($conversation, fn () => $this->runConfirmation($conversation, $message, $decisions, $emit));
     }
 
     /**
@@ -131,17 +138,20 @@ class ChatbotService
     }
 
     /**
+     * @param  array<string, bool>  $decisions
      * @return Collection<int, ChatbotMessage>
      */
     private function runConfirmation(
         ChatbotConversation $conversation,
         ChatbotMessage $message,
-        bool $approved,
+        array $decisions,
         ?callable $emit = null,
     ): Collection {
         if ($message->conversation_id !== $conversation->id) {
             throw new ChatbotException('That action is no longer waiting for a decision.');
         }
+
+        $anyApproved = collect($decisions)->contains(true);
 
         // Claim the decision with a conditional update rather than a read
         // followed by a write. Two approvals arriving together would otherwise
@@ -150,7 +160,7 @@ class ChatbotService
         $claimed = ChatbotMessage::query()
             ->whereKey($message->getKey())
             ->where('status', ChatbotMessage::STATUS_AWAITING_CONFIRMATION)
-            ->update(['status' => $approved ? ChatbotMessage::STATUS_COMPLETE : ChatbotMessage::STATUS_DENIED]);
+            ->update(['status' => $anyApproved ? ChatbotMessage::STATUS_COMPLETE : ChatbotMessage::STATUS_DENIED]);
 
         if ($claimed !== 1) {
             throw new ChatbotException('That action is no longer waiting for a decision.');
@@ -171,6 +181,10 @@ class ChatbotService
             $id = (string) ($call['id'] ?? '');
             $name = (string) ($call['name'] ?? '');
             $arguments = (array) ($call['arguments'] ?? []);
+
+            // Calls the user did not list are denied, not executed: a client
+            // that sends a partial batch has decided against the rest.
+            $approved = $decisions[$id] ?? false;
 
             if ($approved) {
                 $result = $this->executor->execute($context, $name, $arguments);

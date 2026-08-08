@@ -451,11 +451,12 @@ describe('streamConfirmation', () => {
      * is left on screen and how the decided message read after every event along the way.
      */
     const play = async (approved: boolean): Promise<{ thread: ChatMessage[]; trace: string[] }> => {
+        const decisions = [{ id: 'tool-1', approved }];
         let thread = [awaiting()];
         const trace: string[] = [];
         const record = () => trace.push(`${thread[0]!.status}/${thread[0]!.toolCalls[0]!.status}`);
 
-        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', approved, {
+        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', decisions, {
             onMessage: (m) => {
                 thread = mergeMessages(thread, [m]);
                 record();
@@ -479,12 +480,12 @@ describe('streamConfirmation', () => {
     it('posts the decision to the confirmation stream of the conversation', async () => {
         const fetchMock = stubStream([frame('done', { messages: [] })]);
 
-        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', true, {});
+        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', [{ id: 'tool-1', approved: true }], {});
 
         const [url, init] = requestOf(fetchMock);
         expect(url).toBe('/api/client/servers/server-uuid/chat/conversations/conversation-uuid/confirm/stream');
         expect(init.method).toBe('POST');
-        expect(init.body).toBe('{"message_uuid":"assistant-1","approved":true}');
+        expect(init.body).toBe('{"message_uuid":"assistant-1","decisions":[{"id":"tool-1","approved":true}]}');
         expect(init.headers).toMatchObject({ Accept: 'text/event-stream' });
     });
 
@@ -570,7 +571,7 @@ describe('streamConfirmation', () => {
     it('flags a backend without the confirmation stream so the caller can fall back', async () => {
         stubFailure(404);
 
-        const error = await streamConfirmation('a', 'b', 'c', true, {}).catch((e: unknown) => e);
+        const error = await streamConfirmation('a', 'b', 'c', [{ id: 'tool-1', approved: true }], {}).catch((e: unknown) => e);
 
         // The signal `handleDecision` reads before quietly posting to the blocking `/confirm`.
         expect(isStreamUnsupported(error)).toBe(true);
@@ -579,7 +580,7 @@ describe('streamConfirmation', () => {
     it('does not fall back when the decision itself was refused', async () => {
         stubFailure(409, '{"errors":[{"detail":"This message is no longer awaiting a decision."}]}');
 
-        const error = await streamConfirmation('a', 'b', 'c', true, {}).catch((e: unknown) => e);
+        const error = await streamConfirmation('a', 'b', 'c', [{ id: 'tool-1', approved: true }], {}).catch((e: unknown) => e);
 
         // Replaying that against the blocking endpoint would fail the same way and hide why.
         expect(isStreamUnsupported(error)).toBe(false);
