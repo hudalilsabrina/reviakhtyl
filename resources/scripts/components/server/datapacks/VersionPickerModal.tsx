@@ -66,10 +66,9 @@ export const VersionPickerModal = ({
                                             </div>
                                         </div>
                                         <Button
-                                            size={'sm'}
+                                            size={Button.Sizes.Small}
                                             onClick={() => onInstall(hit, version)}
                                             disabled={busy === version.id}
-                                            isLoading={busy === version.id}
                                         >
                                             {current ? t('update_button') : t('install_button')}
                                         </Button>

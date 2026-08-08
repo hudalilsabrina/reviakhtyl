@@ -3,22 +3,19 @@ import tw from 'twin.macro';
 import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
+import { FaCheck, FaCircle } from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
-import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
 import Modal from '@/reviactyl/elements/Modal';
 import FlashMessageRender from '@/components/FlashMessageRender';
 import { ServerContext } from '@/state/server';
 import { ApplicationStore } from '@/state';
 import { httpErrorToHuman } from '@/api/http';
 import {
-    bulkDeleteDatapacks,
-    bulkUpdateDatapacks,
     deleteDatapack,
     getDatapackVersions,
     getServerDatapacks,
     installDatapack,
-    linkDatapack,
     searchDatapacks,
     toggleDatapack,
     updateDatapack,
@@ -36,10 +33,10 @@ import { BrowseTab } from './BrowseTab';
 import { VersionPickerModal } from './VersionPickerModal';
 import { useProgress } from './useProgress';
 
-const TabsContainer = styled.div(({ $active }: { $active: boolean }) => [
-    tw`flex items-center justify-between mb-4`,
-    $active && tw`mb-0`,
-]);
+const TabsContainer = styled.div<{ $active: boolean }>`
+    ${tw`flex items-center justify-between mb-4`};
+    ${({ $active }) => $active && tw`mb-0`};
+`;
 
 const TabList = styled.div`
     ${tw`flex items-center gap-1 p-1 bg-gray-900/70 border border-gray-800 rounded-ui w-auto`}
@@ -64,10 +61,10 @@ const DatapacksContainer = () => {
     const [tab, setTab] = useState<'installed' | 'browse'>('installed');
     const [loading, setLoading] = useState(true);
     const [datapacks, setDatapacks] = useState<ServerDatapack[]>([]);
-    const [gameVersion, setGameVersion] = useState<string | null>(null);
+    const [_gameVersion, setGameVersion] = useState<string | null>(null);
     const [untracked, setUntracked] = useState<UntrackedZip[]>([]);
     const [hits, setHits] = useState<DatapackHit[]>([]);
-    const [total, setTotal] = useState(0);
+    const [_total, setTotal] = useState(0);
     const [provider, setProvider] = useState<DatapackProvider>('modrinth');
     const [sort, setSort] = useState<DatapackSort>('relevance');
     const [query, setQuery] = useState('');
@@ -81,11 +78,7 @@ const DatapacksContainer = () => {
     // Version picker state
     const [selectedHit, setSelectedHit] = useState<DatapackHit | null>(null);
     const [versions, setVersions] = useState<any[] | null>(null);
-    const [versionsLoading, setVersionsLoading] = useState(false);
-
-    // Bulk action state
-    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [_versionsLoading, setVersionsLoading] = useState(false);
 
     const loadedOnce = useRef(false);
 
@@ -140,7 +133,7 @@ const DatapacksContainer = () => {
                 provider,
                 projectId: hit.id,
                 title: hit.title,
-                iconUrl: hit.iconUrl,
+                iconUrl: hit.iconUrl ?? undefined,
                 versionId: latest.id,
                 slug: hit.slug,
             });
@@ -168,11 +161,9 @@ const DatapacksContainer = () => {
         }
     };
 
-    const handleInstallError = (error: any, retry?: () => void): boolean => {
+    const handleInstallError = (error: any): boolean => {
         if (error?.response?.status === 409) {
             const detail = error.response.data?.errors?.[0]?.detail ?? '';
-            const provider = error.response.data?.errors?.[0]?.meta?.provider;
-            const title = error.response.data?.errors?.[0]?.meta?.title;
 
             addFlash({
                 type: 'error',
@@ -198,31 +189,6 @@ const DatapacksContainer = () => {
                 key: 'server:datapacks',
                 message: t('update_success', { title: updated.title, version: updated.versionNumber }) ?? '',
             });
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-        }
-    };
-
-    const doLink = async (datapack: ServerDatapack) => {
-        setBusy(`link-${datapack.id}`);
-        try {
-            const linked = await linkDatapack(uuid, datapack.id, {
-                provider,
-                projectId: selectedHit?.id ?? datapack.projectId,
-                title: datapack.title,
-                slug: datapack.projectId,
-            });
-            setDatapacks((prev) =>
-                prev.map((dp) => (dp.id === linked.id ? linked : dp))
-            );
-            addFlash({
-                type: 'success',
-                key: 'server:datapacks',
-                message: t('link_success', { title: linked.title }) ?? '',
-            });
-            setSelectedHit(null);
         } catch (error) {
             addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
         } finally {
@@ -288,72 +254,6 @@ const DatapacksContainer = () => {
         }
     };
 
-    const doBulkUpdate = async () => {
-        if (selectedIds.size === 0) return;
-        setBusy('bulk-update');
-        try {
-            const result = await bulkUpdateDatapacks(uuid, Array.from(selectedIds));
-
-            if (result.success.length > 0) {
-                addFlash({
-                    type: 'success',
-                    key: 'server:datapacks',
-                    message: t('bulk_update_success', { count: result.success.length }) ?? '',
-                });
-                await loadAll();
-            }
-
-            if (result.failed.length > 0) {
-                addError({
-                    key: 'server:datapacks',
-                    message: t('bulk_update_failed', {
-                        count: result.failed.length,
-                        errors: result.failed.map((f: any) => f.error).join('; '),
-                    }) ?? '',
-                });
-            }
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-            setSelectedIds(new Set());
-            setShowDeleteConfirm(false);
-        }
-    };
-
-    const doBulkDelete = async () => {
-        if (selectedIds.size === 0) return;
-        setBusy('bulk-delete');
-        try {
-            const result = await bulkDeleteDatapacks(uuid, Array.from(selectedIds));
-
-            if (result.success.length > 0) {
-                addFlash({
-                    type: 'success',
-                    key: 'server:datapacks',
-                    message: t('bulk_delete_success', { count: result.success.length }) ?? '',
-                });
-                setDatapacks((prev) => prev.filter((dp) => !selectedIds.has(dp.id)));
-            }
-
-            if (result.failed.length > 0) {
-                addError({
-                    key: 'server:datapacks',
-                    message: t('bulk_delete_failed', {
-                        count: result.failed.length,
-                        errors: result.failed.map((f: any) => f.error).join('; '),
-                    }) ?? '',
-                });
-            }
-        } catch (error) {
-            addError({ key: 'server:datapacks', message: httpErrorToHuman(error) });
-        } finally {
-            setBusy(null);
-            setSelectedIds(new Set());
-            setShowDeleteConfirm(false);
-        }
-    };
-
     const openVersions = async (hit: DatapackHit) => {
         setSelectedHit(hit);
         setVersionsLoading(true);
@@ -368,28 +268,13 @@ const DatapacksContainer = () => {
         }
     };
 
-    const toggleSelect = (id: number) => {
-        setSelectedIds((prev) => {
-            const next = new Set(prev);
-            next.has(id) ? next.delete(id) : next.add(id);
-
-            return next;
-        });
-    };
-
-    const allSelected = datapacks.length > 0 && selectedIds.size === datapacks.length;
-    const toggleAll = () => {
-        if (allSelected) {
-            setSelectedIds(new Set());
-        } else {
-            setSelectedIds(new Set(datapacks.map((dp) => dp.id)));
-        }
-    };
-
     return (
-        <ServerContentBlock title={t('title')} description={t('description')} showLoadingState={loading}>
+        <ServerContentBlock title={t('title')}>
             <FlashMessageRender byKey={'server:datapacks'} />
 
+            {loading ? (
+                <Spinner centered />
+            ) : (<>
             <TabsContainer $active={tab === 'browse'}>
                 <TabList>
                     <TabButton $active={tab === 'installed'} onClick={() => setTab('installed')}>
@@ -429,14 +314,11 @@ const DatapacksContainer = () => {
                     sort={sort}
                     query={query}
                     hits={hits}
-                    total={total}
                     searching={searching}
-                    busy={busy}
                     onProviderChange={setProvider}
                     onSortChange={setSort}
                     onQueryChange={setQuery}
                     onSearch={doSearch}
-                    onInstall={doInstall}
                     onOpenVersions={openVersions}
                 />
             )}
@@ -480,11 +362,12 @@ const DatapacksContainer = () => {
                 busy={busy}
                 onInstall={async (_, version) => {
                     if (!selectedHit) return;
-                    await doInstall({
+                    const hitWithVersion = {
                         ...selectedHit,
                         versionId: version.id,
                         versionNumber: version.version_number,
-                    });
+                    } as DatapackHit & { versionId: string; versionNumber: string };
+                    await doInstall(hitWithVersion);
                     setSelectedHit(null);
                 }}
                 onDismiss={() => {
@@ -492,6 +375,7 @@ const DatapacksContainer = () => {
                     setVersions(null);
                 }}
             />
+            </>)}
         </ServerContentBlock>
     );
 };

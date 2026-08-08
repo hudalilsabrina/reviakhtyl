@@ -70,7 +70,7 @@ export const BrowseTab = ({
                         onKeyDown={(e) => e.key === 'Enter' && onSearch()}
                         placeholder={t('search_placeholder')}
                     />
-                    <Button onClick={onSearch} isLoading={searching}>
+                    <Button onClick={onSearch}>
                         {searching ? <Spinner size={'small'} /> : <FaMagnifyingGlass />}
                     </Button>
                 </div>

@@ -1,6 +1,9 @@
 import tw from 'twin.macro';
+import styled from 'styled-components';
 
-const DatapackIconWrapper = tw.div`w-10 h-10 sm:w-12 sm:h-12 rounded-ui bg-gray-800 flex items-center justify-center flex-shrink-0`;
+const DatapackIconWrapper = styled.div`
+    ${tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui bg-gray-800 flex items-center justify-center flex-shrink-0`}
+`;
 
 interface Props {
     url?: string | null;

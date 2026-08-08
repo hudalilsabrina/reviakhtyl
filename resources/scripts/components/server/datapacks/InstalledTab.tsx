@@ -1,7 +1,6 @@
 import tw from 'twin.macro';
 import styled from 'styled-components';
 import { useTranslation } from 'react-i18next';
-import { FaCheck, FaCube, FaTrash } from 'react-icons/fa6';
 import Spinner from '@/reviactyl/elements/Spinner';
 import { Button } from '@/reviactyl/elements/button/index';
 import { Badge } from './Badge';
@@ -57,7 +56,7 @@ export const InstalledTab = ({
                                     <p css={tw`text-xs text-gray-500 mt-0.5`}>{zip.file_name}</p>
                                 </div>
                                 <div css={tw`flex-shrink-0`}>
-                                    <Button size={'xs'} onClick={() => onTrack(zip)} isLoading={busy === zip.file_name}>
+                                    <Button size={Button.Sizes.Small} onClick={() => onTrack(zip)}>
                                         {t('track_button')}
                                     </Button>
                                 </div>
@@ -88,20 +87,20 @@ export const InstalledTab = ({
                             </div>
                             <div css={tw`flex flex-col gap-1 flex-shrink-0`}>
                                 {dp.provider !== 'manual' && !dp.disabled && (
-                                    <Button size={'xs'} onClick={() => onUpdate(dp)} isLoading={busy === `update-${dp.id}`}>
-                                        {t('update_button')}
+                                    <Button size={Button.Sizes.Small} variant={Button.Variants.Secondary} disabled={!!busy} onClick={() => onUpdate(dp)}>
+                                        {busy === `update-${dp.id}` ? <Spinner size={'small'} /> : t('update_button')}
                                     </Button>
                                 )}
                                 {dp.provider === 'manual' && (
-                                    <Button size={'xs'} onClick={() => onLink(dp)} isLoading={busy === `link-${dp.id}`}>
-                                        {t('link_button')}
+                                    <Button size={Button.Sizes.Small} variant={Button.Variants.Secondary} disabled={!!busy} onClick={() => onLink(dp)}>
+                                        {busy === `link-${dp.id}` ? <Spinner size={'small'} /> : t('link_button')}
                                     </Button>
                                 )}
-                                <Button size={'xs'} onClick={() => onToggle(dp)} isLoading={busy === `toggle-${dp.id}`}>
-                                    {dp.disabled ? t('enable_button') : t('disable_button')}
+                                <Button size={Button.Sizes.Small} variant={Button.Variants.Secondary} disabled={!!busy} onClick={() => onToggle(dp)}>
+                                    {busy === `toggle-${dp.id}` ? <Spinner size={'small'} /> : dp.disabled ? t('enable_button') : t('disable_button')}
                                 </Button>
-                                <Button size={'xs'} color={'red'} onClick={() => onRemove(dp)} isLoading={busy === `delete-${dp.id}`}>
-                                    {t('delete_button')}
+                                <Button size={Button.Sizes.Small} variant={Button.Variants.Secondary} disabled={!!busy} onClick={() => onRemove(dp)}>
+                                    {busy === `delete-${dp.id}` ? <Spinner size={'small'} /> : t('delete_button')}
                                 </Button>
                             </div>
                         </Card>
