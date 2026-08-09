@@ -24,14 +24,10 @@ class FileScanService
         private ?ProcessRunner $processRunner = null,
         private ?string $binary = null,
         private ?int $maxSize = null,
-        private bool $strict = false,
         private bool $enabled = true,
     ) {
-        // Validate at construction: binary is configured once, not per-scan.
-        // Skip validation when a custom ProcessRunner is injected (e.g., tests
-        // with a fake runner) because there is no real clamscan to resolve.
         if ($this->binary !== null && $this->processRunner === null) {
-            $this->binary = $this->resolveBinary($this->binary);
+            $this->binary = $this->resolveBinary();
         }
     }
 
@@ -197,9 +193,10 @@ class FileScanService
     private function logInfected(string $path, string $signature): void
     {
         try {
-            Activity::warning("File infected: {$signature}")
-                ->withProperty('file', $path)
-                ->withProperty('signature', $signature)
+            Activity::event('server:file.infected')
+                ->description("Malware detected: {$signature}")
+                ->property('file', $path)
+                ->property('signature', $signature)
                 ->log();
             Log::warning('File scan: infected', ['file' => $path, 'signature' => $signature]);
         } catch (\Throwable) {

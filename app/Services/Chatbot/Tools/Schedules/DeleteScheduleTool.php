@@ -63,7 +63,7 @@ class DeleteScheduleTool extends ChatbotTool
 
     public function summarize(array $arguments): string
     {
-        return "Permanently delete schedule #" . ($arguments['schedule_id'] ?? '(id)');
+        return 'Permanently delete schedule #'.($arguments['schedule_id'] ?? '(id)');
     }
 
     public function handle(ToolContext $context, array $arguments): array
@@ -91,6 +91,7 @@ class DeleteScheduleTool extends ChatbotTool
             throw new ChatbotException("Schedule #{$id} not found on this server.");
         }
 
+        /** @var Schedule $schedule */
         return $schedule;
     }
 }

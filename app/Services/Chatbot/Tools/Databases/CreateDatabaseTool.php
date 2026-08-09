@@ -3,8 +3,8 @@
 namespace App\Services\Chatbot\Tools\Databases;
 
 use App\Enum\ChatbotToolGroup;
-use App\Exceptions\Service\Database\TooManyDatabasesException;
 use App\Exceptions\Service\Chatbot\ChatbotException;
+use App\Exceptions\Service\Database\TooManyDatabasesException;
 use App\Models\Permission;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
@@ -68,7 +68,7 @@ class CreateDatabaseTool extends ChatbotTool
 
     public function summarize(array $arguments): string
     {
-        return "Create database \"" . ($arguments['name'] ?? '(name)') . "\" with remote \"" . ($arguments['remote'] ?? '%') . "\"";
+        return 'Create database "'.($arguments['name'] ?? '(name)').'" with remote "'.($arguments['remote'] ?? '%').'"';
     }
 
     public function handle(ToolContext $context, array $arguments): array
@@ -81,13 +81,13 @@ class CreateDatabaseTool extends ChatbotTool
         } catch (TooManyDatabasesException $exception) {
             throw new ChatbotException('This server has reached its database limit.');
         } catch (\Throwable $exception) {
-            throw new ChatbotException('Could not create database: ' . $exception->getMessage());
+            throw new ChatbotException('Could not create database: '.$exception->getMessage());
         }
 
         $result = [
             'name' => $database->database,
             'username' => $database->username,
-            'host' => $database->host->host . ':' . $database->host->port,
+            'host' => $database->host->host.':'.$database->host->port,
             'remote' => $database->remote,
             'max_connections' => $database->max_connections,
             'message' => "Database \"{$database->database}\" created.",

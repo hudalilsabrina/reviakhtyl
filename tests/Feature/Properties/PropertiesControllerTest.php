@@ -1,14 +1,19 @@
 <?php
 
 use App\Exceptions\DisplayException;
+use App\Exceptions\Http\Connection\DaemonConnectionException;
+use App\Http\Controllers\Api\Client\Servers\PropertiesController;
+use App\Http\Requests\Api\Client\Servers\Properties\AcceptEulaRequest;
+use App\Http\Requests\Api\Client\Servers\Properties\GetPropertiesRequest;
+use App\Http\Requests\Api\Client\Servers\Properties\UpdatePropertiesRequest;
+use App\Http\Requests\Api\Client\Servers\Properties\UpdateRawPropertiesRequest;
+use App\Models\ActivityLog;
+use App\Models\Server;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Repositories\Eloquent\SettingsRepository;
-use App\Services\Properties\ServerPropertiesService;
-use App\Models\Server;
-use App\Models\ActivityLog;
-use Illuminate\Http\JsonResponse;
-use App\Facades\Activity;
 use App\Services\Activity\ActivityLogService;
+use App\Services\Properties\ServerPropertiesService;
+use GuzzleHttp\Psr7\Response;
 
 afterEach(function () {
     Mockery::close();
@@ -26,22 +31,30 @@ function service(
     $fileRepo->shouldReceive('setServer')->andReturnSelf();
     $fileRepo->shouldReceive('getContent')->andReturnUsing(function (string $path) use (&$files) {
         if (! isset($files[$path])) {
-            throw new class extends \App\Exceptions\Http\Connection\DaemonConnectionException {
+            throw new class extends DaemonConnectionException
+            {
                 public function __construct() {}
-                public function getStatusCode(): int { return 404; }
+
+                public function getStatusCode(): int
+                {
+                    return 404;
+                }
             };
         }
+
         return $files[$path];
     });
     $fileRepo->shouldReceive('putContent')->andReturnUsing(function (string $path, string $content) use (&$files) {
         $files[$path] = $content;
-        return new \GuzzleHttp\Psr7\Response(200);
+
+        return new Response(200);
     });
 
     $settingsRepo = Mockery::mock(SettingsRepository::class);
     $settingsRepo->shouldReceive('get')->andReturn(null);
 
-    return new class($fileRepo, $settingsRepo, $definitions, $groups) extends ServerPropertiesService {
+    return new class($fileRepo, $settingsRepo, $definitions, $groups) extends ServerPropertiesService
+    {
         private $mockFileRepo;
 
         public function __construct(
@@ -54,10 +67,25 @@ function service(
             $this->mockFileRepo = $fileRepo;
         }
 
-        public function definitions(): array { return $this->definitions; }
-        public function groups(): array { return $this->groups; }
-        public function enabledEggIds(): array { return []; }
-        public function isEnabledFor(Server $server): bool { return true; }
+        public function definitions(): array
+        {
+            return $this->definitions;
+        }
+
+        public function groups(): array
+        {
+            return $this->groups;
+        }
+
+        public function enabledEggIds(): array
+        {
+            return [];
+        }
+
+        public function isEnabledFor(Server $server): bool
+        {
+            return true;
+        }
 
         // The parent's applyNormalized is private; re-implement using public
         // methods so the controller can call it through the same interface.
@@ -106,10 +134,10 @@ describe('PropertiesController', function () {
     describe('GET /api/client/servers/{server}/properties', function () {
         it('returns exists:false when the file does not exist on the daemon', function () {
             $svc = service();
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $result = $ctrl->index(new \App\Http\Requests\Api\Client\Servers\Properties\GetPropertiesRequest, $server);
+            $result = $ctrl->index(new GetPropertiesRequest(), $server);
 
             expect($result)->toBeArray();
             expect($result['exists'])->toBeFalse();
@@ -125,10 +153,10 @@ describe('PropertiesController', function () {
                 'difficulty' => ['type' => 'enum', 'default' => 'peaceful', 'options' => ['peaceful', 'easy', 'normal', 'hard'], 'group' => 'gameplay', 'locked' => false, 'sensitive' => false, 'warn' => false],
             ];
             $svc = service($files, $defs, ['general', 'gameplay']);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $result = $ctrl->index(new \App\Http\Requests\Api\Client\Servers\Properties\GetPropertiesRequest, $server);
+            $result = $ctrl->index(new GetPropertiesRequest(), $server);
 
             expect($result['exists'])->toBeTrue();
             expect($result['values']['motd'])->toBe('Hello');
@@ -144,10 +172,10 @@ describe('PropertiesController', function () {
         it('adds unknown keys from the file into the "other" group', function () {
             $files = ['/server.properties' => "unknown-key=42\n"];
             $svc = service($files, [], ['other']);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $result = $ctrl->index(new \App\Http\Requests\Api\Client\Servers\Properties\GetPropertiesRequest, $server);
+            $result = $ctrl->index(new GetPropertiesRequest(), $server);
 
             $other = $result['groups'][0];
             expect($other['id'])->toBe('other');
@@ -162,10 +190,10 @@ describe('PropertiesController', function () {
                 'rcon.password' => ['type' => 'string', 'default' => '', 'group' => 'network', 'locked' => false, 'sensitive' => true, 'warn' => false],
             ];
             $svc = service($files, $defs, ['network']);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $result = $ctrl->index(new \App\Http\Requests\Api\Client\Servers\Properties\GetPropertiesRequest, $server);
+            $result = $ctrl->index(new GetPropertiesRequest(), $server);
 
             $props = $result['groups'][0]['properties'];
             expect($props[0]['locked'])->toBeTrue();
@@ -180,10 +208,10 @@ describe('PropertiesController', function () {
                 '/eula.txt' => "eula=true\n",
             ];
             $svc = service($files, [], []);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $result = $ctrl->index(new \App\Http\Requests\Api\Client\Servers\Properties\GetPropertiesRequest, $server);
+            $result = $ctrl->index(new GetPropertiesRequest(), $server);
 
             expect($result['eula_accepted'])->toBeTrue();
         });
@@ -197,10 +225,10 @@ describe('PropertiesController', function () {
                 'difficulty' => ['type' => 'enum', 'default' => 'peaceful', 'options' => ['peaceful', 'easy', 'normal', 'hard'], 'group' => 'gameplay', 'locked' => false, 'sensitive' => false, 'warn' => false],
             ];
             $svc = service($files, $defs, ['general', 'gameplay']);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $request = new \App\Http\Requests\Api\Client\Servers\Properties\UpdatePropertiesRequest;
+            $request = new UpdatePropertiesRequest();
             $request->merge(['properties' => ['motd' => 'Goodbye']]);
 
             $result = $ctrl->update($request, $server);
@@ -218,10 +246,10 @@ describe('PropertiesController', function () {
                 'motd' => ['type' => 'string', 'default' => '', 'group' => 'general', 'locked' => false, 'sensitive' => false, 'warn' => false],
             ];
             $svc = service($files, $defs, ['network', 'general']);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $request = new \App\Http\Requests\Api\Client\Servers\Properties\UpdatePropertiesRequest;
+            $request = new UpdatePropertiesRequest();
             $request->merge(['properties' => ['server-port' => '30000', 'motd' => 'Bye']]);
 
             $result = $ctrl->update($request, $server);
@@ -235,10 +263,10 @@ describe('PropertiesController', function () {
                 'count' => ['type' => 'int', 'default' => '0', 'min' => 0, 'max' => 100, 'group' => 'gameplay', 'locked' => false, 'sensitive' => false, 'warn' => false],
             ];
             $svc = service([], $defs, ['gameplay']);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $request = new \App\Http\Requests\Api\Client\Servers\Properties\UpdatePropertiesRequest;
+            $request = new UpdatePropertiesRequest();
             $request->merge(['properties' => ['count' => '-1']]);
 
             expect(fn () => $ctrl->update($request, $server))
@@ -250,10 +278,10 @@ describe('PropertiesController', function () {
         it('replaces the entire file content', function () {
             $files = ['/server.properties' => "old=1\n"];
             $svc = service($files, [], []);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $request = new \App\Http\Requests\Api\Client\Servers\Properties\UpdateRawPropertiesRequest;
+            $request = new UpdateRawPropertiesRequest();
             $request->merge(['content' => "new=2\n"]);
 
             $result = $ctrl->updateRaw($request, $server);
@@ -265,10 +293,10 @@ describe('PropertiesController', function () {
 
         it('rejects content over 512 KB', function () {
             $svc = service([], [], []);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $request = new \App\Http\Requests\Api\Client\Servers\Properties\UpdateRawPropertiesRequest;
+            $request = new UpdateRawPropertiesRequest();
             $request->merge(['content' => str_repeat('x', 512 * 1024 + 1)]);
 
             expect(fn () => $ctrl->updateRaw($request, $server))
@@ -277,10 +305,10 @@ describe('PropertiesController', function () {
 
         it('rejects null bytes', function () {
             $svc = service([], [], []);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $request = new \App\Http\Requests\Api\Client\Servers\Properties\UpdateRawPropertiesRequest;
+            $request = new UpdateRawPropertiesRequest();
             $request->merge(['content' => "bad\0content\n"]);
 
             expect(fn () => $ctrl->updateRaw($request, $server))
@@ -292,10 +320,10 @@ describe('PropertiesController', function () {
         it('writes eula=true and reports it as accepted', function () {
             $files = [];
             $svc = service($files, [], []);
-            $ctrl = new \App\Http\Controllers\Api\Client\Servers\PropertiesController($svc);
+            $ctrl = new PropertiesController($svc);
             $server = fakeServer();
 
-            $ctrl->acceptEula(new \App\Http\Requests\Api\Client\Servers\Properties\AcceptEulaRequest, $server);
+            $ctrl->acceptEula(new AcceptEulaRequest(), $server);
 
             expect($svc->eulaAccepted($server))->toBeTrue();
         });

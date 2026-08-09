@@ -220,8 +220,8 @@ const ExpirationAlert = () => {
             <div className='mb-4'>
                 <Alert type='danger'>
                     <div>
-                        <strong>Server Expired:</strong> This server expired on{' '}
-                        {expirationDate.toLocaleDateString()}. It will be deleted after the 3-day grace period.
+                        <strong>Server Expired:</strong> This server expired on {expirationDate.toLocaleDateString()}.
+                        It will be deleted after the 3-day grace period.
                     </div>
                 </Alert>
             </div>
@@ -346,7 +346,7 @@ export default function ServerRouter() {
                                     {inConflictState &&
                                     (!rootAdmin || !location.pathname.endsWith(`/server/${id}/`)) ? (
                                         <ConflictStateRenderer />
-                                     ) : (
+                                    ) : (
                                         <ErrorBoundary>
                                             <TopServerDetails />
                                             <ExtensionSlot

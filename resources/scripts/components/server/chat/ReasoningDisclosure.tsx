@@ -45,11 +45,7 @@ const ReasoningDisclosure = ({ reasoning, streaming = false }: Props) => {
 
     return (
         <div css={tw`w-full`}>
-            <Toggle
-                type={'button'}
-                onClick={() => setOpen((value) => !value)}
-                aria-expanded={visible}
-            >
+            <Toggle type={'button'} onClick={() => setOpen((value) => !value)} aria-expanded={visible}>
                 <FaBrain css={tw`w-2.5 h-2.5`} />
                 <span>{visible ? t('thinking-hide') : t('thinking-show')}</span>
                 <Chevron $open={visible} />

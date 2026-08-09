@@ -17,7 +17,7 @@ class CurseForgeService implements ModProviderInterface
 
     public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
-        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key');
+        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
             return ['hits' => [], 'total' => 0];
@@ -73,7 +73,7 @@ class CurseForgeService implements ModProviderInterface
 
     public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array
     {
-        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key');
+        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
             return [];
@@ -123,7 +123,7 @@ class CurseForgeService implements ModProviderInterface
             return [];
         }
 
-        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key');
+        $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
             return [];

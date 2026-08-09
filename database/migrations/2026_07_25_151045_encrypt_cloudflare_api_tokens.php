@@ -22,7 +22,7 @@ return new class extends Migration
         try {
             $encrypter->decrypt($setting->value);
             // Already encrypted, skip.
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Plaintext, encrypt it.
             $setting->value = $encrypter->encrypt($setting->value);
             $setting->save();
@@ -46,7 +46,7 @@ return new class extends Migration
             $decrypted = $encrypter->decrypt($setting->value);
             $setting->value = $decrypted;
             $setting->save();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // Already plaintext or corrupt, leave as-is.
         }
     }

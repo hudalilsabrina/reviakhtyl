@@ -24,8 +24,6 @@ class PluginManagerService
         'folia' => ['folia', 'paper', 'spigot', 'bukkit'],
     ];
 
-    private const MAX_SIZE = 64 * 1024 * 1024;
-
     /** @var array<string, PluginProviderInterface> */
     private array $providers;
 

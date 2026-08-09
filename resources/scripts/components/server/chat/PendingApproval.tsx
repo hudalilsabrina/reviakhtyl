@@ -67,40 +67,38 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
         [onDecision, processing]
     );
 
-    const submitSelection = () => submit(actions.map((toolCall) => ({ id: toolCall.id, approved: selection[toolCall.id] ?? false })));
+    const submitSelection = () =>
+        submit(actions.map((toolCall) => ({ id: toolCall.id, approved: selection[toolCall.id] ?? false })));
     const denyAll = () => submit(actions.map((toolCall) => ({ id: toolCall.id, approved: false })));
     const approveAll = () => submit(actions.map((toolCall) => ({ id: toolCall.id, approved: true })));
 
-    const handleKeyDown = useCallback(
-        (event: React.KeyboardEvent) => {
-            if (event.key !== 'Tab') return;
+    const handleKeyDown = useCallback((event: React.KeyboardEvent) => {
+        if (event.key !== 'Tab') return;
 
-            const root = panelRef.current;
-            if (!root) return;
+        const root = panelRef.current;
+        if (!root) return;
 
-            const focusable = root.querySelectorAll<HTMLElement>(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-            );
-            if (focusable.length === 0) return;
+        const focusable = root.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
 
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (!first || !last) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
 
-            if (event.shiftKey) {
-                if (document.activeElement === first) {
-                    event.preventDefault();
-                    last.focus();
-                }
-            } else {
-                if (document.activeElement === last) {
-                    event.preventDefault();
-                    first.focus();
-                }
+        if (event.shiftKey) {
+            if (document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
             }
-        },
-        [],
-    );
+        } else {
+            if (document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+    }, []);
 
     // Whatever had focus in the composer is disabled the moment this appears, which drops focus
     // onto <body>. Save the previous target so we can restore it once the approval panel is gone.
@@ -133,9 +131,7 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
                 ]}
             >
                 <FaTriangleExclamation css={tw`flex-shrink-0`} />
-                <span>
-                    {destructive ? t('approval-heading-destructive') : t('approval-heading-permission')}
-                </span>
+                <span>{destructive ? t('approval-heading-destructive') : t('approval-heading-permission')}</span>
             </div>
             <p css={tw`text-xs text-gray-300 mb-3`}>
                 {destructive ? t('approval-body-destructive') : t('approval-body-permission')}
@@ -176,7 +172,11 @@ const PendingApproval = ({ message, processing, onDecision }: Props) => {
                                     aria-expanded={openArgs === toolCall.id}
                                     css={tw`flex items-center gap-1.5 text-2xs text-gray-500 hover:text-gray-300 transition-colors duration-100 px-0.5 py-0.5 rounded-ui`}
                                 >
-                                    <span>{openArgs === toolCall.id ? t('tool-call-hide-details') : t('tool-call-details')}</span>
+                                    <span>
+                                        {openArgs === toolCall.id
+                                            ? t('tool-call-hide-details')
+                                            : t('tool-call-details')}
+                                    </span>
                                     <Chevron $open={openArgs === toolCall.id} />
                                 </button>
                                 {openArgs === toolCall.id && (

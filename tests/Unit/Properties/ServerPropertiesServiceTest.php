@@ -1,13 +1,12 @@
 <?php
 
+use App\Exceptions\DisplayException;
+use App\Exceptions\Http\Connection\DaemonConnectionException;
+use App\Models\Server;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Repositories\Eloquent\SettingsRepository;
 use App\Services\Properties\ServerPropertiesService;
-use App\Models\Server;
-use App\Exceptions\Http\Connection\DaemonConnectionException;
 use GuzzleHttp\Psr7\Response;
-use GuzzleHttp\Psr7\Request;
-use GuzzleHttp\Exception\ClientException;
 
 /**
  * Test double that overrides the config-dependent and private methods so the
@@ -26,14 +25,22 @@ class TestPropertiesService extends ServerPropertiesService
         parent::__construct($fileRepository, $settings);
     }
 
-    public function definitions(): array { return $this->definitions; }
-    public function groups(): array { return $this->groups; }
+    public function definitions(): array
+    {
+        return $this->definitions;
+    }
+
+    public function groups(): array
+    {
+        return $this->groups;
+    }
 
     public function enabledEggIds(): array
     {
         if ($this->eggIds !== null) {
             return $this->eggIds;
         }
+
         return [];
     }
 
@@ -45,10 +52,10 @@ class TestPropertiesService extends ServerPropertiesService
 }
 
 /**
- * @param  array<string, mixed>  $settings    key/value pairs for settings::panel:properties
- * @param  array<string, string> $files       path => content for the fake daemon file store
+ * @param  array<string, mixed>  $settings  key/value pairs for settings::panel:properties
+ * @param  array<string, string>  $files  path => content for the fake daemon file store
  * @param  array<string, array<string, mixed>>  $definitions  property definitions keyed by name
- * @param  array<int, string>    $groups      group render order
+ * @param  array<int, string>  $groups  group render order
  */
 function propertiesService(
     array $settings = [],
@@ -91,7 +98,6 @@ function propertiesService(
     );
 }
 
-/** @return Server */
 function server(int $eggId = 1): Server
 {
     $s = Mockery::mock(Server::class)->makePartial();
@@ -232,9 +238,9 @@ describe('normalize', function () {
         $defs = ['count' => ['type' => 'int', 'min' => 0, 'max' => 100, 'locked' => false]];
 
         expect(fn () => $svc($defs)->normalize(['count' => -1]))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
         expect(fn () => $svc($defs)->normalize(['count' => 101]))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
         expect($svc($defs)->normalize(['count' => '50']))->toBe(['count' => '50']);
     });
 
@@ -245,24 +251,24 @@ describe('normalize', function () {
 
     it('rejects invalid key characters', function () use ($svc) {
         expect(fn () => $svc()->normalize(['bad key' => 'v']))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 
     it('rejects line breaks in values', function () use ($svc) {
         expect(fn () => $svc()->normalize(['motd' => "line1\nline2"]))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 
     it('rejects non-scalar values', function () use ($svc) {
         expect(fn () => $svc()->normalize(['data' => ['nested']]))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 
     it('rejects enum values not in the options list', function () use ($svc) {
         $defs = ['difficulty' => ['type' => 'enum', 'options' => ['easy', 'normal', 'hard'], 'locked' => false]];
 
         expect(fn () => $svc($defs)->normalize(['difficulty' => 'peaceful']))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 });
 
@@ -301,7 +307,7 @@ describe('apply', function () {
         $service = propertiesService(['egg_ids' => [1]], $files);
 
         expect(fn () => $service->apply(server(1), ['a' => ['bad']]))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 
     it('returns current state when no changes are provided', function () {
@@ -328,14 +334,14 @@ describe('updateRaw', function () {
         $service = propertiesService(['egg_ids' => [1]]);
 
         expect(fn () => $service->updateRaw(server(1), str_repeat('x', 512 * 1024 + 1)))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 
     it('rejects null bytes', function () {
         $service = propertiesService(['egg_ids' => [1]]);
 
         expect(fn () => $service->updateRaw(server(1), "bad\0content\n"))
-            ->toThrow(\App\Exceptions\DisplayException::class);
+            ->toThrow(DisplayException::class);
     });
 });
 

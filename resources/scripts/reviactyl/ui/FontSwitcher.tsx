@@ -51,9 +51,7 @@ const applyFont = (fontKey: string | null) => {
     if (typeof document === 'undefined') return;
 
     const info = fontKey ? FONT_LIST[fontKey] : null;
-    const value = info?.family
-        ? `"${info.family}", sans-serif`
-        : '';
+    const value = info?.family ? `"${info.family}", sans-serif` : '';
 
     if (value) {
         document.documentElement.style.setProperty('--font-family', value);

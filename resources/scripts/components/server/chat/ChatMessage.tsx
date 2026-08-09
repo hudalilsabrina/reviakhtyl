@@ -51,10 +51,7 @@ const ChatMessageRow = ({ message, streaming = false, onRegenerate, onDelete }: 
     }
 
     return (
-        <div
-            className="group"
-            css={[tw`flex items-start gap-2 w-full`, isUser && tw`flex-row-reverse`]}
-        >
+        <div className='group' css={[tw`flex items-start gap-2 w-full`, isUser && tw`flex-row-reverse`]}>
             {!isUser && (
                 <Avatar>
                     <FaRobot css={tw`w-3.5 h-3.5`} />
@@ -85,11 +82,7 @@ const ChatMessageRow = ({ message, streaming = false, onRegenerate, onDelete }: 
                         <span css={tw`text-2xs text-gray-500`}>
                             {message.pending ? t('sending') : format(message.createdAt, 'HH:mm')}
                         </span>
-                        <MessageActions
-                            message={message}
-                            onRegenerate={onRegenerate}
-                            onDelete={onDelete}
-                        />
+                        <MessageActions message={message} onRegenerate={onRegenerate} onDelete={onDelete} />
                     </span>
                 </div>
             </div>

@@ -22,7 +22,7 @@ import mergeSplit from '@/api/server/splits/mergeSplit';
 const Stat = ({ label, value, unit, max }: { label: string; value: number | string; unit?: string; max?: number }) => {
     const numValue = typeof value === 'number' ? value : Number.parseFloat(value as string);
     const percent = max && !Number.isNaN(numValue) ? (numValue / max) * 100 : 0;
-    
+
     return (
         <div>
             <p css={tw`text-xs uppercase tracking-wider text-gray-500`}>{label}</p>
@@ -186,7 +186,12 @@ const SplitterContainer = () => {
                         <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
                         <div css={tw`grid grid-cols-2 sm:grid-cols-4 gap-4`}>
                             <Stat label={t('cpu')} value={state.remaining.cpu} unit={'%'} max={state.total.cpu} />
-                            <Stat label={t('memory')} value={state.remaining.memory} unit={'MB'} max={state.total.memory} />
+                            <Stat
+                                label={t('memory')}
+                                value={state.remaining.memory}
+                                unit={'MB'}
+                                max={state.total.memory}
+                            />
                             <Stat label={t('disk')} value={state.remaining.disk} unit={'MB'} max={state.total.disk} />
                             <Stat label={t('children')} value={`${state.used} / ${state.splitLimit}`} />
                         </div>
@@ -248,15 +253,24 @@ const SplitterContainer = () => {
                                 <Card css={tw`relative`}>
                                     <SpinnerOverlay visible={submitting && createOpen} />
                                     <p css={tw`text-sm font-semibold text-gray-100 mb-4`}>{t('create-title')}</p>
-                                    
+
                                     <div css={tw`flex gap-2 mb-4`}>
-                                        <Button.Text className={'!px-3 !py-1.5 text-xs'} onClick={() => applyPreset(0.25)}>
+                                        <Button.Text
+                                            className={'!px-3 !py-1.5 text-xs'}
+                                            onClick={() => applyPreset(0.25)}
+                                        >
                                             {t('preset-quarter')}
                                         </Button.Text>
-                                        <Button.Text className={'!px-3 !py-1.5 text-xs'} onClick={() => applyPreset(0.5)}>
+                                        <Button.Text
+                                            className={'!px-3 !py-1.5 text-xs'}
+                                            onClick={() => applyPreset(0.5)}
+                                        >
                                             {t('preset-half')}
                                         </Button.Text>
-                                        <Button.Text className={'!px-3 !py-1.5 text-xs'} onClick={() => applyPreset(0.75)}>
+                                        <Button.Text
+                                            className={'!px-3 !py-1.5 text-xs'}
+                                            onClick={() => applyPreset(0.75)}
+                                        >
                                             {t('preset-three-quarters')}
                                         </Button.Text>
                                     </div>
@@ -322,7 +336,7 @@ const SplitterContainer = () => {
                                             </div>
                                         ))}
                                     </div>
-                                    
+
                                     {parentRemaining && numeric.cpu > 0 && (
                                         <div css={tw`mt-4 p-3 rounded bg-gray-800 border border-gray-700`}>
                                             <p css={tw`text-xs text-gray-400 mb-2`}>{t('parent-will-have')}</p>
@@ -339,7 +353,7 @@ const SplitterContainer = () => {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {formError && <p css={tw`text-xs mt-3 text-red-400`}>{formError}</p>}
                                     <div css={tw`mt-6 flex justify-end gap-2`}>
                                         <Button.Text

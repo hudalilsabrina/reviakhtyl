@@ -7,10 +7,12 @@ use App\Exceptions\Repository\RecordNotFoundException;
 use App\Facades\Activity;
 use App\Http\Controllers\Api\Client\ClientApiController;
 use App\Http\Requests\Api\Client\Servers\Startup\GetStartupRequest;
+use App\Http\Requests\Api\Client\Servers\Startup\UpdateStartupPartsRequest;
 use App\Http\Requests\Api\Client\Servers\Startup\UpdateStartupVariableRequest;
 use App\Models\Server;
 use App\Repositories\Eloquent\ServerVariableRepository;
 use App\Services\Servers\StartupCommandService;
+use App\Transformers\Api\Client\EggStartupPartTransformer;
 use App\Transformers\Api\Client\EggVariableTransformer;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -34,7 +36,7 @@ class StartupController extends ClientApiController
     {
         $startup = $this->startupCommandService->handle($server);
 
-        return $this->fractal->collection(
+        $response = $this->fractal->collection(
             $server->variables()->where('user_viewable', true)->get()
         )
             ->transformWith($this->getTransformer(EggVariableTransformer::class))

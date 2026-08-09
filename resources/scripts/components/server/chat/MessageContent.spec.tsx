@@ -8,10 +8,7 @@ describe('MessageContent', () => {
         render(
             <MessageContent
                 content={
-                    '| Resource | Usage |\n' +
-                    '|----------|-------|\n' +
-                    '| **CPU** | 2% |\n' +
-                    '| Disk | 24 MB |'
+                    '| Resource | Usage |\n' + '|----------|-------|\n' + '| **CPU** | 2% |\n' + '| Disk | 24 MB |'
                 }
             />
         );
@@ -37,11 +34,7 @@ describe('MessageContent', () => {
         render(
             <MessageContent
                 content={
-                    'Here is the usage:\n' +
-                    '| CPU | Memory |\n' +
-                    '|-----|--------|\n' +
-                    '| 2%  | 1 GB  |\n' +
-                    'Done.'
+                    'Here is the usage:\n' + '| CPU | Memory |\n' + '|-----|--------|\n' + '| 2%  | 1 GB  |\n' + 'Done.'
                 }
             />
         );
@@ -52,17 +45,7 @@ describe('MessageContent', () => {
     });
 
     it('does not render tables inside code fences', () => {
-        render(
-            <MessageContent
-                content={
-                    '```\n' +
-                    '| A | B |\n' +
-                    '|---|--|\n' +
-                    '| 1 | 2 |\n' +
-                    '```'
-                }
-            />
-        );
+        render(<MessageContent content={'```\n' + '| A | B |\n' + '|---|--|\n' + '| 1 | 2 |\n' + '```'} />);
 
         expect(screen.queryByRole('table')).not.toBeInTheDocument();
         expect(screen.getByText(/\| A \| B \|/)).toBeInTheDocument();

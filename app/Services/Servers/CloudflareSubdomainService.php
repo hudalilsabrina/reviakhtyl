@@ -9,6 +9,7 @@ use App\Models\Server;
 use App\Models\ServerSubdomain;
 use Illuminate\Contracts\Encryption\Encrypter;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -141,7 +142,7 @@ class CloudflareSubdomainService
                     'cf_record_id' => $recordId,
                 ]
             );
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException) {
             // Race: another request created this subdomain between our check and insert.
             try {
                 $this->deleteRecord($domain, $recordId);

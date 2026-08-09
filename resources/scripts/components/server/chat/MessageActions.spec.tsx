@@ -48,7 +48,9 @@ describe('MessageActions', () => {
 
         render(<MessageActions message={msg({ content: 'copy me' })} onCopy={() => {}} />);
 
-        await act(async () => { fireEvent.click(screen.getByTitle('copy-message')); });
+        await act(async () => {
+            fireEvent.click(screen.getByTitle('copy-message'));
+        });
         expect(writeText).toHaveBeenCalledWith('copy me');
         expect(screen.getByTitle('copy-message-success')).toBeInTheDocument();
     });
@@ -60,10 +62,14 @@ describe('MessageActions', () => {
 
         render(<MessageActions message={msg({ content: 'x' })} onCopy={() => {}} />);
 
-        await act(async () => { fireEvent.click(screen.getByTitle('copy-message')); });
+        await act(async () => {
+            fireEvent.click(screen.getByTitle('copy-message'));
+        });
         expect(screen.getByTitle('copy-message-success')).toBeInTheDocument();
 
-        await act(async () => { vi.advanceTimersByTime(1600); });
+        await act(async () => {
+            vi.advanceTimersByTime(1600);
+        });
         expect(screen.getByTitle('copy-message')).toBeInTheDocument();
 
         vi.useRealTimers();
@@ -73,7 +79,9 @@ describe('MessageActions', () => {
         const onRegenerate = vi.fn();
         render(<MessageActions message={msg({ role: 'assistant', status: 'complete' })} onRegenerate={onRegenerate} />);
 
-        await act(async () => { fireEvent.click(screen.getByTitle('regenerate-message')); });
+        await act(async () => {
+            fireEvent.click(screen.getByTitle('regenerate-message'));
+        });
         expect(onRegenerate).toHaveBeenCalledOnce();
     });
 
@@ -81,7 +89,9 @@ describe('MessageActions', () => {
         const onDelete = vi.fn();
         render(<MessageActions message={msg({ role: 'user' })} onDelete={onDelete} />);
 
-        await act(async () => { fireEvent.click(screen.getByTitle('delete-message')); });
+        await act(async () => {
+            fireEvent.click(screen.getByTitle('delete-message'));
+        });
         expect(onDelete).toHaveBeenCalledOnce();
     });
 });

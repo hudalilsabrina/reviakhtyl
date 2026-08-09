@@ -185,10 +185,19 @@ export default ({
                                         <p>Expired</p>
                                     </StatBlock>
                                 </React.Fragment>
-                            ) : server.expiresAt && Math.ceil((new Date(server.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <= 7 ? (
+                            ) : server.expiresAt &&
+                              Math.ceil((new Date(server.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) <=
+                                  7 ? (
                                 <React.Fragment>
                                     <StatBlock className='bg-yellow-500/50 backdrop-blur-sm border border-yellow-500/70'>
-                                        <p>Expires in {Math.ceil((new Date(server.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))}d</p>
+                                        <p>
+                                            Expires in{' '}
+                                            {Math.ceil(
+                                                (new Date(server.expiresAt).getTime() - Date.now()) /
+                                                    (1000 * 60 * 60 * 24)
+                                            )}
+                                            d
+                                        </p>
                                     </StatBlock>
                                 </React.Fragment>
                             ) : server.isTransferring || server.status ? (

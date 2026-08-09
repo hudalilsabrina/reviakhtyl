@@ -45,7 +45,7 @@ class ExecuteScheduleTool extends ChatbotTool
 
     public function summarize(array $arguments): string
     {
-        return "Immediately execute schedule #" . ($arguments['schedule_id'] ?? '(id)');
+        return 'Immediately execute schedule #'.($arguments['schedule_id'] ?? '(id)');
     }
 
     public function parameters(): array
@@ -95,6 +95,7 @@ class ExecuteScheduleTool extends ChatbotTool
             throw new ChatbotException("Schedule #{$id} not found on this server.");
         }
 
+        /** @var Schedule $schedule */
         return $schedule;
     }
 }

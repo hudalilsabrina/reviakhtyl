@@ -3,7 +3,6 @@
 namespace App\Services\Chatbot\Tools\Backups;
 
 use App\Enum\ChatbotToolGroup;
-use App\Exceptions\Service\Backup\BackupLockedException;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Models\Backup;
 use App\Models\Permission;
@@ -68,7 +67,7 @@ class DeleteBackupTool extends ChatbotTool
 
     public function summarize(array $arguments): string
     {
-        return "Permanently delete backup \"" . ($arguments['backup_uuid'] ?? '(backup)') . "\"";
+        return 'Permanently delete backup "'.($arguments['backup_uuid'] ?? '(backup)').'"';
     }
 
     public function handle(ToolContext $context, array $arguments): array
@@ -100,6 +99,7 @@ class DeleteBackupTool extends ChatbotTool
             throw new ChatbotException("Backup \"{$uuid}\" not found on this server.");
         }
 
+        /** @var Backup $backup */
         return $backup;
     }
 }

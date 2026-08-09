@@ -7,20 +7,14 @@ use App\Exceptions\DisplayException;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Models\Permission;
 use App\Models\Schedule;
-use App\Models\Task;
-use App\Repositories\Eloquent\ScheduleRepository;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
-use App\Services\Schedules\ProcessScheduleService;
 use Carbon\Carbon;
 use Cron\CronExpression;
 
 class CreateScheduleTool extends ChatbotTool
 {
-    public function __construct(
-        private ScheduleRepository $scheduleRepository,
-        private ProcessScheduleService $processService,
-    ) {}
+    public function __construct() {}
 
     public function name(): string
     {
@@ -194,6 +188,6 @@ class CreateScheduleTool extends ChatbotTool
 
     private function buildCronString(Schedule $schedule): string
     {
-        return $schedule->cron_minute . ' ' . $schedule->cron_hour . ' ' . $schedule->cron_day_of_month . ' ' . $schedule->cron_month . ' ' . $schedule->cron_day_of_week;
+        return $schedule->cron_minute.' '.$schedule->cron_hour.' '.$schedule->cron_day_of_month.' '.$schedule->cron_month.' '.$schedule->cron_day_of_week;
     }
 }

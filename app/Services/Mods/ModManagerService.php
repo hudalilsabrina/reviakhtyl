@@ -15,8 +15,6 @@ class ModManagerService
 {
     public const MOD_LOADERS = ['fabric', 'forge', 'neoforge', 'quilt'];
 
-    private const MAX_SIZE = 64 * 1024 * 1024;
-
     /** @var array<string, ModProviderInterface> */
     private array $providers;
 

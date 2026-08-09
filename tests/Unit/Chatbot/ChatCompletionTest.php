@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\Chatbot\Data\ChatCompletion;
+use App\Services\Chatbot\Data\StreamAccumulator;
 use App\Services\Chatbot\Data\ToolCall;
 
 /**
@@ -266,7 +267,7 @@ it('ignores tool call entries that are not arrays', function () {
 });
 
 it('forwards streamed reasoning and content fragments separately', function () {
-    $accumulator = new \App\Services\Chatbot\Data\StreamAccumulator();
+    $accumulator = new StreamAccumulator();
 
     $first = $accumulator->push([
         'choices' => [['delta' => ['reasoning_content' => 'The logs show ']]],

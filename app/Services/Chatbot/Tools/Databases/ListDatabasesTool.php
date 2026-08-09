@@ -43,7 +43,7 @@ class ListDatabasesTool extends ChatbotTool
             'entries' => $databases->map(fn ($database) => [
                 'name' => $database->database,
                 'username' => $database->username,
-                'host' => $database->host->host . ':' . $database->host->port,
+                'host' => $database->host->host.':'.$database->host->port,
                 'remote' => $database->remote,
                 'max_connections' => $database->max_connections,
             ])->values()->all(),

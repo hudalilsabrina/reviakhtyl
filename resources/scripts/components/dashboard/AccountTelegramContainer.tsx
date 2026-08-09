@@ -115,7 +115,8 @@ export default () => {
                     ) : (
                         <div>
                             <p css={tw`text-sm mb-4`}>
-                                Link your Telegram account to receive notifications and control your servers via Telegram.
+                                Link your Telegram account to receive notifications and control your servers via
+                                Telegram.
                             </p>
                             <Button css={tw`w-full`} onClick={generateLink}>
                                 <FaLink css={tw`mr-2 inline`} />

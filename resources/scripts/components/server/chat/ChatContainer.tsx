@@ -158,9 +158,7 @@ const ChatContainer = () => {
     const streamingMessageVisible =
         streamingUuid !== null &&
         messages.some(
-            (message) =>
-                message.uuid === streamingUuid &&
-                (message.content?.length || message.reasoning?.length),
+            (message) => message.uuid === streamingUuid && (message.content?.length || message.reasoning?.length)
         );
 
     const threadRef = useRef<HTMLDivElement>(null);
@@ -191,7 +189,7 @@ const ChatContainer = () => {
 
     const examples = useMemo(() => {
         const all = EXAMPLE_PROMPTS.filter(
-            (example) => example.group === null || new Set((config?.tools ?? []).map((t) => t.group)).has(example.group),
+            (example) => example.group === null || new Set((config?.tools ?? []).map((t) => t.group)).has(example.group)
         );
 
         // Rotate on a shuffled pool so every new empty chat shows a fresh,
@@ -315,6 +313,27 @@ const ChatContainer = () => {
         });
     };
 
+    /**
+     * Pulls the thread back from the server after a request we could not observe the
+     * result of. A send that times out client-side is still running server-side, so the
+     * turn — including a pending approval — may have been committed without us seeing it.
+     * Without this the thread silently desyncs and every retry fails.
+     */
+    const resyncThread = async (conversation: string) => {
+        if (activeRef.current !== conversation) return;
+
+        try {
+            const fresh = await getConversation(uuid, conversation);
+
+            if (activeRef.current === conversation) {
+                setMessages(fresh.messages);
+                setThreadRevision((revision) => revision + 1);
+            }
+        } catch {
+            // The error from the original request is the one worth showing.
+        }
+    };
+
     const handleRegenerate = async (message: ChatMessage) => {
         if (busy || !active) return;
 
@@ -348,27 +367,6 @@ const ChatContainer = () => {
         } catch (error) {
             clearAndAddHttpError(error as Error);
             await resyncThread(active);
-        }
-    };
-
-    /**
-     * Pulls the thread back from the server after a request we could not observe the
-     * result of. A send that times out client-side is still running server-side, so the
-     * turn — including a pending approval — may have been committed without us seeing it.
-     * Without this the thread silently desyncs and every retry fails.
-     */
-    const resyncThread = async (conversation: string) => {
-        if (activeRef.current !== conversation) return;
-
-        try {
-            const fresh = await getConversation(uuid, conversation);
-
-            if (activeRef.current === conversation) {
-                setMessages(fresh.messages);
-                setThreadRevision((revision) => revision + 1);
-            }
-        } catch {
-            // The error from the original request is the one worth showing.
         }
     };
 
@@ -593,7 +591,9 @@ const ChatContainer = () => {
                         css={tw`w-full flex items-center justify-center gap-2`}
                     >
                         <FaComments css={tw`w-4 h-4`} />
-                        {listOpen ? t('sidebar-toggle-hide') : t('sidebar-toggle-show', { count: conversations?.length ?? 0 })}
+                        {listOpen
+                            ? t('sidebar-toggle-hide')
+                            : t('sidebar-toggle-show', { count: conversations?.length ?? 0 })}
                     </Button>
                 </div>
 
@@ -633,9 +633,7 @@ const ChatContainer = () => {
                                 <h2 css={tw`text-lg text-gray-100 mb-1`}>{t('ask-about-server')}</h2>
                                 <p css={tw`text-sm text-gray-400 max-w-md mx-auto mb-5`}>
                                     {t('intro-text')}{' '}
-                                    {config.requiresConfirmation
-                                        ? t('approval-first')
-                                        : t('approval-immediate')}
+                                    {config.requiresConfirmation ? t('approval-first') : t('approval-immediate')}
                                 </p>
                                 <div css={tw`grid gap-2 sm:grid-cols-2 max-w-xl mx-auto`}>
                                     {examples.map((example) => (

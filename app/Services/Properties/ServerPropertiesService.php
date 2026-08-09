@@ -128,7 +128,7 @@ class ServerPropertiesService
      * @param  array<string, string>  $normalized
      * @return array{exists: bool, raw: string, values: array<string, string>}
      */
-    private function applyNormalized(Server $server, array $normalized): array
+    public function applyNormalized(Server $server, array $normalized): array
     {
         $current = $this->read($server);
 

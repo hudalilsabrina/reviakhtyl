@@ -58,7 +58,7 @@ class ReadServerLogTool extends ChatbotTool
     {
         return [
             'path' => 'required|string|max:2000',
-            'lines' => 'nullable|integer|min:1|max:' . self::MAX_LINES,
+            'lines' => 'nullable|integer|min:1|max:'.self::MAX_LINES,
         ];
     }
 
@@ -72,7 +72,7 @@ class ReadServerLogTool extends ChatbotTool
                 ->setServer($context->server)
                 ->getContent($path, 2_000_000);
         } catch (\Throwable $exception) {
-            throw new ChatbotException("Could not read \"{$path}\": " . $exception->getMessage());
+            throw new ChatbotException("Could not read \"{$path}\": ".$exception->getMessage());
         }
 
         $allLines = explode("\n", $content);

@@ -173,9 +173,13 @@ export default () => {
             <FlashMessageRender byKey={'server:metrics'} />
             <div css={tw`mb-4 flex justify-between items-center`}>
                 <div css={tw`flex space-x-2`}>
-                    <Select value={exportFormat} onChange={(e) => setExportFormat(e.target.value as ExportFormat)} className={'!w-auto'}>
-                        <option value="csv">{t('export.csv')}</option>
-                        <option value="json">{t('export.json')}</option>
+                    <Select
+                        value={exportFormat}
+                        onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+                        className={'!w-auto'}
+                    >
+                        <option value='csv'>{t('export.csv')}</option>
+                        <option value='json'>{t('export.json')}</option>
                     </Select>
                     <Button onClick={handleExport}>{t('export.button')}</Button>
                 </div>

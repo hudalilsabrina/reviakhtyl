@@ -84,9 +84,13 @@ describe('ToolCallChip', () => {
     });
 
     it('shows failure message when result.ok is false', async () => {
-        render(<ToolCallChip toolCall={baseCall({
-            result: { ok: false, error: 'permission denied' },
-        })} />);
+        render(
+            <ToolCallChip
+                toolCall={baseCall({
+                    result: { ok: false, error: 'permission denied' },
+                })}
+            />
+        );
 
         await act(async () => {
             fireEvent.click(toggle());
@@ -97,9 +101,13 @@ describe('ToolCallChip', () => {
     });
 
     it('shows note instead of error when result.ok is false with note', async () => {
-        render(<ToolCallChip toolCall={baseCall({
-            result: { ok: false, note: 'Only 3 of 5 calls were run.' },
-        })} />);
+        render(
+            <ToolCallChip
+                toolCall={baseCall({
+                    result: { ok: false, note: 'Only 3 of 5 calls were run.' },
+                })}
+            />
+        );
 
         await act(async () => {
             fireEvent.click(toggle());
@@ -110,9 +118,13 @@ describe('ToolCallChip', () => {
     });
 
     it('shows (no additional data) when result.ok is true with no extra keys', async () => {
-        render(<ToolCallChip toolCall={baseCall({
-            result: { ok: true },
-        })} />);
+        render(
+            <ToolCallChip
+                toolCall={baseCall({
+                    result: { ok: true },
+                })}
+            />
+        );
 
         await act(async () => {
             fireEvent.click(toggle());
@@ -140,9 +152,7 @@ describe('ToolCallChip', () => {
         ];
 
         for (const { status, ok } of statuses) {
-            const { container } = render(
-                <ToolCallChip toolCall={baseCall({ status, ok })} />,
-            );
+            const { container } = render(<ToolCallChip toolCall={baseCall({ status, ok })} />);
             const chip = container.querySelector('span[title="ListFiles"]');
             expect(chip).toBeTruthy();
             expect(chip!.textContent).toBe('List files in /config');

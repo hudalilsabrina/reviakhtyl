@@ -69,7 +69,7 @@ const cellsOf = (line: string): string[] =>
 const parseTable = (
     lines: string[],
     start: number,
-    keyPrefix: string,
+    keyPrefix: string
 ): { node: React.ReactNode; lineCount: number } | null => {
     if (!isPipeRow(lines[start] ?? '') || !isSeparatorRow(lines[start + 1] ?? '')) {
         return null;
@@ -93,7 +93,9 @@ const parseTable = (
                 <thead>
                     <tr>
                         {header.map((cell, index) => (
-                            <TableHead key={`${keyPrefix}-th-${index}`}>{renderInline(cell, `${keyPrefix}-th-${index}`)}</TableHead>
+                            <TableHead key={`${keyPrefix}-th-${index}`}>
+                                {renderInline(cell, `${keyPrefix}-th-${index}`)}
+                            </TableHead>
                         ))}
                     </tr>
                 </thead>

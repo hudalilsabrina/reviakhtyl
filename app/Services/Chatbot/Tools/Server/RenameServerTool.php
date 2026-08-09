@@ -56,7 +56,7 @@ class RenameServerTool extends ChatbotTool
 
     public function summarize(array $arguments): string
     {
-        return "Rename the server to \"" . ($arguments['name'] ?? '(new name)') . "\"";
+        return 'Rename the server to "'.($arguments['name'] ?? '(new name)').'"';
     }
 
     public function handle(ToolContext $context, array $arguments): array

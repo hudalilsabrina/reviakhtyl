@@ -10,7 +10,13 @@ import streamRequest, {
     isStreamUnsupported,
 } from '@/api/server/chat/streamRequest';
 import { ChatMessage } from '@/api/server/chat/types';
-import { applyAgentRun, applyDelta, applyReasoning, applyToolCall, mergeMessages } from '@/components/server/chat/thread';
+import {
+    applyAgentRun,
+    applyDelta,
+    applyReasoning,
+    applyToolCall,
+    mergeMessages,
+} from '@/components/server/chat/thread';
 
 /** Feeds the parser a body split at the given offsets, returning everything it dispatched. */
 const parse = (chunks: string[]): ServerSentEvent[] => {
@@ -480,7 +486,13 @@ describe('streamConfirmation', () => {
     it('posts the decision to the confirmation stream of the conversation', async () => {
         const fetchMock = stubStream([frame('done', { messages: [] })]);
 
-        await streamConfirmation('server-uuid', 'conversation-uuid', 'assistant-1', [{ id: 'tool-1', approved: true }], {});
+        await streamConfirmation(
+            'server-uuid',
+            'conversation-uuid',
+            'assistant-1',
+            [{ id: 'tool-1', approved: true }],
+            {}
+        );
 
         const [url, init] = requestOf(fetchMock);
         expect(url).toBe('/api/client/servers/server-uuid/chat/conversations/conversation-uuid/confirm/stream');
@@ -571,7 +583,9 @@ describe('streamConfirmation', () => {
     it('flags a backend without the confirmation stream so the caller can fall back', async () => {
         stubFailure(404);
 
-        const error = await streamConfirmation('a', 'b', 'c', [{ id: 'tool-1', approved: true }], {}).catch((e: unknown) => e);
+        const error = await streamConfirmation('a', 'b', 'c', [{ id: 'tool-1', approved: true }], {}).catch(
+            (e: unknown) => e
+        );
 
         // The signal `handleDecision` reads before quietly posting to the blocking `/confirm`.
         expect(isStreamUnsupported(error)).toBe(true);
@@ -580,7 +594,9 @@ describe('streamConfirmation', () => {
     it('does not fall back when the decision itself was refused', async () => {
         stubFailure(409, '{"errors":[{"detail":"This message is no longer awaiting a decision."}]}');
 
-        const error = await streamConfirmation('a', 'b', 'c', [{ id: 'tool-1', approved: true }], {}).catch((e: unknown) => e);
+        const error = await streamConfirmation('a', 'b', 'c', [{ id: 'tool-1', approved: true }], {}).catch(
+            (e: unknown) => e
+        );
 
         // Replaying that against the blocking endpoint would fail the same way and hide why.
         expect(isStreamUnsupported(error)).toBe(false);
@@ -721,16 +737,22 @@ describe('reasoning events on a streamed turn', () => {
     it('appends reasoning fragments to the matching message', () => {
         let thread = [assistant()];
 
-        handleEvent({ event: 'reasoning', data: JSON.stringify({ uuid: 'assistant-1', content: 'The logs show ' }) }, {
-            onReasoning: (uuid, fragment) => {
-                thread = applyReasoning(thread, uuid, fragment);
-            },
-        });
-        handleEvent({ event: 'reasoning', data: JSON.stringify({ uuid: 'assistant-1', content: 'a stalled thread.' }) }, {
-            onReasoning: (uuid, fragment) => {
-                thread = applyReasoning(thread, uuid, fragment);
-            },
-        });
+        handleEvent(
+            { event: 'reasoning', data: JSON.stringify({ uuid: 'assistant-1', content: 'The logs show ' }) },
+            {
+                onReasoning: (uuid, fragment) => {
+                    thread = applyReasoning(thread, uuid, fragment);
+                },
+            }
+        );
+        handleEvent(
+            { event: 'reasoning', data: JSON.stringify({ uuid: 'assistant-1', content: 'a stalled thread.' }) },
+            {
+                onReasoning: (uuid, fragment) => {
+                    thread = applyReasoning(thread, uuid, fragment);
+                },
+            }
+        );
 
         expect(thread[0]!.reasoning).toBe('The logs show a stalled thread.');
         // Reasoning never touches the visible answer.
@@ -741,11 +763,14 @@ describe('reasoning events on a streamed turn', () => {
         const thread = [assistant()];
 
         expect(() =>
-            handleEvent({ event: 'reasoning', data: JSON.stringify({ uuid: 'no-such-uuid', content: 'x' }) }, {
-                onReasoning: (uuid, fragment) => {
-                    applyReasoning(thread, uuid, fragment);
-                },
-            })
+            handleEvent(
+                { event: 'reasoning', data: JSON.stringify({ uuid: 'no-such-uuid', content: 'x' }) },
+                {
+                    onReasoning: (uuid, fragment) => {
+                        applyReasoning(thread, uuid, fragment);
+                    },
+                }
+            )
         ).not.toThrow();
     });
 });

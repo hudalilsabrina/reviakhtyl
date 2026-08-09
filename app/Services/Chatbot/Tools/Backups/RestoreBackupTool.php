@@ -73,7 +73,7 @@ class RestoreBackupTool extends ChatbotTool
     public function summarize(array $arguments): string
     {
         $uuid = $arguments['backup_uuid'] ?? '(backup)';
-        $note = !empty($arguments['truncate']) ? ' (truncating existing files)' : '';
+        $note = ! empty($arguments['truncate']) ? ' (truncating existing files)' : '';
 
         return "Restore backup \"{$uuid}\"{$note}";
     }
@@ -107,6 +107,7 @@ class RestoreBackupTool extends ChatbotTool
             throw new ChatbotException("Backup \"{$uuid}\" not found on this server.");
         }
 
+        /** @var Backup $backup */
         return $backup;
     }
 }

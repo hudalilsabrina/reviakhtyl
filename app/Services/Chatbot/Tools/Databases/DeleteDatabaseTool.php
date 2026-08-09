@@ -67,7 +67,7 @@ class DeleteDatabaseTool extends ChatbotTool
 
     public function summarize(array $arguments): string
     {
-        return "Permanently delete database \"" . ($arguments['name'] ?? '(database)') . "\" and its user";
+        return 'Permanently delete database "'.($arguments['name'] ?? '(database)').'" and its user';
     }
 
     public function handle(ToolContext $context, array $arguments): array
@@ -94,6 +94,7 @@ class DeleteDatabaseTool extends ChatbotTool
             throw new ChatbotException("Database \"{$name}\" not found on this server.");
         }
 
+        /** @var Database $database */
         return $database;
     }
 }

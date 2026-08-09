@@ -1,12 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    FaBan,
-    FaCheck,
-    FaChevronDown,
-    FaHourglassHalf,
-    FaXmark,
-} from 'react-icons/fa6';
+import { FaBan, FaCheck, FaChevronDown, FaHourglassHalf, FaXmark } from 'react-icons/fa6';
 import styled from 'styled-components';
 import tw from 'twin.macro';
 import { ChatToolCall } from '@/api/server/chat/types';
@@ -71,12 +65,10 @@ const ToolCallChip = ({ toolCall }: Props) => {
     const tone = toneFor(toolCall);
 
     const argsJson =
-        Object.keys(toolCall.arguments).length === 0
-            ? '(none)'
-            : JSON.stringify(toolCall.arguments, null, 2);
+        Object.keys(toolCall.arguments).length === 0 ? '(none)' : JSON.stringify(toolCall.arguments, null, 2);
 
     const renderResult = () => {
-        if (toolCall.result == null) {
+        if (toolCall.result === null || toolCall.result === undefined) {
             return <ResultPending>{t('tool-call-no-result')}</ResultPending>;
         }
 
@@ -84,23 +76,17 @@ const ToolCallChip = ({ toolCall }: Props) => {
             const { ok: _ok, ...rest } = toolCall.result as Record<string, unknown>;
             const entries = Object.entries(rest);
             if (entries.length === 0) {
-                return (
-                    <ResultSuccess>
-                        {t('tool-call-empty-result')}
-                    </ResultSuccess>
-                );
+                return <ResultSuccess>{t('tool-call-empty-result')}</ResultSuccess>;
             }
 
             return (
                 <ResultSuccess>
-                    <div css={tw`text-2xs text-green-300 font-medium mb-1`}>
-                        {t('tool-call-result-success')}
-                    </div>
+                    <div css={tw`text-2xs text-green-300 font-medium mb-1`}>{t('tool-call-result-success')}</div>
                     <ArgsBlock>
                         {entries
                             .map(
                                 ([key, value]) =>
-                                    `${key}: ${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}`,
+                                    `${key}: ${typeof value === 'string' ? value : JSON.stringify(value, null, 2)}`
                             )
                             .join('\n')}
                     </ArgsBlock>
@@ -113,9 +99,7 @@ const ToolCallChip = ({ toolCall }: Props) => {
 
         return (
             <ResultFailure>
-                <div css={tw`text-2xs text-red-300 font-medium mb-1`}>
-                    {t('tool-call-result-failure')}
-                </div>
+                <div css={tw`text-2xs text-red-300 font-medium mb-1`}>{t('tool-call-result-failure')}</div>
                 <ArgsBlock>{message}</ArgsBlock>
             </ResultFailure>
         );
@@ -131,26 +115,18 @@ const ToolCallChip = ({ toolCall }: Props) => {
                 <span css={tw`truncate`}>{toolCall.summary}</span>
             </Chip>
             <div css={tw`mt-1.5 ml-1`}>
-                <Toggle
-                    type="button"
-                    onClick={() => setOpen((value) => !value)}
-                    aria-expanded={open}
-                >
+                <Toggle type='button' onClick={() => setOpen((value) => !value)} aria-expanded={open}>
                     <span>{open ? t('tool-call-hide-details') : t('tool-call-details')}</span>
                     <Chevron $open={open} />
                 </Toggle>
                 {open && (
                     <div css={tw`mt-1.5 ml-1 space-y-1.5`}>
                         <div>
-                            <div css={tw`text-2xs text-gray-400 font-medium mb-1`}>
-                                {t('tool-call-params')}
-                            </div>
+                            <div css={tw`text-2xs text-gray-400 font-medium mb-1`}>{t('tool-call-params')}</div>
                             <ArgsBlock>{argsJson}</ArgsBlock>
                         </div>
                         <div>
-                            <div css={tw`text-2xs text-gray-400 font-medium mb-1`}>
-                                {t('tool-call-result')}
-                            </div>
+                            <div css={tw`text-2xs text-gray-400 font-medium mb-1`}>{t('tool-call-result')}</div>
                             {renderResult()}
                         </div>
                     </div>

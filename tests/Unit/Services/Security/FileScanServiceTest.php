@@ -1,10 +1,9 @@
 <?php
 
-use App\Services\Security\FileScanResult;
+use App\Contracts\Repository\SettingsRepositoryInterface;
 use App\Services\Security\FileScanService;
 use App\Services\Security\ProcessRunner;
 use App\Services\Security\ScanVerdict;
-use App\Services\Security\SymfonyProcessRunner;
 
 /**
  * Build a FileScanService with a fake process runner whose output is returned
@@ -19,7 +18,8 @@ function scanService(array $config = []): FileScanService
     $maxSize = $config['max_scan_size'] ?? null;
     $strict = $config['strict'] ?? false;
 
-    $runner = new class($config) implements ProcessRunner {
+    $runner = new class($config) implements ProcessRunner
+    {
         /** @param array<string, mixed> $config */
         public function __construct(private array $config = []) {}
 
@@ -29,7 +29,7 @@ function scanService(array $config = []): FileScanService
         }
     };
 
-    $settings = Mockery::mock(\App\Contracts\Repository\SettingsRepositoryInterface::class);
+    $settings = Mockery::mock(SettingsRepositoryInterface::class);
     $settings->shouldReceive('get')->andReturn($enabled);
 
     return new FileScanService($settings, $runner, $binary, $maxSize, $strict, $enabled);
@@ -128,14 +128,15 @@ describe('scan — verdict parsing', function () {
     });
 
     it('returns Error when the runner throws', function () {
-        $runner = new class implements ProcessRunner {
+        $runner = new class implements ProcessRunner
+        {
             public function run(array $command): string
             {
-                throw new \RuntimeException('binary missing');
+                throw new RuntimeException('binary missing');
             }
         };
 
-        $settings = Mockery::mock(\App\Contracts\Repository\SettingsRepositoryInterface::class);
+        $settings = Mockery::mock(SettingsRepositoryInterface::class);
         $settings->shouldReceive('get')->andReturn(true);
 
         $service = new FileScanService($settings, $runner);
@@ -155,14 +156,15 @@ describe('scan — verdict parsing', function () {
 
 describe('scan — strict mode', function () {
     it('returns Error when strict=false and the runner throws', function () {
-        $runner = new class implements ProcessRunner {
+        $runner = new class implements ProcessRunner
+        {
             public function run(array $command): string
             {
-                throw new \RuntimeException('clamscan not found');
+                throw new RuntimeException('clamscan not found');
             }
         };
 
-        $settings = Mockery::mock(\App\Contracts\Repository\SettingsRepositoryInterface::class);
+        $settings = Mockery::mock(SettingsRepositoryInterface::class);
         $settings->shouldReceive('get')->andReturn(true);
 
         $service = new FileScanService($settings, $runner);

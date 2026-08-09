@@ -1030,7 +1030,7 @@ class Settings extends Page implements HasSchemas
         $data = $form?->getState() ?? [];
 
         // Validate Telegram settings before saving
-        if (! empty($data['panel:telegram:enabled']) && $data['panel:telegram:enabled']) {
+        if (! empty($data['panel:telegram:enabled'])) {
             $token = $data['panel:telegram:bot_token'] ?? null;
             $username = $data['panel:telegram:bot_username'] ?? null;
 
@@ -1078,7 +1078,7 @@ class Settings extends Page implements HasSchemas
         }
 
         // Validate chatbot settings before saving
-        if (! empty($data['panel:chatbot:enabled']) && $data['panel:chatbot:enabled']) {
+        if (! empty($data['panel:chatbot:enabled'])) {
             $baseUrl = trim((string) ($data['panel:chatbot:base_url'] ?? ''));
             $apiKey = trim((string) ($data['panel:chatbot:api_key'] ?? ''));
             $model = trim((string) ($data['panel:chatbot:model'] ?? ''));
@@ -1094,7 +1094,7 @@ class Settings extends Page implements HasSchemas
         }
 
         // Generate webhook secret if not set and Telegram is enabled
-        if (! empty($data['panel:telegram:enabled']) && $data['panel:telegram:enabled'] && empty($data['panel:telegram:webhook_secret'])) {
+        if (! empty($data['panel:telegram:enabled']) && empty($data['panel:telegram:webhook_secret'])) {
             $data['panel:telegram:webhook_secret'] = Str::random(32);
         }
 

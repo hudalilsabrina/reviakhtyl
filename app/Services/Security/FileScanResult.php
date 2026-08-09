@@ -16,8 +16,7 @@ class FileScanResult
         public ScanVerdict $verdict,
         public ?string $signature = null,
         public ?string $message = null,
-    ) {
-    }
+    ) {}
 
     public function isClean(): bool
     {
