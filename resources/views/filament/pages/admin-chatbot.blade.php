@@ -19,6 +19,7 @@
         'executed' => __('admin/chatbot.ui.executed'),
         'untitled' => 'Untitled',
         'assistant' => __('admin/chatbot.ui.assistant'),
+        'you' => __('admin/chatbot.ui.you'),
         'copy' => __('admin/chatbot.ui.copy'),
         'copied' => __('admin/chatbot.ui.copied'),
         'details' => __('admin/chatbot.ui.details'),
@@ -178,7 +179,7 @@
                         </template>
 
                         <template x-for="message in messages" :key="message.uuid">
-                            <div class="group flex items-start gap-3" :class="message.role === 'user' ? 'flex-row-reverse' : ''">
+                            <div class="group message-in flex items-start gap-3" :class="message.role === 'user' ? 'flex-row-reverse' : ''">
                                 {{-- Avatar --}}
                                 <template x-if="message.role !== 'user'">
                                     <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-gray-200 bg-gray-50 text-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
@@ -192,6 +193,12 @@
                                 </template>
 
                                 <div class="flex min-w-0 max-w-full flex-col gap-1.5 sm:max-w-[80%]" :class="message.role === 'user' ? 'items-end' : 'items-start'">
+                                    {{-- Role label --}}
+                                    <span
+                                        class="px-1 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500"
+                                        :class="message.role === 'user' ? 'text-right' : ''"
+                                        x-text="message.role === 'user' ? labels.you : labels.assistant"
+                                    ></span>
                                     {{-- Reasoning --}}
                                     <template x-if="message.reasoning">
                                         <div class="w-full">
@@ -276,7 +283,9 @@
                                             class="whitespace-pre-wrap [overflow-wrap:anywhere]"
                                             x-text="message.content"
                                         ></div>
-                                        <div x-show="!message.content && message.status !== 'failed'" class="text-xs italic opacity-60" x-text="labels.thinking"></div>
+                                        <div x-show="!message.content && message.status !== 'failed'" class="typing-dots text-xs italic opacity-60">
+                                            <span></span><span></span><span></span>
+                                        </div>
 
                                         {{-- Pending approval note --}}
                                         <template x-if="message.status === 'awaiting_confirmation'">
@@ -388,6 +397,26 @@
             </template>
         </div>
     </div>
+
+    <style>
+        @keyframes message-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: none; }
+        }
+        .message-in { animation: message-in 0.25s ease-out; }
+
+        @keyframes typing-dot {
+            0%, 60%, 100% { opacity: 0.25; transform: translateY(0); }
+            30% { opacity: 1; transform: translateY(-2px); }
+        }
+        .typing-dots { display: inline-flex; align-items: center; }
+        .typing-dots span {
+            width: 5px; height: 5px; margin-right: 4px; border-radius: 9999px;
+            background: currentColor; animation: typing-dot 1.2s infinite;
+        }
+        .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
+        .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
+    </style>
 
     <script>
         function adminChatbot(labels) {
@@ -545,6 +574,7 @@
                         this.busy = false;
                         this.streamingUuid = null;
                         this.scrollToBottom();
+                        this.$nextTick(() => this.$refs.composer?.focus());
                     }
                 },
 

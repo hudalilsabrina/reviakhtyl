@@ -30,6 +30,7 @@ return [
         'failed' => 'Failed',
         'executed' => 'Done',
         'assistant' => 'Assistant',
+        'you' => 'You',
         'copy' => 'Copy',
         'copied' => 'Copied',
         'details' => 'Details',
