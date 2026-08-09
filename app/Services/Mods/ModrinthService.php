@@ -10,7 +10,7 @@ class ModrinthService implements ModProviderInterface
 
     private const API = 'https://api.modrinth.com/v2';
 
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance', string $projectType = 'mod'): array
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance', string $projectType = 'mod', bool $serverSide = true): array
     {
         $facets = [['project_type:'.$projectType]];
         if ($gameVersion) {
@@ -18,6 +18,9 @@ class ModrinthService implements ModProviderInterface
         }
         if ($loaders) {
             $facets[] = array_map(fn ($l) => 'categories:'.$l, $loaders);
+        }
+        if ($serverSide && $projectType === 'mod') {
+            $facets[] = ['server_side:required', 'server_side:optional'];
         }
 
         $index = match ($sort) {
@@ -144,6 +147,6 @@ class ModrinthService implements ModProviderInterface
 
     public function searchModpacks(string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
-        return $this->search($query, [], $gameVersion, $limit, $offset, $sort, 'modpack');
+        return $this->search($query, [], $gameVersion, $limit, $offset, $sort, 'modpack', false);
     }
 }

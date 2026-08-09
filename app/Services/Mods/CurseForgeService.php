@@ -15,7 +15,7 @@ class CurseForgeService implements ModProviderInterface
 
     public function __construct(private SettingsRepositoryInterface $settings) {}
 
-    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
+    public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance', bool $serverSide = true): array
     {
         return $this->doSearch($query, $loaders, $gameVersion, $limit, $offset, $sort, 6);
     }
