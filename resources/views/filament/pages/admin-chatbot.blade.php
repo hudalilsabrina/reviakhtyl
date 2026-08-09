@@ -12,6 +12,7 @@
         'disabled' => __('admin/chatbot.ui.disabled'),
         'empty' => __('admin/chatbot.ui.empty'),
         'emptyTitle' => __('admin/chatbot.ui.empty_title'),
+        'noConversations' => __('admin/chatbot.ui.no_conversations'),
         'error' => __('admin/chatbot.ui.error'),
         'conversations' => __('admin/chatbot.ui.conversations'),
         'delete' => __('admin/chatbot.ui.delete'),
@@ -43,7 +44,7 @@
     <div
         x-data="adminChatbot(@js($labels))"
         x-init="init()"
-        class="grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]"
+        class="chat-layout"
     >
         {{-- Conversation sidebar --}}
         <x-filament::section
@@ -68,7 +69,7 @@
 
             <div class="flex h-full flex-col gap-1 overflow-y-auto">
                 <template x-if="conversations.length === 0">
-                    <div class="my-auto py-10 text-center text-sm text-gray-400 dark:text-gray-500" x-text="labels.empty"></div>
+                    <div class="my-auto py-10 text-center text-sm text-gray-400 dark:text-gray-500" x-text="labels.noConversations"></div>
                 </template>
 
                 <template x-for="conversation in conversations" :key="conversation.uuid">
@@ -159,7 +160,7 @@
                                     :description="$labels['empty']"
                                 >
                                     <x-slot name="footer">
-                                        <div class="flex flex-wrap justify-center gap-2">
+                                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                             <template x-for="suggestion in suggestions" :key="suggestion">
                                                 <button
                                                     type="button"
@@ -358,20 +359,20 @@
                     </div>
 
                     {{-- Composer --}}
-                    <div class="mt-4 flex items-end gap-2 border-t border-gray-200 pt-4 dark:border-white/10">
-                        <x-filament::input.wrapper class="flex-1">
-                            <textarea
-                                x-model="draft"
-                                x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); send(); }"
-                                x-on:input="autoGrow($event)"
-                                x-ref="composer"
-                                rows="1"
-                                :placeholder="$labels['placeholder']"
-                                x-bind:disabled="busy"
-                                class="w-full resize-none bg-transparent px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
-                            ></textarea>
-                        </x-filament::input.wrapper>
-                        <div class="flex flex-col items-end gap-1.5">
+                    <div class="mt-4 border-t border-gray-200 pt-4 dark:border-white/10">
+                        <div class="flex items-end gap-2">
+                            <x-filament::input.wrapper class="flex-1">
+                                <textarea
+                                    x-model="draft"
+                                    x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); send(); }"
+                                    x-on:input="autoGrow($event)"
+                                    x-ref="composer"
+                                    rows="1"
+                                    :placeholder="$labels['placeholder']"
+                                    x-bind:disabled="busy"
+                                    class="w-full resize-none bg-transparent px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
+                                ></textarea>
+                            </x-filament::input.wrapper>
                             <x-filament::button
                                 color="primary"
                                 x-on:click="send()"
@@ -385,8 +386,8 @@
                                 </template>
                                 <span x-text="busy ? labels.thinking : labels.send"></span>
                             </x-filament::button>
-                            <span class="px-1 text-[10px] text-gray-400 dark:text-gray-500" x-text="labels.sendingHint"></span>
                         </div>
+                        <p class="mt-1.5 px-1 text-[10px] text-gray-400 dark:text-gray-500" x-text="labels.sendingHint"></p>
                     </div>
                 </div>
             </template>
@@ -395,6 +396,16 @@
 
     <style>
         [x-cloak] { display: none !important; }
+
+        .chat-layout {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            height: calc(100vh - 9rem);
+        }
+        @media (min-width: 1024px) {
+            .chat-layout { grid-template-columns: 300px 1fr; }
+        }
 
         .chat-section { display: flex; flex-direction: column; }
         .chat-section > .fi-section-content-ctn { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }

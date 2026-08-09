@@ -24,6 +24,7 @@ return [
         'disabled' => 'The administrative assistant is disabled. Enable the AI assistant in Settings.',
         'empty' => 'It can create servers, manage users, run console commands and answer questions about your infrastructure.',
         'empty_title' => 'How can I help you run the panel?',
+        'no_conversations' => 'No conversations yet',
         'error' => 'Something went wrong. Please try again.',
         'conversations' => 'Conversations',
         'delete' => 'Delete conversation',
