@@ -25,6 +25,7 @@ use App\Services\Chatbot\Tools\Files\ListFilesTool;
 use App\Services\Chatbot\Tools\Files\ReadFileTool;
 use App\Services\Chatbot\Tools\Files\RenameFilesTool;
 use App\Services\Chatbot\Tools\Files\WriteFileTool;
+use App\Services\Chatbot\Tools\Mods\InstallModpackTool;
 use App\Services\Chatbot\Tools\Mods\InstallModTool;
 use App\Services\Chatbot\Tools\Mods\ListInstalledModsTool;
 use App\Services\Chatbot\Tools\Mods\ListModVersionsTool;
@@ -117,6 +118,7 @@ return [
         ListInstalledModsTool::class,
         ListModVersionsTool::class,
         InstallModTool::class,
+        InstallModpackTool::class,
         UpdateModTool::class,
         RemoveModTool::class,
         ToggleModTool::class,

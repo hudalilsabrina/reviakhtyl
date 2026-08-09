@@ -227,6 +227,18 @@ export const bulkUpdateMods = async (uuid: string, modIds: number[]): Promise<Bu
     return data;
 };
 
+export interface ModpackInstallResult {
+    format: 'modrinth' | 'curseforge';
+    name: string;
+    success: { project_id: string; title: string; version: string; provider: ModProvider }[];
+    failed: { project_id: string | null; provider: string | null; error: string }[];
+}
+
+export const installModpack = async (uuid: string, url: string): Promise<ModpackInstallResult> => {
+    const { data } = await http.post(`/api/client/servers/${uuid}/mods/modpack`, { url });
+    return data;
+};
+
 export const bulkDeleteMods = async (uuid: string, modIds: number[]): Promise<BulkOperationResult> => {
     const { data } = await http.delete(`/api/client/servers/${uuid}/mods/bulk`, { data: { mod_ids: modIds } });
     return data;

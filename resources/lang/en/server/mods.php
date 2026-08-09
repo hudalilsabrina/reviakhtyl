@@ -51,4 +51,6 @@ return [
     'track_success' => '":title" is now tracked.',
     'link' => 'Link',
     'link_success' => 'Linked :title',
+    'modpack_success' => 'Modpack ":name": :count mods installed successfully.',
+    'modpack_failed' => ':count mods failed to install. Check the details.',
 ];

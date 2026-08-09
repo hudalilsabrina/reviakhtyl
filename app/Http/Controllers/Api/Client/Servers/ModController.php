@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Client\ClientApiController;
 use App\Http\Requests\Api\Client\Servers\Mods\BulkDeleteModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\BulkUpdateModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\DeleteModRequest;
+use App\Http\Requests\Api\Client\Servers\Mods\InstallModpackRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\InstallModRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\SearchModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\ToggleModRequest;
@@ -18,6 +19,7 @@ use App\Models\ServerMod;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Mods\ModJarService;
 use App\Services\Mods\ModManagerService;
+use App\Services\Mods\ModpackManagerService;
 use App\Transformers\Api\Client\ServerModTransformer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -26,7 +28,7 @@ class ModController extends ClientApiController
 {
     use ScansRemoteJars;
 
-    public function __construct(private ModManagerService $manager, private ModJarService $jars)
+    public function __construct(private ModManagerService $manager, private ModJarService $jars, private ModpackManagerService $modpackManager)
     {
         parent::__construct();
     }
@@ -334,6 +336,30 @@ class ModController extends ClientApiController
         if (count($results['success']) > 0) {
             Activity::event('server:mod.bulk-update')
                 ->property('count', count($results['success']))
+                ->log();
+        }
+
+        return new JsonResponse($results);
+    }
+
+    public function modpack(InstallModpackRequest $request, Server $server): JsonResponse
+    {
+        $this->assertEnabled($server);
+
+        try {
+            $results = $this->modpackManager->installFromUrl($server, $request->input('url'));
+        } catch (DisplayException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            throw new DisplayException('Failed to install modpack: '.$e->getMessage());
+        }
+
+        $count = count($results['success']);
+
+        if ($count > 0) {
+            Activity::event('server:mod.modpack-install')
+                ->property('count', $count)
+                ->property('name', $results['name'])
                 ->log();
         }
 
