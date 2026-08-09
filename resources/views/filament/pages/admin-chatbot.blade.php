@@ -368,7 +368,7 @@
                                     x-on:input="autoGrow($event)"
                                     x-ref="composer"
                                     rows="1"
-                                    :placeholder="$labels['placeholder']"
+                                    placeholder="{{ $labels['placeholder'] }}"
                                     x-bind:disabled="busy"
                                     class="w-full resize-none bg-transparent px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                                 ></textarea>
