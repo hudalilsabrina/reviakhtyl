@@ -40,7 +40,7 @@ class ToolExecutor
         $tool = $this->registry->resolveFor($context, $name);
 
         if (! $tool) {
-            return $this->error("The tool \"$name\" is not available on this server for this user.");
+            return $this->error("The tool \"$name\" is not available here for this user.");
         }
 
         // Re-check permissions at call time: the conversation may have been
@@ -68,7 +68,7 @@ class ToolExecutor
         } catch (\Throwable $e) {
             Log::warning('Chatbot tool execution failed', [
                 'tool' => $name,
-                'server' => $context->server->uuid,
+                'server' => $context->server?->uuid,
                 'exception' => $e,
             ]);
 
@@ -95,15 +95,18 @@ class ToolExecutor
     private function logActivity(ToolContext $context, ChatbotTool $tool, array $arguments): void
     {
         try {
-            Activity::event('server:chatbot.tool')
-                ->actor($context->user)
-                ->subject($context->server)
-                ->property([
-                    'tool' => $tool->name(),
-                    'group' => $tool->group()->value,
-                    'arguments' => $this->redact($arguments),
-                ])
-                ->log();
+            $log = Activity::event('server:chatbot.tool')
+                ->actor($context->user);
+
+            if ($context->server) {
+                $log->subject($context->server);
+            }
+
+            $log->property([
+                'tool' => $tool->name(),
+                'group' => $tool->group()->value,
+                'arguments' => $this->redact($arguments),
+            ])->log();
         } catch (\Throwable $e) {
             // Never let an audit-log failure break the conversation.
             Log::warning('Failed to log chatbot activity', ['error' => $e->getMessage()]);

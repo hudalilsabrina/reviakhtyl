@@ -24,7 +24,7 @@ class ToolRegistry
 
     public function __construct(private ChatbotSettings $settings)
     {
-        foreach (config('chatbot.tools', []) as $class) {
+        foreach ($this->toolClasses() as $class) {
             if (! is_string($class) || ! class_exists($class)) {
                 continue;
             }
@@ -35,6 +35,18 @@ class ToolRegistry
                 $this->tools[$tool->name()] = $tool;
             }
         }
+    }
+
+    /**
+     * The tool classes this registry owns. The server registry reads the flat
+     * tool list; the admin registry (AdminToolRegistry) overrides this with the
+     * panel-scope tool list.
+     *
+     * @return array<int, string>
+     */
+    protected function toolClasses(): array
+    {
+        return config('chatbot.tools', []);
     }
 
     /**
@@ -53,13 +65,31 @@ class ToolRegistry
      */
     public function availableFor(ToolContext $context): array
     {
-        $key = $context->server->id.':'.$context->user->id;
+        $key = $this->cacheKey($context);
 
         return $this->available[$key] ??= array_filter(
             $this->tools,
-            fn (ChatbotTool $tool) => $this->settings->isToolGroupEnabled($tool->group())
-                && $tool->isAvailableFor($context),
+            fn (ChatbotTool $tool) => $this->isEnabledFor($tool) && $tool->isAvailableFor($context),
         );
+    }
+
+    /**
+     * Whether the tool's group is enabled panel-wide. The admin registry
+     * overrides this — admin tools are gated by root admin status, not by the
+     * per-server tool group toggles.
+     */
+    protected function isEnabledFor(ChatbotTool $tool): bool
+    {
+        return $this->settings->isToolGroupEnabled($tool->group());
+    }
+
+    /**
+     * The memoization key for a context: a null server means panel scope, which
+     * is shared by every admin user's root-admin-only tools.
+     */
+    private function cacheKey(ToolContext $context): string
+    {
+        return ($context->server->id ?? 'admin').':'.$context->user->id;
     }
 
     /**

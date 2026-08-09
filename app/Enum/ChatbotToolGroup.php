@@ -18,6 +18,7 @@ enum ChatbotToolGroup: string
     case Plugins = 'plugins';
     case Mods = 'mods';
     case Web = 'web';
+    case Admin = 'admin';
 
     public function label(): string
     {
@@ -31,6 +32,7 @@ enum ChatbotToolGroup: string
             self::Plugins => 'Plugin management',
             self::Mods => 'Mod management',
             self::Web => 'Web access',
+            self::Admin => 'Panel administration',
         };
     }
 
@@ -46,6 +48,7 @@ enum ChatbotToolGroup: string
             self::Plugins => 'Search, install, update and remove plugins from the configured registries.',
             self::Mods => 'Search, install, update and remove mods from the configured registries.',
             self::Web => 'Fetch and read public web pages. Off by default: web content is untrusted, and fetching can leak the panel\'s network if misused.',
+            self::Admin => 'Admin-scope actions for the panel chatbot: create/delete servers, manage users, query nodes, locations, nests and eggs.',
         };
     }
 
@@ -77,6 +80,10 @@ enum ChatbotToolGroup: string
         $options = [];
 
         foreach (self::cases() as $case) {
+            if ($case === self::Admin) {
+                continue;
+            }
+
             $options[$case->value] = $case->label();
         }
 

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin;
 use App\Http\Controllers\Base;
 use App\Http\Middleware\AdminAuthenticate;
 use App\Http\Middleware\RequireTwoFactorAuthentication;
@@ -29,6 +30,20 @@ Route::prefix('preview')
         Route::get('/404', fn () => response()->view('errors.404', [], 404));
         Route::get('/403', fn () => response()->view('errors.403', [], 403));
         Route::get('/500', fn () => response()->view('errors.500', [], 500));
+    });
+
+Route::prefix('admin/chat')
+    ->middleware(['auth', AdminAuthenticate::class, 'throttle:api.chatbot'])
+    ->group(function () {
+        Route::get('/config', [Admin\ChatbotController::class, 'config']);
+        Route::get('/conversations', [Admin\ChatbotController::class, 'index']);
+        Route::post('/conversations', [Admin\ChatbotController::class, 'store']);
+        Route::get('/conversations/{chatbotConversation}', [Admin\ChatbotController::class, 'view']);
+        Route::delete('/conversations/{chatbotConversation}', [Admin\ChatbotController::class, 'delete']);
+        Route::post('/conversations/{chatbotConversation}/messages', [Admin\ChatbotController::class, 'message']);
+        Route::post('/conversations/{chatbotConversation}/messages/stream', [Admin\ChatbotController::class, 'stream']);
+        Route::post('/conversations/{chatbotConversation}/confirm', [Admin\ChatbotController::class, 'confirm']);
+        Route::post('/conversations/{chatbotConversation}/confirm/stream', [Admin\ChatbotController::class, 'confirmStream']);
     });
 
 Route::get('/{react}', [Base\IndexController::class, 'index'])

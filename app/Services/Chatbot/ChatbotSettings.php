@@ -39,6 +39,7 @@ class ChatbotSettings
     {
         return [
             'panel:chatbot:enabled',
+            'panel:chatbot:admin_enabled',
             'panel:chatbot:base_url',
             'panel:chatbot:api_key',
             'panel:chatbot:model',
@@ -59,6 +60,16 @@ class ChatbotSettings
     public function isEnabled(): bool
     {
         return $this->bool('enabled') && $this->baseUrl() !== '' && $this->apiKey() !== '';
+    }
+
+    /**
+     * Whether the admin-scope chatbot is available to root administrators.
+     * The main `enabled` switch is a prerequisite: without a configured
+     * provider neither scope can work.
+     */
+    public function isAdminEnabled(): bool
+    {
+        return $this->isEnabled() && $this->bool('admin_enabled', true);
     }
 
     /**

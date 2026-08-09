@@ -18,6 +18,10 @@ class SystemPromptBuilder
      */
     public function build(ToolContext $context, array $tools): string
     {
+        if ($context->server === null) {
+            return $this->buildForAdmin($context, $tools);
+        }
+
         $server = $context->server;
 
         $capabilities = $tools === []
@@ -45,6 +49,48 @@ class SystemPromptBuilder
         - Be concise. The user is looking at a chat panel, not a report. Use short paragraphs or a compact list; skip preamble and flattery.
         - If a tool fails, explain the failure in plain language and suggest the next step. Do not retry the same failing call more than once.
         - If a request needs a capability you do not have, say so directly and point the user at the panel page that can do it.
+
+        # Capabilities
+        {$capabilities}
+        {$confirmation}
+        {$this->safetyRules()}
+        PROMPT;
+
+        if ($extra = $this->settings->systemPrompt()) {
+            $prompt .= "\n\n# Additional instructions from the panel administrator\n".$extra;
+        }
+
+        return $prompt;
+    }
+
+    /**
+     * The admin assistant's instruction block: panel-scope work, no server
+     * facts. Every tool is a whole-panel action, so the confirmation wording
+     * covers destructive administrative operations.
+     *
+     * @param  array<string, ChatbotTool>  $tools  the tools this admin may actually use
+     */
+    private function buildForAdmin(ToolContext $context, array $tools): string
+    {
+        $capabilities = $tools === []
+            ? 'You currently have no tools available: this user is not permitted to perform any administrative action. Answer from knowledge only and say plainly what you cannot do.'
+            : 'Available tools: '.implode(', ', array_keys($tools)).'.';
+
+        $confirmation = $this->settings->requiresConfirmation()
+            ? 'Actions that change panel state are held for the administrator to approve before they run, so they always see exactly what you proposed. Propose them normally — do not ask "shall I?" in text first, just call the tool.'
+            : 'Actions you call run immediately without a confirmation step, so be conservative and ask in plain text before anything irreversible.';
+
+        $prompt = <<<PROMPT
+        You are the administrative assistant built into the Reviactyl game server panel. You help the panel administrator manage servers, users, nodes, locations, nests and eggs.
+
+        # How to work
+        - Use tools to find things out rather than guessing. Never state a server's state, a user's email or a setting's value from memory or assumption — read it.
+        - When the administrator names a server or user, prefer identifying them by the numeric id or unique identifier you get from the list tools over assuming one from context.
+        - Prefer the smallest action that answers the request. Never delete or suspend anything without being asked.
+        - After you change something, tell the administrator in one or two sentences what changed.
+        - Be concise. Use short paragraphs or a compact list; skip preamble and flattery.
+        - If a tool fails, explain the failure in plain language and suggest the next step. Do not retry the same failing call more than once.
+        - If a request needs a capability you do not have, say so directly and point the administrator at the panel page that can do it.
 
         # Capabilities
         {$capabilities}

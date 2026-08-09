@@ -240,6 +240,11 @@ class ChatbotService
         return $this->settings;
     }
 
+    protected function registry(): ToolRegistry
+    {
+        return $this->registry;
+    }
+
     /**
      * Runs one turn: the flat single-model loop, or the orchestrating router
      * when orchestration is enabled. A simple request routed by the router
@@ -247,7 +252,7 @@ class ChatbotService
      *
      * @return Collection<int, ChatbotMessage>
      */
-    private function run(ChatbotConversation $conversation, ?callable $emit = null): Collection
+    protected function run(ChatbotConversation $conversation, ?callable $emit = null): Collection
     {
         if ($this->settings->orchestrationEnabled()) {
             return $this->routing->run($conversation, $emit);
@@ -312,7 +317,7 @@ class ChatbotService
     /**
      * @throws ChatbotException
      */
-    private function assertEnabled(): void
+    protected function assertEnabled(): void
     {
         if (! $this->settings->isEnabled()) {
             throw new ChatbotException('The AI assistant is not enabled on this panel.');

@@ -2,6 +2,8 @@
 
 A per-server assistant backed by any OpenAI-compatible chat completions API. The user talks to it on a server's chat page; it answers questions and performs actions by calling *tools*. It can never exceed the permissions of the user talking to it.
 
+There is also an **admin-scope assistant** (see *Admin chatbot* below) for root administrators inside the Filament panel — same engine, panel-wide tools.
+
 ## The security model, in one paragraph
 
 Every capability is a tool class declaring the subuser permissions it needs. A tool is offered to the model only if (a) an administrator enabled its group panel-wide and (b) the requesting user passes a `Gate` check for each of its permissions — the same `ServerPolicy` the HTTP API uses. The check is repeated immediately before execution, so narrowing a subuser's access mid-conversation takes effect at once. Tools that change state are marked destructive and, by default, are held for the user to approve before they run. The provider never receives credentials, and content read from the server is framed to the model as untrusted data.
@@ -51,6 +53,18 @@ Conversations are bound by `uuid` and are **user-scoped**: `authorizeConversatio
 - Sub-components: `ConversationList`, `ChatMessage`, `MessageComposer`, `PendingApproval`, `ToolCallChip`, `MessageContent`.
 - API helpers: `resources/scripts/api/server/chat/*.ts` (+ `types.ts`, `transformers.ts`); SWR hooks in `resources/scripts/api/swr/getServerChat{Config,Conversations}.ts`.
 - `MessageContent` renders through the existing `@/reviactyl/ui/Md2React` (bold + links) and additionally splits ``` fences into `<pre>` blocks and single backticks into inline `<code>`. No markdown dependency was added.
+
+## Admin chatbot
+
+A second, panel-scope assistant for root administrators, reached from the admin panel's **AI Assistant** page (`App\Filament\Pages\AdminChatbot`, Alpine view `resources/views/filament/pages/admin-chatbot.blade.php`). It shares the entire engine — `ChatbotService`'s loop, history windowing, confirmation flow, compaction and streaming — but targets the panel, not one server.
+
+- **Data**: the same `ChatbotConversation`/`ChatbotMessage` tables, with `server_id` **null**. `chatbot_conversations.server_id` is nullable since migration `2026_08_09_000000`.
+- **Service**: `AdminChatbotService extends ChatbotService` with `AdminToolRegistry` (loads `config('chatbot.admin_tools')`), `startAdminConversation()`, `adminToolsFor()`, and an overridden `run()` that always uses the flat loop — orchestration's router and sub-agents are server-bound and cannot run without a server. `assertEnabled()` requires `panel:chatbot:admin_enabled` (default true, and `panel:chatbot:enabled` remains a prerequisite).
+- **Context**: `ToolContext` accepts a null server; `ToolContext::can()` returns false without one. `ToolRegistry` memoizes a null server under the `admin` key. `SystemPromptBuilder::build()` returns `buildForAdmin()` when the context has no server. `ToolExecutor` logs admin calls without a subject.
+- **Tools** (`app/Services/Chatbot/Tools/Admin/`, base `AdminTool`): `list_servers`, `get_server_details`, `create_server`, `delete_server`, `power_server`, `send_console_command`, `list_users`, `create_user`, `delete_user`, `list_nodes`, `list_locations`, `list_nests`, `list_eggs`, `list_allocations`. `AdminTool::isAvailableFor()` requires `root_admin`. `create_server` and `delete_server` wrap `ServerCreationService`/`ServerDeletionService`; user tools wrap `UserCreationService`/`UserDeletionService`.
+- **Group**: `ChatbotToolGroup::Admin`, deliberately **excluded** from `options()` so the server chatbot settings show no dead toggle. Admin tools are gated by root admin status only.
+- **API**: `routes/base.php` group under `/admin/chat` with `auth` + `AdminAuthenticate` + `throttle:api.chatbot`, handled by `App\Http\Controllers\Admin\ChatbotController` (session auth, mirrors the client payload shapes). Conversations are scoped to `server_id = null` **and** the requesting admin; the bind is by `uuid` through the model's route key.
+- **Activity**: admin tool calls log `server:chatbot.tool` without a subject (the actor is the admin).
 
 ## Tools
 

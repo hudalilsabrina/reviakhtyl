@@ -20,12 +20,20 @@ it('only ever defaults to real groups', function () {
         ->each->toBeIn(array_column(ChatbotToolGroup::cases(), 'value'));
 });
 
-it('offers every case as an option', function () {
+it('offers every server case as an option', function () {
     $options = ChatbotToolGroup::options();
 
-    expect($options)->toHaveCount(count(ChatbotToolGroup::cases()));
+    // The Admin group is intentionally absent: it drives the admin chatbot,
+    // which has no per-server group toggles, and a dead switch in the server
+    // settings would only mislead.
+    expect($options)->toHaveCount(count(ChatbotToolGroup::cases()) - 1)
+        ->not->toHaveKey('admin');
 
     foreach (ChatbotToolGroup::cases() as $case) {
+        if ($case === ChatbotToolGroup::Admin) {
+            continue;
+        }
+
         expect($options)->toHaveKey($case->value)
             ->and($options[$case->value])->toBe($case->label());
     }
@@ -51,5 +59,5 @@ it('keeps its backing values stable', function () {
     // These strings are persisted in the settings table and referenced from
     // the admin UI, so renaming one silently disables a group.
     expect(array_column(ChatbotToolGroup::cases(), 'value'))
-        ->toBe(['server', 'power', 'console', 'files', 'subusers', 'startup', 'plugins', 'mods', 'web']);
+        ->toBe(['server', 'power', 'console', 'files', 'subusers', 'startup', 'plugins', 'mods', 'web', 'admin']);
 });

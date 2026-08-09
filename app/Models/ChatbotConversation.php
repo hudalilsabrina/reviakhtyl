@@ -47,7 +47,7 @@ class ChatbotConversation extends Model
 
     public static array $validationRules = [
         'uuid' => 'required|uuid',
-        'server_id' => 'required|numeric|exists:servers,id',
+        'server_id' => 'nullable|numeric|exists:servers,id',
         'user_id' => 'required|numeric|exists:users,id',
         'title' => 'nullable|string|max:191',
         'summary' => 'nullable|string',

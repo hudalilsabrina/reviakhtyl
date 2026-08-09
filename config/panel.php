@@ -222,6 +222,9 @@ return [
 
     'chatbot' => [
         'enabled' => (bool) env('PANEL_CHATBOT_ENABLED', false),
+        // Admin-scope chatbot for root administrators; the panel still needs
+        // PANEL_CHATBOT_ENABLED and a provider configured for it to work.
+        'admin_enabled' => (bool) env('PANEL_CHATBOT_ADMIN_ENABLED', true),
         'base_url' => env('PANEL_CHATBOT_BASE_URL', 'https://api.openai.com/v1'),
         'api_key' => env('PANEL_CHATBOT_API_KEY'),
         'model' => env('PANEL_CHATBOT_MODEL', 'gpt-4o-mini'),

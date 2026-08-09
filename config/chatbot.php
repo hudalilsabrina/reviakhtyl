@@ -7,6 +7,20 @@ use App\Services\Chatbot\Agents\ServerAgent;
 use App\Services\Chatbot\Agents\StartupAgent;
 use App\Services\Chatbot\Agents\SubusersAgent;
 use App\Services\Chatbot\Agents\WebAgent;
+use App\Services\Chatbot\Tools\Admin\CreateServerTool;
+use App\Services\Chatbot\Tools\Admin\CreateUserTool;
+use App\Services\Chatbot\Tools\Admin\DeleteServerTool;
+use App\Services\Chatbot\Tools\Admin\DeleteUserTool;
+use App\Services\Chatbot\Tools\Admin\GetServerDetailsTool as AdminGetServerDetailsTool;
+use App\Services\Chatbot\Tools\Admin\ListAllocationsTool;
+use App\Services\Chatbot\Tools\Admin\ListEggsTool;
+use App\Services\Chatbot\Tools\Admin\ListLocationsTool;
+use App\Services\Chatbot\Tools\Admin\ListNestsTool;
+use App\Services\Chatbot\Tools\Admin\ListNodesTool;
+use App\Services\Chatbot\Tools\Admin\ListServersTool;
+use App\Services\Chatbot\Tools\Admin\ListUsersTool;
+use App\Services\Chatbot\Tools\Admin\PowerServerTool;
+use App\Services\Chatbot\Tools\Admin\SendConsoleCommandTool as AdminSendConsoleCommandTool;
 use App\Services\Chatbot\Tools\Backups\CreateBackupTool;
 use App\Services\Chatbot\Tools\Backups\DeleteBackupTool;
 use App\Services\Chatbot\Tools\Backups\ListBackupsTool;
@@ -155,5 +169,25 @@ return [
         ModsAgent::class,
         SubusersAgent::class,
         WebAgent::class,
+    ],
+
+    // Panel-scope tools offered to root administrators by the admin chatbot.
+    // Not gated by the per-server tool group toggles — root admin status is the
+    // only requirement.
+    'admin_tools' => [
+        ListServersTool::class,
+        AdminGetServerDetailsTool::class,
+        CreateServerTool::class,
+        DeleteServerTool::class,
+        PowerServerTool::class,
+        AdminSendConsoleCommandTool::class,
+        ListUsersTool::class,
+        CreateUserTool::class,
+        DeleteUserTool::class,
+        ListNodesTool::class,
+        ListLocationsTool::class,
+        ListNestsTool::class,
+        ListEggsTool::class,
+        ListAllocationsTool::class,
     ],
 ];

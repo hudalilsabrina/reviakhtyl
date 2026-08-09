@@ -114,6 +114,7 @@ class Settings extends Page implements HasSchemas
         'panel:telegram:webhook_secret',
 
         'panel:chatbot:enabled',
+        'panel:chatbot:admin_enabled',
         'panel:chatbot:base_url',
         'panel:chatbot:api_key',
         'panel:chatbot:model',
@@ -674,6 +675,17 @@ class Settings extends Page implements HasSchemas
                     Toggle::make('panel:chatbot:enabled')
                         ->label('Enable AI Assistant')
                         ->helperText('Users get a chat page on each of their servers. The assistant can act on their behalf, and only ever within their own permissions on that server.')
+                        ->inline(false)
+                        ->onIcon('tabler-check')
+                        ->offIcon('tabler-x')
+                        ->onColor('success')
+                        ->offColor('danger')
+                        ->live()
+                        ->columnSpan(2),
+
+                    Toggle::make('panel:chatbot:admin_enabled')
+                        ->label('Enable in admin panel')
+                        ->helperText('Root administrators get an administrative assistant in the admin panel that can create and delete servers, manage users and answer questions about nodes, locations, nests and eggs.')
                         ->inline(false)
                         ->onIcon('tabler-check')
                         ->offIcon('tabler-x')
