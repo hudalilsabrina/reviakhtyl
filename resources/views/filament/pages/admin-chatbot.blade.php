@@ -496,7 +496,7 @@
                         showReasoning: false,
                         tool_calls: (m.tool_calls || []).map((call) => ({ ...call, open: false })),
                     }));
-                    this.sidebarOpen = false;
+                    this.sidebarOpen = window.innerWidth >= 1024;
                     this.scrollToBottom(true);
                 },
 
