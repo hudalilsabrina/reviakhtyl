@@ -46,35 +46,29 @@
         class="grid h-[calc(100vh-9rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]"
     >
         {{-- Conversation sidebar --}}
-        <div
-            class="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-900"
-            :class="sidebarOpen ? '' : 'hidden lg:flex'"
+        <x-filament::section
+            class="chat-section h-full overflow-hidden"
+            :heading="$labels['conversations']"
+            icon="tabler-message-2"
+            icon-color="primary"
+            x-cloak
+            x-show="sidebarOpen"
         >
-            <div class="flex items-center justify-between">
-                <h2 class="text-sm font-semibold text-gray-900 dark:text-white" x-text="labels.conversations"></h2>
-                <button
-                    type="button"
-                    x-on:click="sidebarOpen = false"
-                    class="text-gray-400 hover:text-gray-600 lg:hidden dark:hover:text-gray-200"
-                    :title="labels.closeSidebar"
+            <x-slot name="afterHeader">
+                <x-filament::button
+                    color="primary"
+                    size="sm"
+                    icon="tabler-plus"
+                    x-on:click="newConversation()"
+                    x-bind:disabled="busy"
                 >
-                    <x-tabler-x class="h-4 w-4" />
-                </button>
-            </div>
+                    <span x-text="labels.newConversation"></span>
+                </x-filament::button>
+            </x-slot>
 
-            <button
-                type="button"
-                x-on:click="newConversation()"
-                :disabled="busy"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:opacity-50"
-            >
-                <x-tabler-plus class="h-4 w-4" />
-                <span x-text="labels.newConversation"></span>
-            </button>
-
-            <div class="-mx-1 flex-1 space-y-1 overflow-y-auto px-1">
+            <div class="flex h-full flex-col gap-1 overflow-y-auto">
                 <template x-if="conversations.length === 0">
-                    <div class="mt-6 text-center text-xs text-gray-400 dark:text-gray-500" x-text="labels.empty"></div>
+                    <div class="my-auto py-10 text-center text-sm text-gray-400 dark:text-gray-500" x-text="labels.empty"></div>
                 </template>
 
                 <template x-for="conversation in conversations" :key="conversation.uuid">
@@ -100,81 +94,83 @@
                     </div>
                 </template>
             </div>
-        </div>
+        </x-filament::section>
 
         {{-- Chat area --}}
-        <div class="flex min-w-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
-            {{-- Header --}}
-            <div class="flex items-center gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
-                <button
-                    type="button"
-                    x-on:click="sidebarOpen = true"
-                    class="text-gray-400 hover:text-gray-600 lg:hidden dark:hover:text-gray-200"
-                    :title="labels.openSidebar"
-                >
-                    <x-tabler-menu-2 class="h-5 w-5" />
-                </button>
+        <x-filament::section
+            class="chat-section h-full overflow-hidden"
+            icon="tabler-robot"
+            icon-color="primary"
+        >
+            <x-slot name="heading">
+                <span x-text="labels.conversationWith"></span>
+            </x-slot>
 
-                <div class="flex h-9 w-9 items-center justify-center rounded-full bg-primary-600/10 text-primary-600 dark:text-primary-400">
-                    <x-tabler-robot class="h-5 w-5" />
-                </div>
-
-                <div class="min-w-0 flex-1">
-                    <div class="flex items-center gap-2 text-sm font-semibold text-gray-900 dark:text-white">
-                        <span x-text="labels.conversationWith"></span>
-                        <span class="truncate" x-text="activeTitle"></span>
-                    </div>
-                    <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-                        <span x-show="config.enabled" x-text="config.model"></span>
+            <x-slot name="description">
+                <template x-if="config.enabled">
+                    <span class="flex flex-wrap items-center gap-x-1.5">
+                        <span x-text="config.model"></span>
                         <template x-if="busy">
-                            <span class="flex items-center gap-1.5">
+                            <span class="flex items-center gap-1">
                                 <x-tabler-loader-2 class="h-3 w-3 animate-spin" />
                                 <span x-text="labels.thinking"></span>
                             </span>
                         </template>
-                    </div>
-                </div>
+                    </span>
+                </template>
+            </x-slot>
 
-                <button
-                    type="button"
-                    x-show="config.enabled && messages.length > 0 && activeUuid"
+            <x-slot name="afterHeader">
+                <x-filament::icon-button
+                    color="gray"
+                    icon="tabler-menu-2"
+                    x-on:click="sidebarOpen = true"
+                    class="lg:hidden"
+                />
+                <x-filament::button
+                    color="gray"
+                    size="sm"
+                    icon="tabler-plus"
                     x-on:click="newConversation()"
-                    class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+                    x-show="messages.length > 0 && activeUuid"
                 >
-                    <x-tabler-plus class="h-3.5 w-3.5" />
                     <span x-text="labels.newConversation"></span>
-                </button>
-            </div>
+                </x-filament::button>
+            </x-slot>
 
             {{-- Disabled banner --}}
-            <div x-show="!config.enabled" class="m-4 rounded-lg border border-warning-200 bg-warning-50 p-4 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
-                <span x-text="labels.disabled"></span>
-            </div>
+            <x-filament::callout
+                color="warning"
+                icon="tabler-alert-triangle"
+                :description="$labels['disabled']"
+                x-show="!config.enabled"
+            />
 
             <template x-if="config.enabled">
-                <div class="flex min-h-0 flex-1 flex-col">
+                <div class="flex h-full min-h-0 flex-col">
                     {{-- Messages --}}
-                    <div x-ref="messages" class="flex-1 space-y-6 overflow-y-auto p-4 sm:p-6">
+                    <div x-ref="messages" class="min-h-0 flex-1 space-y-6 overflow-y-auto">
                         {{-- Welcome --}}
                         <template x-if="messages.length === 0">
-                            <div class="flex h-full flex-col items-center justify-center gap-6 py-10 text-center">
-                                <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-600/10 text-primary-600 dark:text-primary-400">
-                                    <x-tabler-robot class="h-8 w-8" />
-                                </div>
-                                <div class="max-w-md space-y-2">
-                                    <h3 class="text-lg font-semibold text-gray-900 dark:text-white" x-text="labels.emptyTitle"></h3>
-                                    <p class="text-sm leading-relaxed text-gray-500 dark:text-gray-400" x-text="labels.empty"></p>
-                                </div>
-                                <div class="flex max-w-md flex-wrap justify-center gap-2">
-                                    <template x-for="suggestion in suggestions" :key="suggestion">
-                                        <button
-                                            type="button"
-                                            x-on:click="draft = suggestion; $nextTick(() => $refs.composer?.focus())"
-                                            class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-primary-500/50 dark:hover:bg-primary-500/10 dark:hover:text-primary-300"
-                                            x-text="suggestion"
-                                        ></button>
-                                    </template>
-                                </div>
+                            <div class="flex h-full items-center justify-center">
+                                <x-filament::empty-state
+                                    icon="tabler-robot"
+                                    :heading="$labels['emptyTitle']"
+                                    :description="$labels['empty']"
+                                >
+                                    <x-slot name="footer">
+                                        <div class="flex flex-wrap justify-center gap-2">
+                                            <template x-for="suggestion in suggestions" :key="suggestion">
+                                                <button
+                                                    type="button"
+                                                    x-on:click="draft = suggestion; $nextTick(() => $refs.composer?.focus())"
+                                                    class="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-600 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-primary-500/50 dark:hover:bg-primary-500/10 dark:hover:text-primary-300"
+                                                    x-text="suggestion"
+                                                ></button>
+                                            </template>
+                                        </div>
+                                    </x-slot>
+                                </x-filament::empty-state>
                             </div>
                         </template>
 
@@ -316,24 +312,24 @@
                                         class="flex items-center gap-2"
                                         :class="message.role === 'user' ? 'flex-row-reverse' : ''"
                                     >
-                                        <button
-                                            type="button"
+                                        <x-filament::button
+                                            color="success"
+                                            size="sm"
+                                            icon="tabler-check"
                                             x-on:click="decide(message, allPendingIds(message), true)"
-                                            :disabled="busy"
-                                            class="inline-flex items-center gap-1.5 rounded-lg bg-success-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-success-500 disabled:opacity-50"
+                                            x-bind:disabled="busy"
                                         >
-                                            <x-tabler-check class="h-3.5 w-3.5" />
                                             <span x-text="labels.approve"></span>
-                                        </button>
-                                        <button
-                                            type="button"
+                                        </x-filament::button>
+                                        <x-filament::button
+                                            color="danger"
+                                            size="sm"
+                                            icon="tabler-x"
                                             x-on:click="decide(message, allPendingIds(message), false)"
-                                            :disabled="busy"
-                                            class="inline-flex items-center gap-1.5 rounded-lg bg-danger-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm transition hover:bg-danger-500 disabled:opacity-50"
+                                            x-bind:disabled="busy"
                                         >
-                                            <x-tabler-x class="h-3.5 w-3.5" />
                                             <span x-text="labels.deny"></span>
-                                        </button>
+                                        </x-filament::button>
                                     </div>
 
                                     {{-- Meta row: time + copy --}}
@@ -362,43 +358,48 @@
                     </div>
 
                     {{-- Composer --}}
-                    <div class="border-t border-gray-200 p-3 dark:border-gray-700">
-                        <div class="rounded-xl border border-gray-300 bg-white transition focus-within:border-primary-500 focus-within:ring-2 focus-within:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-800">
+                    <div class="mt-4 flex items-end gap-2 border-t border-gray-200 pt-4 dark:border-white/10">
+                        <x-filament::input.wrapper class="flex-1">
                             <textarea
                                 x-model="draft"
                                 x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); send(); }"
                                 x-on:input="autoGrow($event)"
                                 x-ref="composer"
                                 rows="1"
-                                class="w-full resize-none bg-transparent px-3.5 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
-                                :placeholder="labels.placeholder"
-                                :disabled="busy"
+                                :placeholder="$labels['placeholder']"
+                                x-bind:disabled="busy"
+                                class="w-full resize-none bg-transparent px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:outline-none dark:text-gray-100 dark:placeholder-gray-500"
                             ></textarea>
-                            <div class="flex items-center justify-between gap-2 px-3 pb-2">
-                                <span class="text-[10px] text-gray-400 dark:text-gray-500" x-text="labels.sendingHint"></span>
-                                <button
-                                    type="button"
-                                    x-on:click="send()"
-                                    :disabled="busy || !draft.trim()"
-                                    class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-3.5 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-primary-500 disabled:opacity-40"
-                                >
-                                    <template x-if="!busy">
-                                        <x-tabler-send class="h-4 w-4" />
-                                    </template>
-                                    <template x-if="busy">
-                                        <x-tabler-loader-2 class="h-4 w-4 animate-spin" />
-                                    </template>
-                                    <span x-text="busy ? labels.thinking : labels.send"></span>
-                                </button>
-                            </div>
+                        </x-filament::input.wrapper>
+                        <div class="flex flex-col items-end gap-1.5">
+                            <x-filament::button
+                                color="primary"
+                                x-on:click="send()"
+                                x-bind:disabled="busy || !draft.trim()"
+                            >
+                                <template x-if="!busy">
+                                    <x-tabler-send class="h-4 w-4" />
+                                </template>
+                                <template x-if="busy">
+                                    <x-tabler-loader-2 class="h-4 w-4 animate-spin" />
+                                </template>
+                                <span x-text="busy ? labels.thinking : labels.send"></span>
+                            </x-filament::button>
+                            <span class="px-1 text-[10px] text-gray-400 dark:text-gray-500" x-text="labels.sendingHint"></span>
                         </div>
                     </div>
                 </div>
             </template>
-        </div>
+        </x-filament::section>
     </div>
 
     <style>
+        [x-cloak] { display: none !important; }
+
+        .chat-section { display: flex; flex-direction: column; }
+        .chat-section > .fi-section-content-ctn { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+        .chat-section > .fi-section-content-ctn > .fi-section-content { flex: 1 1 auto; min-height: 0; }
+
         @keyframes message-in {
             from { opacity: 0; transform: translateY(8px); }
             to { opacity: 1; transform: none; }
@@ -439,6 +440,7 @@
                 },
 
                 init() {
+                    this.sidebarOpen = window.innerWidth >= 1024;
                     this.loadConfig().then(() => {
                         if (this.config.enabled) this.loadConversations();
                     });
