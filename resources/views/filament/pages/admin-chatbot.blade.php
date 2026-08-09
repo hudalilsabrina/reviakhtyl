@@ -209,7 +209,7 @@
                                             >
                                                 <x-tabler-brain class="h-3 w-3" />
                                                 <span x-text="message.showReasoning || streamingUuid === message.uuid ? labels.thinkingHide : labels.thinkingToggle"></span>
-                                                <x-tabler-chevron-down class="h-3 w-3 transition-transform duration-150" :class="message.showReasoning ? 'rotate-180' : ''" />
+                                                <x-tabler-chevron-down class="h-3 w-3 transition-transform duration-150" x-bind:class="message.showReasoning ? 'rotate-180' : ''" />
                                             </button>
                                             <div
                                                 x-show="message.showReasoning"
@@ -236,7 +236,7 @@
                                                         <template x-if="call.status === 'failed'"><x-tabler-x class="h-3 w-3 shrink-0" /></template>
                                                         <template x-if="call.status === 'denied'"><x-tabler-ban class="h-3 w-3 shrink-0" /></template>
                                                         <span class="truncate" x-text="call.summary || call.name"></span>
-                                                        <x-tabler-chevron-down class="h-2.5 w-2.5 shrink-0 transition-transform duration-150" :class="call.open ? 'rotate-180' : ''" />
+                                                        <x-tabler-chevron-down class="h-2.5 w-2.5 shrink-0 transition-transform duration-150" x-bind:class="call.open ? 'rotate-180' : ''" />
                                                     </button>
 
                                                     {{-- Expandable details --}}
