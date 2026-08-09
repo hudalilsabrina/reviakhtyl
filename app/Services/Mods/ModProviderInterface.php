@@ -30,6 +30,12 @@ interface ModProviderInterface
     public function versions(string $projectId, array $loaders, ?string $gameVersion, int $limit = 25): array;
 
     /**
+     * Search modpacks (no loader filtering — loader is irrelevant for packs).
+     * Same return shape as search().
+     */
+    public function searchModpacks(string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array;
+
+    /**
      * Project display data for the given ids, keyed by id: ['title' => ..., 'icon_url' => ...].
      * Unknown ids are omitted.
      */

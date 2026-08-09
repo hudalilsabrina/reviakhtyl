@@ -32,6 +32,17 @@ class ModpackManagerService
      */
     private function downloadAndParse(string $url): array
     {
+        return $this->parseManifest($url);
+    }
+
+    /**
+     * Public variant of downloadAndParse: downloads and parses a modpack
+     * manifest without installing anything. Used for previews.
+     *
+     * @return array{format: string, name: string, mods: array}
+     */
+    public function parseManifest(string $url): array
+    {
         $response = Http::timeout(60)->get($url);
 
         if ($response->failed()) {

@@ -321,4 +321,23 @@ class ModManagerService
     {
         Cache::forget(sprintf('server:%d:mods-dir', $server->id));
     }
+
+    public function searchModpacks(string $provider, string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
+    {
+        return match ($provider) {
+            ModrinthService::PROVIDER => $this->provider($provider)->searchModpacks($query, $gameVersion, $limit, $offset, $sort),
+            CurseForgeService::PROVIDER => $this->provider($provider)->searchModpacks($query, $gameVersion, $limit, $offset, $sort),
+            default => throw new DisplayException('Unknown mod provider.'),
+        };
+    }
+
+    /**
+     * Get the download URL for the latest modpack file.
+     */
+    public function resolveModpackDownloadUrl(string $provider, string $projectId, array $loaders, ?string $gameVersion): ?string
+    {
+        $versions = $this->provider($provider)->versions($projectId, $loaders, $gameVersion, 1);
+
+        return $versions[0]['download_url'] ?? null;
+    }
 }

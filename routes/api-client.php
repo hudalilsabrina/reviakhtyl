@@ -206,6 +206,8 @@ Route::group([
             ->delete('/bulk', [Client\Servers\ModController::class, 'bulkDestroy']);
         Route::middleware('throttle:api.mods')
             ->post('/modpack', [Client\Servers\ModController::class, 'modpack']);
+        Route::get('/modpacks/search', [Client\Servers\ModController::class, 'searchModpacks']);
+        Route::get('/modpacks/preview', [Client\Servers\ModController::class, 'modpackPreview']);
         Route::post('/{mod}/toggle', [Client\Servers\ModController::class, 'toggle']);
         Route::delete('/{mod}', [Client\Servers\ModController::class, 'destroy']);
     });

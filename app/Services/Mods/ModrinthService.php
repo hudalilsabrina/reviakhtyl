@@ -141,4 +141,9 @@ class ModrinthService implements ModProviderInterface
             ]])
             ->all();
     }
+
+    public function searchModpacks(string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
+    {
+        return $this->search($query, [], $gameVersion, $limit, $offset, $sort, 'modpack');
+    }
 }

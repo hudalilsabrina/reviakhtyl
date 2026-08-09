@@ -17,6 +17,16 @@ class CurseForgeService implements ModProviderInterface
 
     public function search(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
+        return $this->doSearch($query, $loaders, $gameVersion, $limit, $offset, $sort, 6);
+    }
+
+    public function searchModpacks(string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
+    {
+        return $this->doSearch($query, [], $gameVersion, $limit, $offset, $sort, 4471);
+    }
+
+    private function doSearch(string $query, array $loaders, ?string $gameVersion, int $limit, int $offset, string $sort, int $classId): array
+    {
         $apiKey = $this->settings->get('settings::panel:mods:curseforge_api_key', null);
 
         if (! $apiKey) {
@@ -25,7 +35,7 @@ class CurseForgeService implements ModProviderInterface
 
         $params = [
             'gameId' => self::MINECRAFT_GAME_ID,
-            'classId' => 6, // Mods class
+            'classId' => $classId,
             'searchFilter' => $query,
             'index' => $offset,
             'pageSize' => min($limit, 50),
