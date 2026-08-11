@@ -3,11 +3,22 @@ import tw from 'twin.macro';
 import styled, { css } from 'styled-components';
 import { useTranslation } from 'react-i18next';
 import { Actions, useStoreActions } from 'easy-peasy';
-import { FaBoxOpen, FaCheck, FaCircle, FaDownload, FaListUl, FaMagnifyingGlass, FaTrash } from 'react-icons/fa6';
+import {
+    FaBoxOpen,
+    FaCheck,
+    FaCircle,
+    FaDownload,
+    FaListUl,
+    FaMagnifyingGlass,
+    FaTrash,
+    FaPause,
+    FaPlay,
+    FaLink,
+    FaArrowRotateRight,
+} from 'react-icons/fa6';
 import ServerContentBlock from '@/reviactyl/elements/ServerContentBlock';
 import Spinner from '@/reviactyl/elements/Spinner';
 import Select from '@/reviactyl/elements/Select';
-import { Button } from '@/reviactyl/elements/button/index';
 import ConfirmationModal from '@/reviactyl/elements/ConfirmationModal';
 import Modal from '@/reviactyl/elements/Modal';
 import FlashMessageRender from '@/components/FlashMessageRender';
@@ -35,55 +46,97 @@ import {
     bulkDeleteDatapacks,
 } from '@/api/server/datapacks/datapacks';
 
-const Card = styled.div`
-    ${tw`bg-gray-900 border border-gray-800 rounded-ui p-3 sm:p-4 flex gap-3 sm:gap-4 transition-colors duration-150 hover:border-gray-700`}
+/* ---------------------------------------------------------------------------
+ * Minecraft-themed primitives
+ * ------------------------------------------------------------------------- */
+
+const GRASS = ['#5d8a3c', '#5d8a3c', '#76a24e', '#5d8a3c', '#4a7432', '#76a24e', '#5d8a3c', '#6b9a47'];
+const StonePanel = styled.div`
+    ${tw`bg-[#1a1d22] border border-black/70 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_30px_-12px_rgba(0,0,0,0.8)] rounded-[4px]`};
 `;
 
-const Badge = styled.span<{ $variant: 'provider' | 'disabled' | 'installed' | 'manual' }>`
-    ${tw`uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded`}
-    font-size: 10px;
+const MinecraftButton = styled.button<{ $tone?: 'primary' | 'danger' | 'success' }>`
+    ${tw`relative inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-white select-none`}
+    ${tw`px-4 h-8 border-2`}
+    image-rendering: pixelated;
+    transition: filter 120ms ease, transform 60ms ease;
+    border-color: #1a1d22;
+    background-color: #4c6f3f;
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, transparent 92%, rgba(0, 0, 0, 0.4));
+    box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.22), inset 0 -2px 0 rgba(0, 0, 0, 0.28), 0 2px 0 rgba(0, 0, 0, 0.35);
+    border-radius: 2px;
+
+    &:hover:not(:disabled) {
+        filter: brightness(1.12);
+    }
+
+    &:active:not(:disabled) {
+        transform: translateY(1px);
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.12), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    &:disabled {
+        ${tw`cursor-not-allowed opacity-60`}
+        filter: grayscale(0.4);
+    }
 
     ${(props) =>
-        props.$variant === 'manual' &&
+        props.$tone === 'danger' &&
         css`
-            ${tw`bg-blue-600/30 text-blue-200`};
+            background-color: #8f3a3a;
+            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 45%),
+                linear-gradient(180deg, transparent 92%, rgba(0, 0, 0, 0.4));
         `}
     ${(props) =>
-        props.$variant === 'provider' &&
+        props.$tone === 'success' &&
         css`
-            ${tw`bg-gray-700/70 text-gray-300`};
+            background-color: #3d6b37;
+            background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 45%),
+                linear-gradient(180deg, transparent 92%, rgba(0, 0, 0, 0.4));
+        `}
+`;
+
+const MinecraftPill = styled.span<{ $tone?: 'green' | 'gold' | 'stone' }>`
+    ${tw`inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-white px-2 py-0.5 border-2 select-none`}
+    border-radius: 2px;
+    image-rendering: pixelated;
+    border-color: #1a1d22;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+
+    ${(props) =>
+        props.$tone === 'green' &&
+        css`
+            background-color: #3d6b37;
+            color: #d7f5c6;
         `}
     ${(props) =>
-        props.$variant === 'disabled' &&
+        props.$tone === 'gold' &&
         css`
-            ${tw`bg-yellow-600/30 text-yellow-200`};
+            background-color: #8a6b2f;
+            color: #ffe9a8;
         `}
     ${(props) =>
-        props.$variant === 'installed' &&
+        props.$tone === 'stone' &&
         css`
-            background-color: rgba(34, 197, 94, 0.15);
-            color: #4ade80;
-            border: 1px solid rgba(74, 222, 128, 0.4);
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 600;
-            padding: 2px 8px;
+            background-color: #5a5f66;
+            color: #e5e7eb;
         `}
 `;
 
 const ProgressBar = styled.div`
-    height: 4px;
-    border-radius: 9999px;
-    background-color: rgba(255, 255, 255, 0.08);
+    height: 6px;
+    border-radius: 2px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: 1px solid #000;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
     overflow: hidden;
 
     & > div {
         height: 100%;
-        border-radius: 9999px;
-        background-color: #4ade80;
+        border-radius: 1px;
+        background-color: #4caf50;
+        background-image: linear-gradient(90deg, rgba(255, 255, 255, 0.25), rgba(255, 255, 255, 0));
         transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
     }
 `;
@@ -106,16 +159,51 @@ const useProgress = (active: boolean) => {
     return width;
 };
 
+/* ---------------------------------------------------------------------------
+ * Icon: pixelated grass-block placeholder + real icon thumbnail
+ * ------------------------------------------------------------------------- */
+
+const GrassBlock = ({ size = 40 }: { size?: number }) => (
+    <div
+        css={tw`relative overflow-hidden border-2 border-black/80 rounded-[3px] flex-shrink-0 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]`}
+        style={{
+            width: size,
+            height: size,
+            backgroundImage: `linear-gradient(180deg, ${GRASS[1]} 0 35%, #8a5a32 35% 100%)`,
+            imageRendering: 'pixelated',
+        }}
+    >
+        {/* randomized dirt speckles */}
+        {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+            <span
+                key={i}
+                css={tw`absolute block`}
+                style={{
+                    width: 3,
+                    height: 3,
+                    left: `${((i * 37) % 10) * 9}%`,
+                    top: `${38 + ((i * 53) % 45)}%`,
+                    backgroundColor: i % 3 === 0 ? '#6b4626' : '#754d29',
+                    imageRendering: 'pixelated',
+                }}
+            />
+        ))}
+    </div>
+);
+
 const DatapackIcon = ({ url }: { url: string | null }) =>
     url ? (
-        <img src={url} alt={''} css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui object-cover flex-shrink-0`} />
+        <img src={url} alt={''} css={tw`w-10 h-10 rounded-[3px] object-cover flex-shrink-0 border-2 border-black/60`} />
     ) : (
-        <div
-            css={tw`w-10 h-10 sm:w-12 sm:h-12 rounded-ui bg-gray-800 border border-gray-700 flex items-center justify-center flex-shrink-0`}
-        >
-            <FaBoxOpen css={tw`text-gray-500 text-lg`} />
-        </div>
+        <GrassBlock />
     );
+
+const EmptyState = ({ icon, title }: { icon: React.ReactNode; title: string }) => (
+    <StonePanel css={tw`text-center py-14`}>
+        <div css={tw`text-3xl text-gray-600 mb-3 flex justify-center`}>{icon}</div>
+        <p css={tw`text-sm text-gray-500`}>{title}</p>
+    </StonePanel>
+);
 
 const DatapacksContainer = () => {
     const { t } = useTranslation('server/datapacks');
@@ -153,6 +241,9 @@ const DatapacksContainer = () => {
     } | null>(null);
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
+
+    const disabledCount = datapacks.filter((d) => d.disabled).length;
+    const untrackedCount = untracked.filter((z) => !datapacks.some((d) => d.fileName === z.file_name)).length;
 
     useEffect(() => {
         clearFlashes('server:datapacks');
@@ -498,13 +589,6 @@ const DatapacksContainer = () => {
             .finally(() => setBulkOperation(null));
     };
 
-    const tabButtonCss = (active: boolean) => css`
-        ${tw`px-4 py-2 text-sm font-semibold rounded-ui transition-colors duration-150 border-b-2 -mb-px rounded-b-none`}
-        ${active
-            ? tw`text-gray-100 border-reviactyl bg-gray-800/60`
-            : tw`text-gray-400 border-transparent hover:text-gray-200 hover:bg-gray-800/30`}
-    `;
-
     const installSteps = [t('step_resolve'), t('step_download'), t('step_finish')];
 
     return (
@@ -513,8 +597,8 @@ const DatapacksContainer = () => {
 
             <Modal visible={!!installing} onDismissed={() => setInstalling(null)} dismissable={false} size={'sm'}>
                 {installing && (
-                    <>
-                        <h2 css={tw`text-lg sm:text-xl font-semibold mb-1 truncate`}>
+                    <StonePanel css={tw`p-5`}>
+                        <h2 css={tw`text-lg sm:text-xl font-semibold mb-1 truncate text-gray-100`}>
                             {installing.step >= 3
                                 ? t('install_done', { title: installing.title })
                                 : t('installing_title', { title: installing.title })}
@@ -548,7 +632,7 @@ const DatapacksContainer = () => {
                         <ProgressBar>
                             <div style={{ width: `${installing.step >= 3 ? 100 : progressWidth}%` }} />
                         </ProgressBar>
-                    </>
+                    </StonePanel>
                 )}
             </Modal>
             <ConfirmationModal
@@ -592,15 +676,15 @@ const DatapacksContainer = () => {
 
             <Modal visible={!!versionsFor} onDismissed={() => setVersionsFor(null)} size={'lg'}>
                 {versionsFor && (
-                    <>
-                        <h2 css={tw`text-xl sm:text-2xl mb-1 truncate`}>{versionsFor.title}</h2>
+                    <StonePanel css={tw`p-6`}>
+                        <h2 css={tw`text-xl sm:text-2xl mb-1 truncate text-gray-100`}>{versionsFor.title}</h2>
                         <p css={tw`text-sm text-gray-400 mb-4 sm:mb-6`}>{t('pick_version')}</p>
                         {!versions ? (
                             <Spinner centered />
                         ) : versions.length === 0 ? (
                             <p css={tw`text-sm text-gray-500 text-center py-6`}>{t('no_results')}</p>
                         ) : (
-                            <div css={tw`overflow-y-auto max-h-96 divide-y divide-gray-800`}>
+                            <div css={tw`overflow-y-auto max-h-96 divide-y divide-black/40`}>
                                 {versions.map((version) => (
                                     <div key={version.id} css={tw`py-2.5`}>
                                         <div css={tw`flex items-center gap-2`}>
@@ -613,46 +697,133 @@ const DatapacksContainer = () => {
                                                 </p>
                                             </div>
                                             {installedRow === version.id ? (
-                                                <Badge $variant={'installed'}>
+                                                <MinecraftPill $tone={'green'}>
                                                     <FaCheck style={{ fontSize: '9px' }} />
                                                     <span css={tw`font-mono`}>{version.versionNumber}</span>
-                                                </Badge>
+                                                </MinecraftPill>
                                             ) : (
-                                                <Button.Success
-                                                    size={Button.Sizes.Small}
-                                                    disabled={!!busy}
+                                                <MinecraftButton
+                                                    $tone={'success'}
                                                     onClick={() => doInstall(versionsFor, version.id, 1)}
+                                                    disabled={!!busy}
                                                 >
                                                     {busy === `install:${versionsFor.id}` ? (
                                                         <Spinner size={'small'} />
                                                     ) : (
                                                         t('install')
                                                     )}
-                                                </Button.Success>
+                                                </MinecraftButton>
                                             )}
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </>
+                    </StonePanel>
                 )}
             </Modal>
 
-            <div css={tw`flex items-end justify-between border-b border-gray-700 mb-4 flex-wrap gap-2`}>
-                <div css={tw`flex`}>
-                    <button css={tabButtonCss(tab === 'browse')} onClick={() => setTab('browse')}>
-                        {t('browse')}
-                    </button>
-                    <button css={tabButtonCss(tab === 'installed')} onClick={() => setTab('installed')}>
-                        {t('installed')} ({datapacks.length})
-                    </button>
+            {/* Header panel */}
+            <StonePanel css={tw`mb-4 overflow-hidden`}>
+                <div css={tw`flex items-center justify-between gap-3 px-4 py-4 sm:px-5 flex-wrap`}>
+                    <div css={tw`flex items-center gap-3`}>
+                        <div
+                            css={tw`w-11 h-11 rounded-[3px] border-2 border-black/70 bg-[#2a2e34] flex items-center justify-center shadow-inner`}
+                        >
+                            <FaBoxOpen css={tw`text-[#8bc34a] text-xl`} />
+                        </div>
+                        <div>
+                            <p css={tw`text-sm font-semibold text-gray-100 leading-tight`}>{t('title')}</p>
+                            <p css={tw`text-xs text-gray-500`}>{t('restart_notice')}</p>
+                        </div>
+                    </div>
+                    {gameVersion && (
+                        <MinecraftPill $tone={'gold'}>⛏ {t('detected', { version: gameVersion })}</MinecraftPill>
+                    )}
                 </div>
-                {gameVersion && (
-                    <span css={tw`text-xs text-gray-400 pb-2`}>{t('detected', { version: gameVersion })}</span>
+                {datapacks.length > 0 && (
+                    <div css={tw`flex items-center gap-2 px-4 sm:px-5 pb-4 flex-wrap`}>
+                        <MinecraftPill $tone={'green'}>
+                            {t('stats_installed', { count: datapacks.length })}
+                        </MinecraftPill>
+                        {disabledCount > 0 && (
+                            <MinecraftPill $tone={'gold'}>
+                                {t('stats_disabled', { count: disabledCount })}
+                            </MinecraftPill>
+                        )}
+                        {untrackedCount > 0 && (
+                            <MinecraftPill $tone={'stone'}>
+                                {t('stats_untracked', { count: untrackedCount })}
+                            </MinecraftPill>
+                        )}
+                    </div>
+                )}
+            </StonePanel>
+
+            {/* Tabs + bulk toolbar */}
+            <div css={tw`flex flex-wrap items-center gap-2 mb-4`}>
+                <MinecraftButton
+                    onClick={() => setTab('browse')}
+                    $tone={tab === 'browse' ? 'primary' : undefined}
+                    css={tab === 'browse' ? undefined : tw`opacity-80`}
+                >
+                    <FaMagnifyingGlass css={tw`text-[11px]`} />
+                    {t('browse')}
+                </MinecraftButton>
+                <MinecraftButton
+                    onClick={() => setTab('installed')}
+                    $tone={tab === 'installed' ? 'primary' : undefined}
+                    css={tab === 'installed' ? undefined : tw`opacity-80`}
+                >
+                    <FaBoxOpen css={tw`text-[11px]`} />
+                    {t('installed')} ({datapacks.length})
+                </MinecraftButton>
+
+                {tab === 'installed' && datapacks.some((d) => d.provider !== 'manual') && (
+                    <div css={tw`flex items-center gap-2 ml-auto`}>
+                        <MinecraftButton onClick={selectAll} disabled={!!busy || !!bulkOperation}>
+                            {t('select_all', { defaultValue: 'Select All' }) ?? 'Select All'}
+                        </MinecraftButton>
+                        <MinecraftButton onClick={clearSelection} disabled={!!busy || !!bulkOperation}>
+                            {t('select_none', { defaultValue: 'Clear' }) ?? 'Clear'}
+                        </MinecraftButton>
+                        {selectedDatapacks.size > 0 && (
+                            <>
+                                <MinecraftButton
+                                    $tone={'success'}
+                                    onClick={runBulkUpdate}
+                                    disabled={!!busy || !!bulkOperation}
+                                >
+                                    {bulkOperation?.type === 'update' ? (
+                                        <Spinner size={'small'} />
+                                    ) : (
+                                        <>
+                                            <FaArrowRotateRight css={tw`text-[11px]`} />
+                                            {t('bulk_update_label', { defaultValue: 'Update' }) ?? 'Update'} (
+                                            {selectedDatapacks.size})
+                                        </>
+                                    )}
+                                </MinecraftButton>
+                                <MinecraftButton
+                                    $tone={'danger'}
+                                    onClick={runBulkDelete}
+                                    disabled={!!busy || !!bulkOperation}
+                                >
+                                    {bulkOperation?.type === 'delete' ? (
+                                        <Spinner size={'small'} />
+                                    ) : (
+                                        <>
+                                            <FaTrash css={tw`text-[11px]`} />
+                                            {t('bulk_delete_label', { defaultValue: 'Delete' }) ?? 'Delete'} (
+                                            {selectedDatapacks.size})
+                                        </>
+                                    )}
+                                </MinecraftButton>
+                            </>
+                        )}
+                    </div>
                 )}
             </div>
-            <p css={tw`text-xs text-gray-500 mb-4`}>{t('restart_notice')}</p>
 
             {loading ? (
                 <Spinner centered />
@@ -660,197 +831,141 @@ const DatapacksContainer = () => {
                 <>
                     {untracked.length > 0 && (
                         <div css={tw`mb-4`}>
-                            <p css={tw`text-xs text-gray-400 mb-2`}>{t('untracked_title')}</p>
+                            <p css={tw`text-xs text-gray-400 mb-2 uppercase tracking-wider`}>{t('untracked_title')}</p>
                             <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
                                 {untracked.map((zip) => (
-                                    <Card key={zip.file_name}>
-                                        <DatapackIcon url={null} />
+                                    <StonePanel key={zip.file_name} css={tw`p-3 sm:p-4 flex gap-3 sm:gap-4`}>
+                                        <GrassBlock />
                                         <div css={tw`flex-1 min-w-0`}>
                                             <div css={tw`flex items-center gap-2 flex-wrap`}>
                                                 <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
                                                     {zip.title}
                                                 </h3>
-                                                <Badge $variant={'manual'}>{t('manual_badge')}</Badge>
+                                                <MinecraftPill $tone={'stone'}>{t('manual_badge')}</MinecraftPill>
                                             </div>
                                             <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
                                                 {zip.file_name}
                                             </p>
                                             <div css={tw`flex gap-2 mt-3`}>
-                                                <Button
-                                                    size={Button.Sizes.Small}
-                                                    variant={Button.Variants.Secondary}
-                                                    disabled={!!busy}
-                                                    onClick={() => setTrackZip(zip)}
-                                                >
+                                                <MinecraftButton disabled={!!busy} onClick={() => setTrackZip(zip)}>
                                                     {busy === `track:${zip.file_name}` ? (
                                                         <Spinner size={'small'} />
                                                     ) : (
-                                                        t('track')
+                                                        <>
+                                                            <FaLink css={tw`text-[11px]`} />
+                                                            {t('track')}
+                                                        </>
                                                     )}
-                                                </Button>
+                                                </MinecraftButton>
                                             </div>
                                         </div>
-                                    </Card>
+                                    </StonePanel>
                                 ))}
                             </div>
                         </div>
                     )}
                     {datapacks.length === 0 ? (
-                        <div css={tw`text-center py-16 text-gray-500`}>
-                            <FaBoxOpen css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
-                            <p css={tw`text-sm`}>{t('no_datapacks')}</p>
-                        </div>
+                        <EmptyState icon={<FaBoxOpen />} title={t('no_datapacks')} />
                     ) : (
-                        <>
-                            {datapacks.some((d) => d.provider !== 'manual') && (
-                                <div css={tw`mb-4 flex items-center gap-3 flex-wrap`}>
-                                    <Button
-                                        size={Button.Sizes.Small}
-                                        onClick={selectAll}
-                                        disabled={!!busy || !!bulkOperation}
-                                    >
-                                        Select All
-                                    </Button>
-                                    <Button
-                                        size={Button.Sizes.Small}
-                                        onClick={clearSelection}
-                                        disabled={!!busy || !!bulkOperation}
-                                    >
-                                        Clear
-                                    </Button>
-                                    {selectedDatapacks.size > 0 && (
-                                        <>
-                                            <Button
-                                                size={Button.Sizes.Small}
-                                                variant={Button.Variants.Secondary}
-                                                onClick={runBulkUpdate}
-                                                disabled={!!busy || !!bulkOperation}
-                                            >
-                                                {bulkOperation?.type === 'update' ? (
-                                                    <Spinner size={'small'} />
-                                                ) : (
-                                                    `Update Selected (${selectedDatapacks.size})`
-                                                )}
-                                            </Button>
-                                            <Button.Danger
-                                                size={Button.Sizes.Small}
-                                                onClick={runBulkDelete}
-                                                disabled={!!busy || !!bulkOperation}
-                                            >
-                                                {bulkOperation?.type === 'delete' ? (
-                                                    <Spinner size={'small'} />
-                                                ) : (
-                                                    `Delete Selected (${selectedDatapacks.size})`
-                                                )}
-                                            </Button.Danger>
-                                        </>
+                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                            {datapacks.map((datapack) => (
+                                <StonePanel
+                                    key={datapack.id}
+                                    css={tw`p-3 sm:p-4 flex gap-3 sm:gap-4 transition-colors duration-150 hover:border-gray-600/40`}
+                                >
+                                    {datapack.provider !== 'manual' && (
+                                        <input
+                                            type='checkbox'
+                                            checked={selectedDatapacks.has(datapack.id)}
+                                            onChange={() => toggleSelection(datapack.id)}
+                                            disabled={!!busy || !!bulkOperation}
+                                            css={tw`w-4 h-4 rounded border-gray-700 bg-gray-800 text-reviactyl focus:ring-reviactyl focus:ring-offset-gray-900 cursor-pointer disabled:opacity-50 flex-shrink-0`}
+                                        />
                                     )}
-                                </div>
-                            )}
-                            <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
-                                {datapacks.map((datapack) => (
-                                    <Card key={datapack.id}>
-                                        {datapack.provider !== 'manual' && (
-                                            <input
-                                                type='checkbox'
-                                                checked={selectedDatapacks.has(datapack.id)}
-                                                onChange={() => toggleSelection(datapack.id)}
-                                                disabled={!!busy || !!bulkOperation}
-                                                css={tw`w-4 h-4 rounded border-gray-700 bg-gray-800 text-reviactyl focus:ring-reviactyl focus:ring-offset-gray-900 cursor-pointer disabled:opacity-50 flex-shrink-0`}
-                                            />
-                                        )}
-                                        <DatapackIcon url={datapack.iconUrl} />
-                                        <div css={tw`flex-1 min-w-0`}>
-                                            <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                                <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
-                                                    {datapack.title}
-                                                </h3>
-                                                <Badge
-                                                    $variant={datapack.provider === 'manual' ? 'manual' : 'provider'}
-                                                >
-                                                    {datapack.provider === 'manual'
-                                                        ? t('manual_badge')
-                                                        : datapack.provider}
-                                                </Badge>
-                                                {datapack.disabled && (
-                                                    <Badge $variant={'disabled'}>{t('disabled_badge')}</Badge>
-                                                )}
-                                            </div>
-                                            <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
-                                                {datapack.fileName}
-                                            </p>
-                                            <p css={tw`text-xs text-gray-500 mt-1 flex items-center gap-1.5`}>
-                                                <Badge $variant={'installed'}>
-                                                    <FaCheck style={{ fontSize: '9px' }} />
-                                                    <span css={tw`font-mono`}>{datapack.versionNumber}</span>
-                                                </Badge>
-                                            </p>
-                                            <div css={tw`flex gap-2 mt-3 flex-wrap`}>
-                                                {datapack.provider === 'manual' && (
-                                                    <Button
-                                                        size={Button.Sizes.Small}
-                                                        variant={Button.Variants.Secondary}
-                                                        disabled={!!busy}
-                                                        onClick={() => openLinkSearch(datapack)}
-                                                    >
-                                                        {t('link')}
-                                                    </Button>
-                                                )}
-                                                {!datapack.disabled && datapack.provider !== 'manual' && (
-                                                    <Button
-                                                        size={Button.Sizes.Small}
-                                                        variant={Button.Variants.Secondary}
-                                                        disabled={!!busy}
-                                                        onClick={() => runUpdate(datapack)}
-                                                    >
-                                                        {busy === `update:${datapack.id}` ? (
-                                                            <Spinner size={'small'} />
-                                                        ) : (
-                                                            t('update')
-                                                        )}
-                                                    </Button>
-                                                )}
-                                                <Button
-                                                    size={Button.Sizes.Small}
-                                                    variant={Button.Variants.Secondary}
-                                                    disabled={!!busy}
-                                                    onClick={() =>
-                                                        mutate(
-                                                            `toggle:${datapack.id}`,
-                                                            toggleDatapack(uuid, datapack.id)
-                                                        )
-                                                    }
-                                                >
-                                                    {busy === `toggle:${datapack.id}` ? (
-                                                        <Spinner size={'small'} />
-                                                    ) : datapack.disabled ? (
-                                                        t('enable')
-                                                    ) : (
-                                                        t('disable')
-                                                    )}
-                                                </Button>
-                                                <Button.Danger
-                                                    size={Button.Sizes.Small}
-                                                    variant={Button.Variants.Secondary}
-                                                    disabled={!!busy}
-                                                    onClick={() => setConfirmRemove(datapack)}
-                                                >
-                                                    <FaTrash css={tw`inline mr-1 -mt-0.5`} />
-                                                    {t('remove')}
-                                                </Button.Danger>
-                                            </div>
+                                    <DatapackIcon url={datapack.iconUrl} />
+                                    <div css={tw`flex-1 min-w-0`}>
+                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                {datapack.title}
+                                            </h3>
+                                            <MinecraftPill $tone={datapack.provider === 'manual' ? 'stone' : 'stone'}>
+                                                {datapack.provider === 'manual' ? t('manual_badge') : datapack.provider}
+                                            </MinecraftPill>
+                                            {datapack.disabled && (
+                                                <MinecraftPill $tone={'gold'}>{t('disabled_badge')}</MinecraftPill>
+                                            )}
                                         </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        </>
+                                        <p css={tw`text-xs text-gray-400 mt-0.5 font-mono truncate`}>
+                                            {datapack.fileName}
+                                        </p>
+                                        <div css={tw`mt-1 flex items-center gap-2`}>
+                                            <MinecraftPill $tone={'green'}>
+                                                <FaCheck style={{ fontSize: '9px' }} />
+                                                <span css={tw`font-mono`}>{datapack.versionNumber}</span>
+                                            </MinecraftPill>
+                                        </div>
+                                        <div css={tw`flex gap-2 mt-3 flex-wrap`}>
+                                            {datapack.provider === 'manual' && (
+                                                <MinecraftButton
+                                                    disabled={!!busy}
+                                                    onClick={() => openLinkSearch(datapack)}
+                                                >
+                                                    <FaLink css={tw`text-[11px]`} />
+                                                    {t('link')}
+                                                </MinecraftButton>
+                                            )}
+                                            {!datapack.disabled && datapack.provider !== 'manual' && (
+                                                <MinecraftButton disabled={!!busy} onClick={() => runUpdate(datapack)}>
+                                                    {busy === `update:${datapack.id}` ? (
+                                                        <Spinner size={'small'} />
+                                                    ) : (
+                                                        <>
+                                                            <FaArrowRotateRight css={tw`text-[11px]`} />
+                                                            {t('update')}
+                                                        </>
+                                                    )}
+                                                </MinecraftButton>
+                                            )}
+                                            <MinecraftButton
+                                                disabled={!!busy}
+                                                onClick={() =>
+                                                    mutate(`toggle:${datapack.id}`, toggleDatapack(uuid, datapack.id))
+                                                }
+                                            >
+                                                {busy === `toggle:${datapack.id}` ? (
+                                                    <Spinner size={'small'} />
+                                                ) : datapack.disabled ? (
+                                                    <>
+                                                        <FaPlay css={tw`text-[11px]`} />
+                                                        {t('enable')}
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <FaPause css={tw`text-[11px]`} />
+                                                        {t('disable')}
+                                                    </>
+                                                )}
+                                            </MinecraftButton>
+                                            <MinecraftButton
+                                                $tone={'danger'}
+                                                disabled={!!busy}
+                                                onClick={() => setConfirmRemove(datapack)}
+                                            >
+                                                <FaTrash css={tw`text-[11px]`} />
+                                                {t('remove')}
+                                            </MinecraftButton>
+                                        </div>
+                                    </div>
+                                </StonePanel>
+                            ))}
+                        </div>
                     )}
                 </>
             ) : (
                 <>
                     {linkingDatapack && (
                         <div
-                            css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-ui flex items-center justify-between`}
+                            css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-[4px] flex items-center justify-between`}
                         >
                             <div>
                                 <p css={tw`text-sm font-semibold text-blue-200`}>Linking: {linkingDatapack.title}</p>
@@ -858,13 +973,7 @@ const DatapacksContainer = () => {
                                     Select a datapack below to link it to this manual datapack for updates
                                 </p>
                             </div>
-                            <Button
-                                size={Button.Sizes.Small}
-                                variant={Button.Variants.Secondary}
-                                onClick={() => setLinkingDatapack(null)}
-                            >
-                                Cancel
-                            </Button>
+                            <MinecraftButton onClick={() => setLinkingDatapack(null)}>Cancel</MinecraftButton>
                         </div>
                     )}
                     <form
@@ -883,7 +992,7 @@ const DatapacksContainer = () => {
                                 value={query}
                                 onChange={(e) => setQuery(e.target.value)}
                                 placeholder={t('search_placeholder') ?? ''}
-                                css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
+                                css={tw`w-full bg-gray-900 border border-gray-700 rounded-[4px] pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
                             />
                         </div>
                         <div css={tw`flex gap-2 w-full sm:w-auto`}>
@@ -904,9 +1013,9 @@ const DatapacksContainer = () => {
                                 <option value={'downloads'}>{t('sort_downloads')}</option>
                                 <option value={'updated'}>{t('sort_updated')}</option>
                             </Select>
-                            <Button type={'submit'} disabled={searching}>
+                            <MinecraftButton $tone={'primary'} type={'submit'} disabled={searching}>
                                 {searching ? <Spinner size={'small'} /> : t('search')}
-                            </Button>
+                            </MinecraftButton>
                         </div>
                     </form>
 
@@ -915,85 +1024,80 @@ const DatapacksContainer = () => {
                             <Spinner centered />
                         </div>
                     ) : hits.length === 0 ? (
-                        <div css={tw`text-center py-16 text-gray-500`}>
-                            <FaMagnifyingGlass css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
-                            <p css={tw`text-sm`}>{t('no_results')}</p>
-                        </div>
+                        <EmptyState icon={<FaMagnifyingGlass />} title={t('no_results')} />
                     ) : (
-                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
-                            {hits.map((hit) => (
-                                <Card key={hit.id}>
-                                    <DatapackIcon url={hit.iconUrl} />
-                                    <div css={tw`flex-1 min-w-0`}>
-                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
-                                            {hit.installedVersion && (
-                                                <Badge $variant={'installed'} title={t('installed_badge') ?? ''}>
-                                                    <FaCheck style={{ fontSize: '9px' }} />
-                                                    <span css={tw`font-mono`}>{hit.installedVersion}</span>
-                                                </Badge>
-                                            )}
-                                        </div>
-                                        <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
-                                            {hit.author && <span>{t('by', { author: hit.author })}</span>}
-                                            <span css={tw`inline-flex items-center gap-1`}>
-                                                <FaDownload css={tw`text-[10px]`} />
-                                                {hit.downloads.toLocaleString()}
-                                            </span>
-                                        </p>
-                                        <p
-                                            css={tw`text-xs text-gray-400 mt-1 overflow-hidden`}
-                                            style={{
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 2,
-                                                WebkitBoxOrient: 'vertical',
-                                            }}
-                                        >
-                                            {hit.description}
-                                        </p>
-                                        <div css={tw`mt-3 flex gap-2`}>
-                                            {!hit.installedVersion && (
-                                                <Button.Success
-                                                    size={Button.Sizes.Small}
-                                                    disabled={!!busy}
-                                                    onClick={() => install(hit)}
-                                                >
-                                                    {busy === `install:${hit.id}` ? (
-                                                        <Spinner size={'small'} />
-                                                    ) : (
-                                                        <>
-                                                            <FaDownload css={tw`inline mr-1 -mt-0.5`} />
-                                                            {t('install')}
-                                                        </>
-                                                    )}
-                                                </Button.Success>
-                                            )}
-                                            <Button
-                                                size={Button.Sizes.Small}
-                                                variant={Button.Variants.Secondary}
-                                                disabled={!!busy}
-                                                onClick={() => openVersions(hit)}
+                        <>
+                            <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
+                                {hits.map((hit) => (
+                                    <StonePanel
+                                        key={hit.id}
+                                        css={tw`p-3 sm:p-4 flex gap-3 sm:gap-4 transition-colors duration-150 hover:border-gray-600/40`}
+                                    >
+                                        <DatapackIcon url={hit.iconUrl} />
+                                        <div css={tw`flex-1 min-w-0`}>
+                                            <div css={tw`flex items-center gap-2 flex-wrap`}>
+                                                <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>
+                                                    {hit.title}
+                                                </h3>
+                                                {hit.installedVersion && (
+                                                    <MinecraftPill $tone={'green'} title={t('installed_badge') ?? ''}>
+                                                        <FaCheck style={{ fontSize: '9px' }} />
+                                                        <span css={tw`font-mono`}>{hit.installedVersion}</span>
+                                                    </MinecraftPill>
+                                                )}
+                                            </div>
+                                            <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
+                                                {hit.author && <span>{t('by', { author: hit.author })}</span>}
+                                                <span css={tw`inline-flex items-center gap-1`}>
+                                                    <FaDownload css={tw`text-[10px]`} />
+                                                    {hit.downloads.toLocaleString()}
+                                                </span>
+                                            </p>
+                                            <p
+                                                css={tw`text-xs text-gray-400 mt-1 overflow-hidden`}
+                                                style={{
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: 'vertical',
+                                                }}
                                             >
-                                                <FaListUl css={tw`inline mr-1 -mt-0.5`} />
-                                                {t('versions')}
-                                            </Button>
+                                                {hit.description}
+                                            </p>
+                                            <div css={tw`mt-3 flex gap-2`}>
+                                                {!hit.installedVersion && (
+                                                    <MinecraftButton
+                                                        $tone={'success'}
+                                                        disabled={!!busy}
+                                                        onClick={() => install(hit)}
+                                                    >
+                                                        {busy === `install:${hit.id}` ? (
+                                                            <Spinner size={'small'} />
+                                                        ) : (
+                                                            <>
+                                                                <FaDownload css={tw`text-[11px]`} />
+                                                                {t('install')}
+                                                            </>
+                                                        )}
+                                                    </MinecraftButton>
+                                                )}
+                                                <MinecraftButton disabled={!!busy} onClick={() => openVersions(hit)}>
+                                                    <FaListUl css={tw`text-[11px]`} />
+                                                    {t('versions')}
+                                                </MinecraftButton>
+                                            </div>
                                         </div>
-                                    </div>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
+                                    </StonePanel>
+                                ))}
+                            </div>
 
-                    {hits.length < total && (
-                        <div css={tw`mt-6 text-center`}>
-                            <Button
-                                variant={Button.Variants.Secondary}
-                                disabled={searching}
-                                onClick={() => doSearch(hits.length)}
-                            >
-                                {searching ? <Spinner size={'small'} /> : t('load_more')}
-                            </Button>
-                        </div>
+                            {hits.length < total && (
+                                <div css={tw`mt-6 text-center`}>
+                                    <MinecraftButton disabled={searching} onClick={() => doSearch(hits.length)}>
+                                        {searching ? <Spinner size={'small'} /> : t('load_more')}
+                                    </MinecraftButton>
+                                </div>
+                            )}
+                        </>
                     )}
                 </>
             )}

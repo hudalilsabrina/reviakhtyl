@@ -11,6 +11,9 @@ class DatapackZipService
     /** Maximum zip size to download for metadata parsing (64 MB). */
     private const MAX_SIZE = 64 * 1024 * 1024;
 
+    /** Largest single entry we will allow, as a decompressed-size ceiling. */
+    private const MAX_ENTRY_SIZE = 256 * 1024 * 1024;
+
     public function __construct(private DaemonFileRepository $fileRepository) {}
 
     /**
@@ -60,6 +63,12 @@ class DatapackZipService
 
             $zip = new \ZipArchive();
             if (! $zip->open($tmp)) {
+                return false;
+            }
+
+            if (! $this->entriesSafe($zip)) {
+                $zip->close();
+
                 return false;
             }
 
@@ -141,6 +150,12 @@ class DatapackZipService
                 return null;
             }
 
+            if (! $this->entriesSafe($zip)) {
+                $zip->close();
+
+                return null;
+            }
+
             $raw = $zip->getFromName('pack.mcmeta');
             $zip->close();
 
@@ -166,5 +181,50 @@ class DatapackZipService
         } finally {
             @unlink($tmp);
         }
+    }
+
+    /**
+     * Reject archives that could escape the datapacks directory when the game
+     * later unpacks them: entries with `..` segments, absolute paths, symlinks,
+     * or entries larger than a sane decompressed ceiling.
+     */
+    private function entriesSafe(\ZipArchive $zip): bool
+    {
+        $count = $zip->numFiles;
+
+        for ($i = 0; $i < $count; $i++) {
+            $stat = $zip->statIndex($i);
+
+            if ($stat === false) {
+                return false;
+            }
+
+            $name = $stat['name'] ?? '';
+
+            if ($name === '') {
+                return false;
+            }
+
+            // Zip-slip: reject any path segment that climbs out or an absolute path.
+            if (str_starts_with($name, '/') || str_contains($name, '\\')
+                || in_array('..', explode('/', $name), true)) {
+                return false;
+            }
+
+            if (($stat['size'] ?? 0) > self::MAX_ENTRY_SIZE) {
+                return false;
+            }
+
+            // Symlink entries are never legitimate in a datapack. The mode is
+            // not exposed on every PHP build, so treat a missing value as a
+            // regular file rather than failing closed on a field we cannot read.
+            $mode = $stat['mode'] ?? 0;
+
+            if (($mode & 0o170000) === 0o120000) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
