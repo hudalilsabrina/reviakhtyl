@@ -37,7 +37,7 @@ class DatabaseController extends ClientApiController
      */
     public function index(GetDatabasesRequest $request, Server $server): array
     {
-        return $this->fractal->collection($server->databases)
+        return $this->fractal->collection($server->databases()->with('host')->get())
             ->transformWith($this->getTransformer(DatabaseTransformer::class))
             ->toArray();
     }
@@ -51,15 +51,7 @@ class DatabaseController extends ClientApiController
      */
     public function store(StoreDatabaseRequest $request, Server $server): array
     {
-        $database = Activity::event('server:database.create')->transaction(function ($log) use ($request, $server) {
-            $server->databases()->lockForUpdate();
-
-            $database = $this->deployDatabaseService->handle($server, $request->validated());
-
-            $log->subject($database)->property('name', $database->database);
-
-            return $database;
-        });
+        $database = $this->deployDatabaseService->handle($server, $request->validated());
 
         return $this->fractal->item($database)
             ->parseIncludes(['password'])
@@ -79,9 +71,11 @@ class DatabaseController extends ClientApiController
             ->subject($database)
             ->property('name', $database->database)
             ->transaction(function () use ($database) {
-                $database->lockForUpdate();
+                // Re-fetch inside the transaction so lockForUpdate() actually acquires
+                // a row lock; calling it on the route-bound model is a no-op.
+                $locked = $database->newQuery()->whereKey($database->id)->lockForUpdate()->firstOrFail();
 
-                $this->passwordService->handle($database);
+                $this->passwordService->handle($locked);
             });
 
         return $this->fractal->item($database->refresh())
@@ -98,11 +92,6 @@ class DatabaseController extends ClientApiController
     public function delete(DeleteDatabaseRequest $request, Server $server, Database $database): Response
     {
         $this->managementService->delete($database);
-
-        Activity::event('server:database.delete')
-            ->subject($database)
-            ->property('name', $database->database)
-            ->log();
 
         return new Response('', Response::HTTP_NO_CONTENT);
     }

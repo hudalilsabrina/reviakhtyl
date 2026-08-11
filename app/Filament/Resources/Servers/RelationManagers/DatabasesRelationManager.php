@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Servers\RelationManagers;
 use App\Models\Database;
 use App\Models\DatabaseHost;
 use App\Models\Server;
+use App\Services\Activity\ActivityLogService;
 use App\Services\Databases\DatabaseManagementService;
 use App\Services\Databases\DatabasePasswordService;
 use Filament\Actions\Action;
@@ -118,6 +119,12 @@ class DatabasesRelationManager extends RelationManager
                     ->action(function (Database $record): void {
                         try {
                             $password = app(DatabasePasswordService::class)->handle($record);
+
+                            app(ActivityLogService::class)
+                                ->subject($record)
+                                ->property('name', $record->database)
+                                ->event('server:database.rotate-password')
+                                ->log();
 
                             Notification::make()
                                 ->title(trans('admin/server.alerts.database_password_reset'))

@@ -115,7 +115,7 @@ class DatabaseManagementService
                 $this->repository->assignUserToDatabase($database->database, $database->username, $database->remote);
                 $this->repository->flush();
 
-                $this->logService->clone()->subject($database)->event('server:database-create')->log();
+                $this->logService->clone()->subject($database)->property('name', $database->database)->event('server:database.create')->log();
 
                 return $database;
             });
@@ -150,7 +150,7 @@ class DatabaseManagementService
         $this->repository->dropUser($database->username, $database->remote);
         $this->repository->flush();
 
-        $this->logService->clone()->subject($database)->event('server:database-delete')->log();
+        $this->logService->clone()->subject($database)->property('name', $database->database)->event('server:database.delete')->log();
 
         return $database->delete();
     }
