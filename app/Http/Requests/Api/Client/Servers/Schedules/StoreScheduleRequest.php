@@ -22,6 +22,7 @@ class StoreScheduleRequest extends ViewScheduleRequest
             'minute' => $rules['cron_minute'],
             'hour' => $rules['cron_hour'],
             'day_of_month' => $rules['cron_day_of_month'],
+            'month' => $rules['cron_month'],
             'day_of_week' => $rules['cron_day_of_week'],
         ];
     }

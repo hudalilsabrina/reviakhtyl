@@ -43,7 +43,7 @@ class ListSchedulesTool extends ChatbotTool
             'entries' => $schedules->map(fn ($schedule) => [
                 'id' => $schedule->id,
                 'name' => $schedule->name,
-                'cron' => $schedule->cron_day_of_week.' '.$schedule->cron_month.' '.$schedule->cron_day_of_month.' '.$schedule->cron_hour.' '.$schedule->cron_minute,
+                'cron' => $schedule->cron_minute.' '.$schedule->cron_hour.' '.$schedule->cron_day_of_month.' '.$schedule->cron_month.' '.$schedule->cron_day_of_week,
                 'is_active' => (bool) $schedule->is_active,
                 'is_processing' => (bool) $schedule->is_processing,
                 'only_when_online' => (bool) $schedule->only_when_online,
