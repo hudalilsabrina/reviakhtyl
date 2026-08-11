@@ -85,6 +85,34 @@ Four API route files split by audience:
 - **PHP**: Pest (`phpunit.xml` defines `Unit` and `Feature` suites). Tests use in-memory SQLite (`:memory:`) — no real DB queries allowed. External services use `array` driver.
 - **JS**: Vitest (config in `vite.config.ts`), happy-dom environment. Test files match `**/*.{spec,test}.{ts,tsx}`.
 
+## Parallel AI Worktrees
+
+When working on multiple independent tasks in parallel (multi-agent or successive sessions), use git worktrees — one branch + one working directory per agent, so agents never collide on files and the main tree stays clean.
+
+```bash
+git worktree add ../reviactyl-wt1 -b ai/agent-1
+git worktree add ../reviactyl-wt2 -b ai/agent-2
+git worktree list          # show all
+git worktree remove ../reviactyl-wt1   # cleanup
+```
+
+Existing worktrees (as of 2026-08-11):
+- `/var/www/reviactyl-wt1` → branch `ai/agent-1`
+- `/var/www/reviactyl-wt2` → branch `ai/agent-2`
+- `/var/www/reviactyl-agent` → branch `work/agent`
+
+Rules:
+- **Always create a fresh worktree per agent** when asked to do parallel work — never let two agents edit the same working directory.
+- Worktrees share one `.git` object store (not clones): a commit in one worktree appears in the others' history immediately, but files/`node_modules`/`vendor`/`public/build` are NOT shared.
+- Install deps in each worktree before building: `pnpm install` + `pnpm run build` (or `composer install` for PHP work).
+- `.env` and `storage/framework/{cache,views,sessions}` are git-ignored, so they do NOT come along with a new worktree. Before `composer install` in a fresh worktree:
+  ```bash
+  cp /var/www/reviactyl/.env <worktree>/.env
+  mkdir -p <worktree>/storage/framework/{cache,views,sessions}
+  ```
+  Without this, `composer install` fails at the `filament:upgrade` post-autoload hook ("Please provide a valid cache path" — the View Compiler needs `storage/framework/views`).
+- After finishing an agent's task, merge its branch back to `master` from the worktree: `cd <wt> && git checkout master && git merge <branch>`, then `git worktree remove <wt>`.
+
 ## Key Gotchas
 
 - Missing `public/build/manifest.json` → 500 error; run `pnpm run build` once after install
