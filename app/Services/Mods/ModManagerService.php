@@ -324,6 +324,18 @@ class ModManagerService
 
     public function searchModpacks(string $provider, string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
     {
+        // Short-lived cache: modpack registry searches are identical within a
+        // page session and the registry changes infrequently. Limit is part of
+        // the key so different page sizes never share a wrong cached slice.
+        return Cache::remember(
+            'panel:modpacks:search:'.$provider.':'.$limit.':'.md5($query.'|'.$gameVersion.'|'.$sort).':'.$offset,
+            now()->addMinutes(5),
+            fn () => $this->searchModpacksUncached($provider, $query, $gameVersion, $limit, $offset, $sort),
+        );
+    }
+
+    private function searchModpacksUncached(string $provider, string $query, ?string $gameVersion, int $limit, int $offset, string $sort = 'relevance'): array
+    {
         return match ($provider) {
             ModrinthService::PROVIDER => $this->provider($provider)->searchModpacks($query, $gameVersion, $limit, $offset, $sort),
             CurseForgeService::PROVIDER => $this->provider($provider)->searchModpacks($query, $gameVersion, $limit, $offset, $sort),
@@ -336,8 +348,14 @@ class ModManagerService
      */
     public function resolveModpackDownloadUrl(string $provider, string $projectId, array $loaders, ?string $gameVersion): ?string
     {
-        $versions = $this->provider($provider)->versions($projectId, $loaders, $gameVersion, 1);
+        return Cache::remember(
+            'panel:modpacks:url:'.$provider.':'.$projectId.':'.md5(implode(',', $loaders).'|'.$gameVersion),
+            now()->addMinutes(15),
+            function () use ($provider, $projectId, $loaders, $gameVersion) {
+                $versions = $this->provider($provider)->versions($projectId, $loaders, $gameVersion, 1);
 
-        return $versions[0]['download_url'] ?? null;
+                return $versions[0]['download_url'] ?? null;
+            },
+        );
     }
 }

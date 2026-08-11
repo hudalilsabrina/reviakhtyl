@@ -70,6 +70,16 @@ Modpack installation is a **separate feature page** (`/server/:id/modpacks`), no
 - Route: `modpacks/*` in `resources/scripts/routers/routes.ts` (`permission: 'mod.*'`, `eggFeature: 'mods'`, icon `FaLayerGroup`)
 - Translations: `resources/lang/en/server/modpacks.php`; sidebar label `server.modpacks` in `routes.php`
 
+### Caching
+
+| What | Key | TTL | Notes |
+|---|---|---|---|
+| Modpack search | `panel:modpacks:search:{provider}:{limit}:{md5(query\|gameVersion\|sort)}:{offset}` | 5 min | Registry data changes rarely; page session hits collapse |
+| Pack download URL | `panel:modpacks:url:{provider}:{projectId}:{md5(loaders\|gameVersion)}` | 15 min | Avoids re-resolving latest pack version per preview |
+| Parsed manifest | `panel:modpacks:manifest:{md5(url)}` | 1 hr | The expensive part — avoids re-downloading a large zip on every preview/install |
+
+All keyed by URL/query, not by server — a manifest is the same zip regardless of which server installs it. Install results are deliberately **not** cached (mutations must be live). TTL matches the existing JAR-metadata cache convention in `ModJarService`.
+
 ## Features
 
 ### Multi-Registry Support
