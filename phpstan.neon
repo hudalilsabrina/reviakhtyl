@@ -14,7 +14,16 @@ parameters:
     paths:
         - app
     ignoreErrors:
-        - '#Call to an undefined method Prologue\\Alerts\\AlertsMessageBag::(success|warning|danger|info)\(\)#'
+        -
+            message: '#Call to an undefined method Prologue\\Alerts\\AlertsMessageBag::(success|warning|danger|info)\(\)#'
+            # AlertsMessageBag dispatches alert-level methods via __call (see
+            # Prologue\Alerts\AlertsMessageBag::__call). PHPStan can't see through
+            # the magic, so scope the ignore to the two call sites instead of a
+            # global pattern (which trips reportUnmatchedIgnoredErrors on subset runs).
+            path: app/Exceptions/DisplayException.php
+        -
+            message: '#Call to an undefined method Prologue\\Alerts\\AlertsMessageBag::(success|warning|danger|info)\(\)#'
+            path: app/Http/Middleware/RequireTwoFactorAuthentication.php
     excludePaths:
         - app/Livewire
         - app/Repositories
