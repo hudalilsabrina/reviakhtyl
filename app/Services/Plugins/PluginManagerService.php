@@ -132,7 +132,7 @@ class PluginManagerService
             }
 
             // For manual plugins, extract jar metadata and compare plugin.yml name
-            if ($p->provider === 'manual' && method_exists($this, 'jarService')) {
+            if ($p->provider === 'manual') {
                 try {
                     $jarService = app(PluginJarService::class);
                     $meta = $jarService->metadata($server, $p->file_name, 0);
@@ -290,7 +290,7 @@ class PluginManagerService
             return null;
         }
 
-        $value = $variable->server_value ?? $variable->default_value;
+        $value = $variable->server_value ?? ($variable->default_value ?? null);
 
         return is_string($value) && $value !== '' ? $value : null;
     }

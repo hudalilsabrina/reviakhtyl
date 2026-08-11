@@ -213,10 +213,11 @@ Dedicated limiter in `RouteConfigServiceProvider.php:103-107`:
 
 ### JAR Parsing
 - Supports: `fabric.mod.json`, `quilt.mod.json`, `META-INF/mods.toml`
-- Streams to temp file vs loading into memory (ModJarService.php:95-145)
-- ponytail: Wings files API has no Range header → still transfers full JAR over wire (ModJarService.php:93)
-- Max size: 64 MB (ModJarService.php:12)
+- Streams to temp file vs loading into memory (ModJarService.php)
+- ponytail: Wings files API has no Range header → still transfers full JAR over wire (ModJarService.php)
+- Max size: 64 MB (ModJarService.php)
 - Fallback: filename-based slug/title if parse fails
+- **Zip-slip hardening**: `entriesSafe()` runs before any descriptor is read and rejects archives with `..` segments, absolute paths, backslashes, symlink entries, or any entry over 16 MB decompressed (same pattern as `DatapackZipService`). A rejected jar yields the filename fallback.
 
 ### TOML Parsing
 Forge/NeoForge use TOML descriptors. Minimal regex parser (ModJarService.php:148-163):
@@ -273,10 +274,18 @@ User installs "Sodium" from Modrinth → tries manual upload of same mod → slu
 5. **CurseForge API key required** — Admin must obtain and configure key for CurseForge access
 6. **Complex TOML unsupported** — Forge mods with non-standard TOML may fail to parse
 7. **Bulk operations no rollback** — Partial failures leave some mods updated/deleted; no atomic transaction
+8. **Dependency chains not auto-resolved recursively** — Required deps of a dependency are not installed; the frontend installs only the direct missing required deps of the selected mod
 
 ## Testing
 
-No `tests/` directory exists. Manual test coverage:
+Pest coverage in `tests/Feature/Services/Mods/` (mocked providers + `Cache::flush()`, no DB):
+- `ModManagerServiceTest.php` — egg allowlist gating, MOD_LOADER/BUILD_TYPE/egg-name loader detection incl. NeoForge→Forge expansion, MINECRAFT_VERSION/MC_VERSION precedence, cross-provider duplicate detection, up-to-date exception
+- `ModJarServiceTest.php` — fabric.mod.json + mods.toml parsing, zip-slip/absolute-path rejection via real in-memory zips
+- `tests/Feature/ModpackApiTest.php` and `tests/Feature/ModpackSearchCacheTest.php` cover the modpack controller and search cache
+
+Run: `vendor/bin/pest tests/Feature/Services/Mods/`.
+
+Manual test coverage:
 - Install mod with/without dependencies
 - Update mod (up-to-date case, new version case)
 - Toggle enable/disable (verify `.disabled` extension)
@@ -299,6 +308,12 @@ No `tests/` directory exists. Manual test coverage:
 - Translations: `resources/lang/en/server/mods.php`
 - Navigation: `resources/scripts/routers/routes.ts:208-214` (requires `mods` egg feature)
 - Migration: `database/migrations/2026_07_25_000001_create_server_mods_table.php`
+
+## Gotchas
+
+- **Route order matters**: `POST /mods/bulk/update` must be registered before `POST /mods/{mod}/update`, or Laravel resolves `bulk/update` as `{mod}/update` (the `{mod}` param becomes `bulk`) and the bulk handler is never reached. Fixed in `routes/api-client.php`; keep literal paths ahead of parameterised ones.
+- Frontend install/update/bulk requests override the 20s axios default with 300s (600s for modpack URL installs) timeouts + friendly `timeoutErrorMessage`. A large mod or pack pull through Wings can easily exceed 20s.
+- `ModManagerService::variable()` reads `$variable->server_value ?? $variable->default_value` — the `??` now guards the `default_value` access with parentheses so a variables relation entry lacking that column (e.g. from an eager-loaded join) can never raise an undefined-property warning under PHP 8.5.
 
 ## Future Enhancements
 

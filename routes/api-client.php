@@ -198,13 +198,15 @@ Route::group([
         Route::middleware('throttle:api.mods')
             ->post('/', [Client\Servers\ModController::class, 'store']);
         Route::middleware('throttle:api.mods')
-            ->post('/{mod}/update', [Client\Servers\ModController::class, 'update']);
-        Route::middleware('throttle:api.mods')
-            ->post('/{mod}/link', [Client\Servers\ModController::class, 'link']);
-        Route::middleware('throttle:api.mods')
             ->post('/bulk/update', [Client\Servers\ModController::class, 'bulkUpdate']);
         Route::middleware('throttle:api.mods')
             ->delete('/bulk', [Client\Servers\ModController::class, 'bulkDestroy']);
+        // {mod} routes registered last: {mod}/update must not shadow the
+        // literal /bulk/update, which resolves first because it comes earlier.
+        Route::middleware('throttle:api.mods')
+            ->post('/{mod}/update', [Client\Servers\ModController::class, 'update']);
+        Route::middleware('throttle:api.mods')
+            ->post('/{mod}/link', [Client\Servers\ModController::class, 'link']);
         Route::post('/{mod}/toggle', [Client\Servers\ModController::class, 'toggle']);
         Route::delete('/{mod}', [Client\Servers\ModController::class, 'destroy']);
     });

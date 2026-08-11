@@ -11,6 +11,9 @@ class ModJarService
     /** Maximum jar size to download for metadata parsing (64 MB). */
     private const MAX_SIZE = 64 * 1024 * 1024;
 
+    /** Largest single descriptor entry, as a decompressed-size ceiling. */
+    private const MAX_ENTRY_SIZE = 16 * 1024 * 1024;
+
     public function __construct(private DaemonFileRepository $fileRepository) {}
 
     /**
@@ -107,6 +110,15 @@ class ModJarService
                 return null;
             }
 
+            // Never trust entry names from a third-party jar: reject archives
+            // with path traversal, absolute paths or oversized descriptors
+            // before reading anything out of them.
+            if (! $this->entriesSafe($zip)) {
+                $zip->close();
+
+                return null;
+            }
+
             $meta = null;
 
             if (($raw = $zip->getFromName('fabric.mod.json')) !== false) {
@@ -142,6 +154,51 @@ class ModJarService
         } finally {
             @unlink($tmp);
         }
+    }
+
+    /**
+     * Reject archives that could smuggle malicious content onto the server:
+     * entries with `..` segments, absolute paths, symlinks, or entries larger
+     * than a sane decompressed ceiling.
+     */
+    private function entriesSafe(\ZipArchive $zip): bool
+    {
+        $count = $zip->numFiles;
+
+        for ($i = 0; $i < $count; $i++) {
+            $stat = $zip->statIndex($i);
+
+            if ($stat === false) {
+                return false;
+            }
+
+            $name = $stat['name'] ?? '';
+
+            if ($name === '') {
+                return false;
+            }
+
+            // Zip-slip: reject any path segment that climbs out or an absolute path.
+            if (str_starts_with($name, '/') || str_contains($name, '\\')
+                || in_array('..', explode('/', $name), true)) {
+                return false;
+            }
+
+            if (($stat['size'] ?? 0) > self::MAX_ENTRY_SIZE) {
+                return false;
+            }
+
+            // Symlink entries are never legitimate in a mod jar. The mode is
+            // not exposed on every PHP build, so treat a missing value as a
+            // regular file rather than failing closed on a field we cannot read.
+            $mode = $stat['mode'] ?? 0;
+
+            if (($mode & 0o170000) === 0o120000) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /** Minimal mods.toml parse: first modId / displayName / version. */

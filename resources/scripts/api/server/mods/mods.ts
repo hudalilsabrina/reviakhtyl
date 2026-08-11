@@ -139,21 +139,37 @@ export const installMod = async (
     slug?: string,
     replace = false
 ): Promise<ServerMod> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/mods`, {
-        provider,
-        project_id: projectId,
-        title,
-        icon_url: iconUrl,
-        version_id: versionId,
-        slug,
-        replace,
-    });
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/mods`,
+        {
+            provider,
+            project_id: projectId,
+            title,
+            icon_url: iconUrl,
+            version_id: versionId,
+            slug,
+            replace,
+        },
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like this mod is taking a long time to download. Once completed the mod will appear in your installed mods.',
+        }
+    );
 
     return rawDataToServerMod(data);
 };
 
 export const updateMod = async (uuid: string, modId: number): Promise<ServerMod> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/mods/${modId}/update`);
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/mods/${modId}/update`,
+        {},
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like this mod is taking a long time to download. Once completed the mod will be updated.',
+        }
+    );
 
     return rawDataToServerMod(data);
 };
@@ -223,7 +239,15 @@ export interface BulkOperationResult {
 }
 
 export const bulkUpdateMods = async (uuid: string, modIds: number[]): Promise<BulkOperationResult> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/mods/bulk/update`, { mod_ids: modIds });
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/mods/bulk/update`,
+        { mod_ids: modIds },
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like these mods are taking a long time to download. Once completed they will be updated.',
+        }
+    );
     return data;
 };
 

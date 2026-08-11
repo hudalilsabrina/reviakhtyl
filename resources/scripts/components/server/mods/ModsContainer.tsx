@@ -879,14 +879,14 @@ const ModsContainer = () => {
                                         onClick={selectAll}
                                         disabled={!!busy || !!bulkOperation}
                                     >
-                                        Select All
+                                        {t('select_all')}
                                     </Button>
                                     <Button
                                         size={Button.Sizes.Small}
                                         onClick={clearSelection}
                                         disabled={!!busy || !!bulkOperation}
                                     >
-                                        Clear
+                                        {t('clear')}
                                     </Button>
                                     {selectedMods.size > 0 && (
                                         <>
@@ -899,7 +899,7 @@ const ModsContainer = () => {
                                                 {bulkOperation?.type === 'update' ? (
                                                     <Spinner size={'small'} />
                                                 ) : (
-                                                    `Update Selected (${selectedMods.size})`
+                                                    t('update_selected', { count: selectedMods.size })
                                                 )}
                                             </Button>
                                             <Button.Danger
@@ -910,7 +910,7 @@ const ModsContainer = () => {
                                                 {bulkOperation?.type === 'delete' ? (
                                                     <Spinner size={'small'} />
                                                 ) : (
-                                                    `Delete Selected (${selectedMods.size})`
+                                                    t('delete_selected', { count: selectedMods.size })
                                                 )}
                                             </Button.Danger>
                                         </>
@@ -1014,17 +1014,17 @@ const ModsContainer = () => {
                             css={tw`mb-4 p-3 bg-blue-900/30 border border-blue-700/50 rounded-ui flex items-center justify-between`}
                         >
                             <div>
-                                <p css={tw`text-sm font-semibold text-blue-200`}>Linking: {linkingMod.title}</p>
-                                <p css={tw`text-xs text-blue-300/80 mt-0.5`}>
-                                    Select a mod below to link it to this manual mod for updates
+                                <p css={tw`text-sm font-semibold text-blue-200`}>
+                                    {t('linking', { title: linkingMod.title })}
                                 </p>
+                                <p css={tw`text-xs text-blue-300/80 mt-0.5`}>{t('linking_help')}</p>
                             </div>
                             <Button
                                 size={Button.Sizes.Small}
                                 variant={Button.Variants.Secondary}
                                 onClick={() => setLinkingMod(null)}
                             >
-                                Cancel
+                                {t('cancel')}
                             </Button>
                         </div>
                     )}
