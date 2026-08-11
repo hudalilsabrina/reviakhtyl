@@ -80,7 +80,12 @@ class BackupController extends ClientApiController
         }
 
         $backup = Activity::event('server:backup.start')->transaction(function ($log) use ($action, $server, $request) {
-            $server->backups()->lockForUpdate();
+            // Lock the server row itself. Locking the backups relation locks
+            // nothing (there are no rows yet for a fresh server), so without
+            // this the backup-limit check inside the service is a TOCTOU race
+            // and concurrent creates can exceed the configured limit.
+            /** @var Server $server */
+            $server = Server::query()->whereKey($server->id)->lockForUpdate()->first() ?? $server;
 
             $backup = $action->handle($server, $request->input('name'));
 
