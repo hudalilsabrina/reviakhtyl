@@ -40,6 +40,18 @@ class RoutingService
     /** Sub-agent answers longer than this are truncated in the router's digest. */
     private const RESULT_DIGEST_LENGTH = 2000;
 
+    /** A sub-agent summary shown on its progress chip. */
+    private const AGENT_SUMMARY_LENGTH = 200;
+
+    /**
+     * The turn's emitter, available while delegates run. The sub-agent work
+     * itself is not streamed; it is reported to the user as progress chips on
+     * the router's message via the `agent` event the client already handles.
+     *
+     * @var (callable(string, array<string, mixed>): mixed)|null
+     */
+    private $emit = null;
+
     public function __construct(
         private ChatbotSettings $settings,
         private OpenAiClient $client,
@@ -149,6 +161,8 @@ class RoutingService
 
         $systemPrompt = $this->promptBuilder->buildForRouter($context, $agents);
         $definitions = $this->definitions();
+
+        $this->emit = $emit;
 
         for ($iteration = 0; $iteration < self::MAX_ROUTER_ITERATIONS; $iteration++) {
             $providerMessages = $this->routerProviderMessages($conversation, $context, $systemPrompt);
@@ -276,6 +290,8 @@ class RoutingService
 
             $assistant->update(['tool_calls' => $calls]);
         }
+
+        $this->emit = null;
 
         $exhausted = $this->store($conversation, [
             'role' => ChatbotMessage::ROLE_ASSISTANT,
@@ -478,15 +494,40 @@ class RoutingService
             'request' => trim($request),
         ]);
 
-        $outcome = $this->runAgent($run, $agent, $context, trim($request));
+        // The sub-agent's work is not streamed, so its progress reaches the
+        // user as chips on the router's message: running while it works,
+        // then complete with a one-line summary, or failed.
+        $run->forceFill(['status' => ChatbotAgentRun::STATUS_RUNNING])->save();
+        $this->emitAgent($run, ChatbotAgentRun::STATUS_RUNNING);
+
+        try {
+            $outcome = $this->runAgent($run, $agent, $context, trim($request));
+        } catch (ChatbotException $e) {
+            // Localises provider/loop failures to this run: the router keeps
+            // its turn and sees the failure as a digest.
+            $run->forceFill([
+                'result' => $e->getMessage(),
+                'status' => ChatbotAgentRun::STATUS_FAILED,
+            ])->save();
+            $this->emitAgent($run, ChatbotAgentRun::STATUS_FAILED);
+
+            return [[
+                'ok' => false,
+                'error' => 'The '.$agent->name().' agent failed: '.$e->getMessage(),
+            ], null];
+        }
 
         if ($outcome['status'] === 'pending') {
+            $this->emitAgent($run, ChatbotAgentRun::STATUS_AWAITING_CONFIRMATION);
+
             return [[
                 'ok' => true,
                 'status' => 'awaiting_confirmation',
                 'note' => "The {$agent->name()} agent is waiting for the user to approve its proposed actions before continuing.",
             ], $outcome['calls']];
         }
+
+        $this->emitAgent($run, ChatbotAgentRun::STATUS_COMPLETE);
 
         return [[
             'ok' => true,
@@ -546,7 +587,21 @@ class RoutingService
             // v1 agents all return null, so this always falls back to the
             // panel model; the override is plumbed so a per-agent model needs
             // no service changes.
-            $completion = $this->client->chat($transcript, $definitions, $agent->model());
+            try {
+                $completion = $this->client->chat($transcript, $definitions, $agent->model());
+            } catch (ChatbotException $e) {
+                // Error localisation: a provider failure inside a sub-agent
+                // fails THIS run, not the router's whole turn. The failure is
+                // recorded on the run and digested back to the router, which
+                // decides whether to retry, delegate elsewhere or apologise.
+                $run->forceFill([
+                    'transcript' => $transcript,
+                    'result' => $e->getMessage(),
+                    'status' => ChatbotAgentRun::STATUS_FAILED,
+                ])->save();
+
+                return ['status' => 'answer', 'content' => $e->getMessage(), 'calls' => []];
+            }
 
             if (! $completion->hasToolCalls()) {
                 $transcript[] = ['role' => 'assistant', 'content' => $completion->content];
@@ -560,35 +615,61 @@ class RoutingService
                 return ['status' => 'answer', 'content' => $completion->content, 'calls' => []];
             }
 
+            // Agent scope is enforced at run time, not just in the definitions
+            // sent to the model: a call outside this agent's toolkit — a
+            // hallucinated name, or one steered in by content the agent read —
+            // is rejected with an error result and never reaches the executor
+            // or an approval prompt.
+            $scopedCalls = [];
+            $rejected = [];
+
+            foreach ($completion->toolCalls as $call) {
+                if (isset($tools[$call->name])) {
+                    $scopedCalls[] = $call;
+                } else {
+                    $rejected[] = $call;
+                }
+            }
+
+            $calls = array_slice($scopedCalls, 0, self::MAX_CALLS_PER_TURN);
+            $dropped = count($scopedCalls) - count($calls);
+
             $needsApproval = $this->settings->requiresConfirmation()
-                && $this->containsDestructiveCall($context, $completion->toolCalls);
+                && $this->containsDestructiveCall($context, $calls);
 
             if ($needsApproval) {
                 // The transcript keeps the assistant message WITH its tool
                 // calls, so the resume path can replay the exchange and answer
-                // the same call ids with the user's decision.
+                // the same call ids with the user's decision. Out-of-scope
+                // calls are answered immediately so every announced id is
+                // satisfied; only the scoped calls are projected for approval.
                 $transcript[] = [
                     'role' => 'assistant',
                     'content' => $completion->content,
-                    'tool_calls' => array_map(fn (ToolCall $call) => $call->toArray(), $completion->toolCalls),
+                    'tool_calls' => array_map(fn (ToolCall $call) => $call->toArray(), array_merge($calls, $rejected)),
                 ];
+
+                foreach ($rejected as $call) {
+                    $transcript[] = $this->scopeRejection($call);
+                }
 
                 $run->forceFill([
                     'transcript' => $transcript,
                     'status' => ChatbotAgentRun::STATUS_AWAITING_CONFIRMATION,
                 ])->save();
 
-                return ['status' => 'pending', 'content' => $completion->content, 'calls' => $completion->toolCalls];
+                return ['status' => 'pending', 'content' => $completion->content, 'calls' => $calls];
             }
-
-            $calls = array_slice($completion->toolCalls, 0, self::MAX_CALLS_PER_TURN);
-            $dropped = count($completion->toolCalls) - count($calls);
 
             $transcript[] = [
                 'role' => 'assistant',
                 'content' => $completion->content,
-                'tool_calls' => array_map(fn (ToolCall $call) => $call->toArray(), $calls),
+                'tool_calls' => array_map(fn (ToolCall $call) => $call->toArray(), array_merge($calls, $rejected)),
             ];
+
+            foreach ($rejected as $call) {
+                $transcript[] = $this->scopeRejection($call);
+            }
 
             foreach ($calls as $call) {
                 $result = $this->executor->execute($context, $call->name, $call->arguments);
@@ -622,6 +703,46 @@ class RoutingService
     }
 
     /**
+     * Announces a sub-agent's progress on the router's message. The client
+     * upserts the chip by agent key, so running → complete/failed replaces in
+     * place.
+     */
+    private function emitAgent(ChatbotAgentRun $run, string $status): void
+    {
+        if (! $this->emit) {
+            return;
+        }
+
+        $agent = $this->agents->resolveFor($this->contextFor($run->conversation), $run->agent_key);
+
+        $summary = match ($status) {
+            ChatbotAgentRun::STATUS_COMPLETE => Str::limit((string) $run->result, self::AGENT_SUMMARY_LENGTH),
+            ChatbotAgentRun::STATUS_FAILED => 'failed',
+            ChatbotAgentRun::STATUS_AWAITING_CONFIRMATION => 'waiting for your approval',
+            default => null,
+        };
+
+        // The sub-agent's work belongs to the router's message, which in this
+        // version is always the newest assistant message of the conversation.
+        $uuid = $run->conversation->messages()
+            ->where('role', ChatbotMessage::ROLE_ASSISTANT)
+            ->reorder('id', 'desc')
+            ->value('uuid');
+
+        ($this->emit)('agent', [
+            'uuid' => $uuid,
+            'agent' => [
+                'key' => $run->agent_key,
+                'name' => $agent?->name() ?? $run->agent_key,
+                'status' => $status === ChatbotAgentRun::STATUS_AWAITING_CONFIRMATION
+                    ? ChatbotAgentRun::STATUS_RUNNING
+                    : $status,
+                'summary' => $summary,
+            ],
+        ]);
+    }
+
+    /**
      * @param  ToolCall[]  $calls
      */
     private function containsDestructiveCall(ToolContext $context, array $calls): bool
@@ -635,6 +756,26 @@ class RoutingService
         }
 
         return false;
+    }
+
+    /**
+     * The tool-result entry answering a call this agent is not allowed to run.
+     * Written to the transcript so the provider sees every announced call id
+     * answered, while the call itself is never executed nor offered for
+     * approval.
+     *
+     * @return array<string, mixed>
+     */
+    private function scopeRejection(ToolCall $call): array
+    {
+        return [
+            'role' => ChatbotMessage::ROLE_TOOL,
+            'tool_call_id' => $call->id,
+            'content' => json_encode([
+                'ok' => false,
+                'error' => "The tool \"{$call->name}\" is outside this agent's scope and was not run.",
+            ]) ?: '{"ok":false,"error":"An out-of-scope call could not be encoded."}',
+        ];
     }
 
     /**
