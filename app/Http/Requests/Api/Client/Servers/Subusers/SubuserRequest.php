@@ -35,10 +35,12 @@ abstract class SubuserRequest extends ClientApiRequest
         }
 
         // If this is a POST request, validate that the user can even assign the permissions they
-        // have selected to assign.
-        if ($this->method() === Request::METHOD_POST && $this->has('permissions')) {
+        // have selected to assign. Only run this when the payload is actually an array —
+        // rules() will reject a non-array with a proper 422; guarding here avoids
+        // array_diff() warnings on malformed input.
+        if ($this->method() === Request::METHOD_POST && is_array($this->input('permissions'))) {
             $this->validatePermissionsCanBeAssigned(
-                $this->input('permissions') ?? []
+                $this->input('permissions')
             );
         }
 
