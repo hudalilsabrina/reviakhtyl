@@ -3,11 +3,14 @@
 namespace App\Services\Chatbot\Tools\Backups;
 
 use App\Enum\ChatbotToolGroup;
+use App\Enum\ResourceLimit;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Models\Backup;
 use App\Models\Permission;
+use App\Models\Server;
 use App\Repositories\Agent\DaemonBackupRepository;
 use App\Repositories\Eloquent\BackupRepository;
+use App\Services\Backups\DownloadLinkService;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 
@@ -16,6 +19,7 @@ class RestoreBackupTool extends ChatbotTool
     public function __construct(
         private DaemonBackupRepository $daemonBackupRepository,
         private BackupRepository $backupRepository,
+        private DownloadLinkService $downloadLinkService,
     ) {}
 
     public function name(): string
@@ -82,11 +86,46 @@ class RestoreBackupTool extends ChatbotTool
     {
         $backup = $this->findBackup($context, $arguments['backup_uuid']);
 
+        // Mirror the HTTP endpoint's guards. The assistant must not be able to
+        // restore a backup the panel would refuse, or start a restore while the
+        // server is already in a transitional state.
+        if (! is_null($context->server->status)) {
+            throw new ChatbotException('This server is not currently in a state that allows for a backup to be restored.');
+        }
+
+        if (! $backup->is_successful || is_null($backup->completed_at)) {
+            throw new ChatbotException('This backup cannot be restored at this time: not completed or failed.');
+        }
+
+        // The HTTP endpoint carries ResourceLimit::Backup; without this the
+        // assistant would be a way around the per-server restore allowance.
+        if (! ResourceLimit::Backup->hit($context->server)) {
+            throw new ChatbotException(
+                'This server has reached its limit for restoring backups in a short period. Try again in a few minutes.'
+            );
+        }
+
         $truncate = $arguments['truncate'] ?? false;
 
-        $this->daemonBackupRepository
-            ->setServer($context->server)
-            ->restore($backup, truncate: $truncate);
+        $url = null;
+        if ($backup->disk === Backup::ADAPTER_AWS_S3) {
+            $url = $this->downloadLinkService->handle($backup, $context->user);
+        }
+
+        $context->server->update(['status' => Server::STATUS_RESTORING_BACKUP]);
+
+        try {
+            $this->daemonBackupRepository
+                ->setServer($context->server)
+                ->restore($backup, $url, $truncate);
+        } catch (\Throwable $exception) {
+            // The HTTP path runs the daemon call inside a transaction that rolls
+            // the status change back on failure. Undo it here so a rejected
+            // restore cannot leave the server stuck in a restoring state.
+            $context->server->update(['status' => null]);
+
+            throw $exception;
+        }
 
         return [
             'backup_uuid' => $backup->uuid,

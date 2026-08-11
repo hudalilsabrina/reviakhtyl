@@ -67,8 +67,14 @@ class CreateBackupTool extends ChatbotTool
 
     public function handle(ToolContext $context, array $arguments): array
     {
+        // The HTTP endpoint only applies the lock status when the user can
+        // delete backups too, so a create-only user cannot fill the server
+        // with backups that can never be purged.
+        $locked = ($arguments['is_locked'] ?? false)
+            && $context->can(Permission::ACTION_BACKUP_DELETE);
+
         $backup = $this->initiateBackupService
-            ->setIsLocked($arguments['is_locked'] ?? false)
+            ->setIsLocked($locked)
             ->setIgnoredFiles($arguments['ignore_files'] ?? null)
             ->handle($context->server, $arguments['name'] ?? null);
 
