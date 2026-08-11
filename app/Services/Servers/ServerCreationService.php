@@ -65,10 +65,10 @@ class ServerCreationService
         }
 
         // Auto-configure the node based on the selected allocation
-        // if no node was defined.
-        if (empty($data['node_id'])) {
-            Assert::false(empty($data['allocation_id']), 'Expected a non-empty allocation_id in server creation data.');
-
+        // if no node was defined. When an explicit node is supplied alongside
+        // the allocation, the allocation's node wins: a server can only live on
+        // the node that owns its primary allocation.
+        if (! empty($data['allocation_id'])) {
             $data['node_id'] = Allocation::query()->findOrFail($data['allocation_id'])->node_id;
         }
 
@@ -89,6 +89,12 @@ class ServerCreationService
         // deleting the server itself from the system.
         /** @var Server $server */
         $server = $this->connection->transaction(function () use ($data, $eggVariableData) {
+            // Lock the primary allocation row so a concurrent auto-allocation (or another
+            // server creation) cannot grab the same allocation between our unassigned check
+            // and the update below. The unique index on servers.allocation_id is a safety net
+            // but surfaces as an unhandled SQLSTATE on a collision; the lock prevents it.
+            $data['allocation_id'] = Allocation::query()->lockForUpdate()->findOrFail($data['allocation_id'])->id;
+
             // Create the server and assign any additional allocations to it.
             $server = $this->createModel($data);
 

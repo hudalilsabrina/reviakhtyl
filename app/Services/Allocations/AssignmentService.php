@@ -44,7 +44,10 @@ class AssignmentService
     {
         $explode = explode('/', $data['allocation_ip']);
         if (count($explode) !== 1) {
-            if (! ctype_digit($explode[1]) || ($explode[1] > self::CIDR_MIN_BITS || $explode[1] < self::CIDR_MAX_BITS)) {
+            // The mask range is version-dependent: /25-/32 for IPv4 but /113-/128 for IPv6.
+            $bits = filter_var($explode[0], FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) ? 128 : 32;
+
+            if (! ctype_digit($explode[1]) || (int) $explode[1] > $bits || (int) $explode[1] < $bits - 7) {
                 throw new CidrOutOfRangeException();
             }
         }
