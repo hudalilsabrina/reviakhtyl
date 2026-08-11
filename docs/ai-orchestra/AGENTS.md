@@ -1,13 +1,12 @@
 # AI Orchestra — Multi-Agent Tool Router
 
-Proposed design (planning, not yet implemented). An evolution of the per-conversation
+Implemented. An evolution of the per-conversation
 chatbot (`docs/chatbot/AGENTS.md`) from a single-model chain into a two-tier
 **router → sub-agent** system. The router decides which specialized sub-agent(s) own a
 user request; each sub-agent has only the tools relevant to its domain.
 
-Status: **DRAFT / NOT IMPLEMENTED**. This document is the design target. No code in the
-repo depends on it yet. Read `docs/chatbot/AGENTS.md` first — this design anextension
-of it, and every rule there that is reused is linked, not restated.
+Read `docs/chatbot/AGENTS.md` first — this design extends it, and every rule that is
+reused is linked, not restated.
 
 ## Why, in one paragraph
 
@@ -83,9 +82,34 @@ Two existing pieces are single-model-shaped and need surgery before orchestratio
   should specify a `buildForRouter()`/`buildForAgent()` split that reuses the shared safety
   block verbatim.
 
+## Implementation status (audit 2026-08-11)
+
+The design below is implemented as described, with these deltas and fixes:
+
+- **Per-agent model override is plumbed but unused.** `ChatbotAgent::model()` defaults
+  to null and every registered agent returns null, so every sub-agent call falls back to
+  the panel model. `OpenAiClient::chat()/stream()` accept a `?string $model`; an agent
+  override needs no service changes.
+- **Agent scoping is enforced at run time, not only in the tool definitions.**
+  `RoutingService::runAgent()` rejects any tool call whose name is not in the agent's own
+  tool set with a scope-rejection tool result, so a hallucinated or injected out-of-scope
+  call (e.g. `power_action` while running as the Files agent) never reaches the executor
+  and is never projected for approval. Every announced call id is still answered so the
+  provider's next request is valid.
+- **Sub-agent provider failures are localised.** A `ChatbotException` from the provider
+  inside a sub-agent run marks that run `failed` and digests the error back to the router;
+  it does not fail the router's whole turn.
+- **Agent progress chips now emit.** `RoutingService::executeDelegate()` emits `agent`
+  stream events (running → complete/failed/waiting), which the client renders as chips on
+  the router's message. Without this the whole frontend contract (`agent` handler,
+  `applyAgentRun`, `AgentProgressChips`) was dead code.
+- **Nested delegation (`parent_run_id`) is not used in v1** — the migration reserves the
+  column and the depth cap, but `delegate()` only ever runs one agent per call.
+
 ## Sub-agents as a declared concept
 
-Add `app/Services/Chatbot/Agents/` with one class per sub-agent. Each declares:
+Each sub-agent is a class in `app/Services/Chatbot/Agents/` (`AgentRegistry` instantiate
+from `config/chatbot.php` → `agents`). Each declares:
 
 - **`id()`** — stable string, e.g. `files`, `server`, `power`, `mods`.
 - **`name()` / `systemDirective()`** — the narrow 3–6 sentence role prompt fragment.
@@ -99,12 +123,12 @@ The router's tool definitions are **not** the server-tool list. The router's sin
 tool is `delegate(request, to_agent_ids, context_budget)`. It never holds a handle to any
 panel tool, keeping the router incapable of side effects itself — it composes only.
 
-### Proposed agent set vs. today's real groups
+### Agent set vs. today's real groups
 
 **Ground truth first:** `ChatbotToolGroup` (`app/Enum/ChatbotToolGroup.php`) has exactly
-**8** cases: `server, power, console, files, subusers, startup, plugins, mods`. Tools are
-grouped by what their `group()` returns. The **backup, database and schedule tools — and
-`rename_server` — all return `ChatbotToolGroup::Server`** (verified in `Backups/*`,
+**10** cases: `server, power, console, files, subusers, startup, plugins, mods, web, admin`.
+Tools are grouped by what their `group()` returns. The **backup, database and schedule tools
+— and `rename_server` — all return `ChatbotToolGroup::Server`** (verified in `Backups/*`,
 `Databases/*`, `Schedules/*`, `Server/RenameServerTool.php`). There is **no** `backups`,
 `databases` or `schedules` group today, so those capabilities cannot be scoped to their own
 agent without first splitting the `server` group in the enum.
@@ -119,11 +143,14 @@ Recommended v1 agent set:
 | `startup` | `startup` | startup vars & parts |
 | `mods` | `plugins`, `mods` | plugin + mod lifecycle |
 | `subusers` | `subusers` | accounts + permissions |
+| `web` | `web` | fetch_url (SSRF-guarded public fetches) — off by default like the group |
 
-Note that `server` stays a fat agent today because the `server` group is already fat. A
-follow-up (enum split into e.g. `server`, `backups`, `databases`, `schedules`) is what would
-let each of those run as a dedicated narrow agent. Group toggles keep working as-is: an
-agent with a disabled group simply reduces its routable toolset (`chat/AGENTS.md:114`).
+All seven are registered in `config/chatbot.php`. Note that `server` stays a fat agent today
+because the `server` group is already fat. A follow-up (enum split into e.g. `server`,
+`backups`, `databases`, `schedules`) is what would let each of those run as a dedicated
+narrow agent. Group toggles keep working as-is: an agent with a disabled group simply
+reduces its routable toolset (`chat/AGENTS.md:114`), and `AgentRegistry::availableFor()`
+drops an agent whose every group is disabled.
 
 ## New storage
 
@@ -164,23 +191,35 @@ deciding on the next fan-out or composing the final answer.
 ## Routing algorithm
 
 `delegate()` runs as the router's only tool call, so it inherits the approval/streaming
-machinery for free. Proposed `RoutingService::run()`:
+machinery for free. `RoutingService::run()` (implemented):
 
 ```
-1. Router builds a plan (one model call): which agent(s) handle what, in what order.
-2. Router asks any clarifying question it needs (returns, no delegation).
-3. For each planned agent:
-     a. guard/sub-agent readiness (injection-safe start? reject and say why if unsafe)
-     b. call the sub-agent loop with its OWN definitions + directive + the routed request
-     c. on destructive + require_confirmation → mark run awaiting_confirmation,
-        surface a nested confirm prompt, STOP (do not fan out further)
-     d. digest the run, hand the digest to the router
-4. Router composes the final answer from the digests (one last model call).
+1. Router loop (MAX_ROUTER_ITERATIONS = 3) classifies each response:
+   - no tool call → persist its text, stop;
+   - answer_directly() → the flat single-model loop answers (nothing of the router's
+     turn is persisted, the placeholder row is deleted);
+   - delegate() calls → up to MAX_DELEGATES_PER_TURN run, one per call, each one a
+     sub-agent run.
+2. For each delegate call:
+     a. resolve the agent through AgentRegistry::resolveFor (context-scoped)
+     b. create a chatbot_agent_runs row and run the sub-agent loop with its OWN
+        definitions + directive + the routed request; emit agent progress chips
+     c. on destructive + require_confirmation → run status awaiting_confirmation,
+        the sub-agent's calls are projected onto the router's message as the pending
+        confirmation, STOP (remaining delegates in the batch are answered with a
+        skipped digest)
+     d. digest the run (result truncated to 2000 chars), hand the digest to the router
+3. Next router iteration composes from the digests.
 ```
 
-Nested delegations (agent → agent) are allowed but bounded by a depth cap (default 2) and roll
-up to the conversation's existing `max_iterations` budget so a router cannot spin forever
-(`chat/AGENTS.md:100`).
+A run paused for approval resumes in `resumeRun()`: `resolveConfirmation` writes the
+decision's tool results, they are appended to the run's transcript, and the sub-agent loop
+re-enters with its own history — the router does not compose on this path, the sub-agent's
+final answer is the visible one. A second destructive proposal pauses the run again.
+
+Nested delegations (agent → agent) are **not used in v1**: `parent_run_id` is reserved but
+`delegate()` honours only the first agent id in a call. The router loop budget
+(`MAX_ROUTER_ITERATIONS`) and each sub-agent's own `max_iterations` bound the whole turn.
 
 ## Security model (unchanged guarantees, new leverage)
 
@@ -189,6 +228,11 @@ up to the conversation's existing `max_iterations` budget so a router cannot spi
 - **Agent scoping is defense-in-depth, not the permission gate**: a `files`-only agent cannot
   be given `power` tools by prompt injection because it simply never holds their definitions.
   This is the headline win over the flat design (`chat/AGENTS.md:118`).
+- **...and it is enforced at run time too.** `runAgent()` re-checks every announced call
+  against the agent's own tool set before the executor or an approval prompt ever sees it;
+  an out-of-scope call is answered with a scope-rejection tool result. Scoping in the
+  definitions alone would leave a hallucinated out-of-scope name reachable through the
+  executor (`ToolExecutor::execute()` resolves against the full user tool set).
 - **The router is read-only by construction** — its only tool is `delegate()`. It cannot
   perform a side effect itself.
 - **Delegation is still user-scoped.** `RoutingContext` carries the same (server, user) pair;
@@ -197,52 +241,57 @@ up to the conversation's existing `max_iterations` budget so a router cannot spi
   same conditional `UPDATE … WHERE status = 'awaiting_confirmation'` rule
   (`chat/AGENTS.md:98`).
 
-## Known trade-offs / risks to resolve in review
+## Known trade-offs / current state of review
 
 1. **Cost & latency**: a fan-out costs several model calls (1 router + N agents + 1 composer).
-   Mitigate: cheap router model, `history_limit` per agent run, and never resend a sub-agent's
-   raw transcript to the router (digest only).
-2. **Error localisation**: a failed sub-agent must fail *that run*, not the whole router turn.
-   The router should see the failure as a digest and decide whether to retry, fall back to the
-   flat loop, or apologize.
-3. **Flat-loop fallback**: keep the existing single-model loop reachable (per-server toggle).
-   Orchestration should be the default, not the only path — some requests are answered best by
-   a single capable model.
-4. **Confirmation UI**: the existing client resolves one pending assistant message
-   (`confirm/stream`, `chat/AGENTS.md:110`). Nested delegation needs the pending node to carry
-   its whole `agent_runs` chain so the confirm endpoint resolves up the stack atomically.
-5. **Streaming UX**: the router builds the visible answer; sub-agent activity should stream as
-   progress chips (agent name + one-line digest) rather than raw tool calls, so the panel can
-   still show "Files agent is checking read permissions…".
-6. **Which agent writes the final visible answer**: recommend the **router** owns the visible
-   assistant message and sub-agent transcripts stay internal (`chat/AGENTS.md:88`) — tool
-   messages are already stripped from API responses; agent runs should be too, unless admins
-   enable audit.
-7. **Budget accounting**: conversation `max_iterations` / `context_tokens` are shared; an
-   agent-heavy turn must not starve the next user message. Put a per-turn model-call budget
-   ahead of the shared cap.
+   In practice the router classifies most requests to `answer_directly()` (the flat loop), so
+   orchestration overhead only applies to genuinely multi-step requests. Sub-agent digests are
+   truncated to 2000 chars before the router sees them; raw transcripts stay in the run row.
+2. **Error localisation**: implemented — a failed sub-agent fails *that run* (status `failed`,
+   error digest) and the router's turn continues.
+3. **Flat-loop fallback**: implemented — `answer_directly()` routes simple requests to the flat
+   loop, and `panel:chatbot:orchestration` (default off) disables orchestration entirely.
+4. **Confirmation UI**: implemented for one level of nesting — a paused sub-agent's calls are
+   projected onto the router's message and resolved by the existing `confirm` endpoints;
+   `resumeRun()` re-enters the sub-agent loop and can pause again. Chains of independent
+   sub-agent pauses are serialised (a paused batch stops further fan-out).
+5. **Streaming UX**: implemented — sub-agents emit `agent` progress chips (name + status +
+   one-line summary) on the router's message; the sub-agent's own tool calls and transcript
+   stay internal.
+6. **Which agent writes the final visible answer**: the **router** owns the visible answer
+   except on the resume path, where the sub-agent's final answer is the visible one. Tool
+   messages are stripped from API responses and agent runs are not replayed as history.
+7. **Budget accounting**: the router loop is capped (`MAX_ROUTER_ITERATIONS` = 3, 3 delegates
+   per batch) ahead of the shared `max_iterations`; each sub-agent consumes its own
+   `max_iterations` inside a single run. Per-turn model-call accounting beyond this is not
+   implemented.
 
-## Open questions for the reviewer
+## Open questions (resolved / still open)
 
-- Should `chatbot_agents` be a DB table (admin-definable) or a hard-coded register in
-  `config/chatbot.php` like tools? v1 recommends hard-coded, DB later.
-- Should the `server` group be split in `ChatbotToolGroup` (e.g. separate `backups`,
-  `databases`, `schedules`) so those capabilities can have dedicated narrow agents? That is a
-  prerequisite for any per-subsystem agent beyond the fat `server` agent proposed here.
-- Do sub-agents need their own per-agent `history_limit`, or is the shared conversation window
-  sufficient give tool digests shrink old results?
-- Should admin review see sub-agent transcripts, or only the router's visible answer +
-  activity log (existing `server:chatbot.tool` entries, `chat/AGENTS.md:104`)?
+- **Agents are a hard-coded register** in `config/chatbot.php` → `agents`, instantiated by
+  `AgentRegistry`. No `chatbot_agents` table (admin-definable agents remain future work).
+- **The `server` group is still fat** — backups/databases/schedules live under
+  `ChatbotToolGroup::Server`, so `ServerAgent` holds the whole set. Splitting the enum into
+  separate groups is still the prerequisite for dedicated narrow agents.
+- **Sub-agents share the conversation window**; the router selects history once per turn and
+  sub-agent runs carry only their own request + tool exchange, so no per-agent history limit
+  has been needed.
+- **Admin review sees the router's visible answer + activity log** (`server:chatbot.tool`);
+  `chatbot_agent_runs` rows are queryable for replay but are not exposed in any admin UI.
 
-## Rollout plan (if approved)
+## Rollout plan (implemented)
 
-1. Introduce `App\Services\Chatbot\Agents\*` register + `RoutingContext` (pure) — no behavior.
-2. Add `chatbot_agent_runs` migration; write the `delegate()` router tool behind a flag.
-3. Implement `RoutingService` reusing `ChatbotService` turn helpers; add router system prompt;
-   keep flat loop as fallback.
-4. Surface nested confirmation + streaming progress chips in `ChatContainer.tsx`
-   (`resources/scripts/components/server/chat/`).
-5. Admin tab additions in `app/Filament/Pages/Settings.php` → AI Chatbot: enable orchestration,
-   optional per-agent models, optional guardrail toggle.
-6. Tests: `RoutingService` unit + Pest feature (mock provider), mirroring the chatbot suite's
-   in-memory mocks (`AGENTS.md` — no real DB in tests).
+1. `App\Services\Chatbot\Agents\*` register + `AgentRegistry` (context-scoped
+   `availableFor()` / `resolveFor()`, memoized per server+user) — done.
+2. `chatbot_agent_runs` migration + `delegate()` router tool — done.
+3. `RoutingService` reusing the shared `ManagesChatbotTurns` machinery; router and per-agent
+   system prompts; flat loop kept as the `answer_directly` path and the orchestration-off
+   path — done.
+4. Nested confirmation + streaming progress chips in the chat client (`agent` stream events,
+   `AgentProgressChips`, `applyAgentRun` in `thread.ts`) — done.
+5. Admin tab: `panel:chatbot:orchestration` toggle in `app/Filament/Pages/Settings.php` →
+   AI Chatbot, plus the `web` tool group and `WebAgent`. Per-agent model overrides are
+   plumbed but not exposed in the admin UI (v1 ships none).
+6. Tests: `RoutingServiceRunAgentTest` (unit, real registered tools + mocked provider),
+   `RoutingServiceDelegateDefinitionTest`, `SystemPromptBuilderRouterTest`, `AgentRegistryTest`
+   (feature), `RegisteredAgentsTest` (feature). No real DB anywhere.
