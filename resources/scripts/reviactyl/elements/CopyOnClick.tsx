@@ -33,11 +33,20 @@ const CopyOnClick = ({ text, showInNotification = true, children }: CopyOnClickP
         ? React.Children.only(children)
         : React.cloneElement(React.Children.only(children) as React.ReactElement<any>, {
               className: classNames((children.props as any).className || '', 'cursor-pointer'),
+              role: 'button',
+              tabIndex: 0,
               onClick: (e: React.MouseEvent<HTMLElement>) => {
                   copy(String(text));
                   setCopied(true);
                   if (typeof (children.props as any).onClick === 'function') {
                       (children.props as any).onClick(e);
+                  }
+              },
+              onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      copy(String(text));
+                      setCopied(true);
                   }
               },
           });

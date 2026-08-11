@@ -50,11 +50,11 @@ SRV-record subdomains for game servers (Minecraft Java primary). Players connect
 
 ## Patterns unique to this feature
 
-- **Create-before-delete** in `store()` and `sync()`: new CF record created first; old one deleted after (best-effort). If creation fails, old record keeps working.
+- **Create-before-delete** in `store()` and `sync()`: new CF record created first; old one deleted only **after the new one is committed to the DB** (best-effort). If the DB write fails, the new CF record is orphan-cleaned and the old one keeps working — the panel never reports a subdomain whose DNS is dead.
 - **Two-tier availability check**: `isNameAvailable()` queries local DB (fast) then Cloudflare API (catches out-of-band records). `suggest()` offers `-1`, `-2`, `-3` suffixes.
 - **Sanitization**: `StoreSubdomainRequest` permits `[a-zA-Z0-9-]+`; service `sanitize()` lowercases, replaces invalid chars with `-`, trims edge dashes, caps at 63.
 - **Idempotent store**: matching subdomain + domain returns existing row without hitting Cloudflare.
-- **`Quietly` variants** (`syncQuietly`, `destroyQuietly`) swallow all `\Throwable` (and log warnings) — used in hooks where failure shouldn't block the parent operation (allocation reassignment, server deletion).
+- **`Quietly` variants** (`syncQuietly`, `destroyQuietly`) swallow all `\Throwable` (and log warnings) — used in hooks where failure shouldn't block the parent operation (allocation reassignment, server deletion). `destroy()` deletes the DB row **before** the CF record; if DNS cleanup fails the panel no longer claims the subdomain and the leftover is reconcile-cleanable.
 - **Permission**: `Permission::ACTION_SUBDOMAIN_MANAGE` (`subdomain.manage`). Request classes live at `app/Http/Requests/Api/Client/Servers/Subdomain/`.
 - **Egg allowlist stored as JSON setting**, not a relation table. Parsed via `json_decode` in `enabledEggIds()`; per-request memoized alongside `domains()`.
 - **Activity events**: `server:subdomain.create`, `server:subdomain.update`, `server:subdomain.delete` — translations in `resources/lang/en/activity.php`.
@@ -64,13 +64,13 @@ SRV-record subdomains for game servers (Minecraft Java primary). Players connect
 
 - **Token scope**: must have Zone.DNS edit on target zone. Panel stores encrypted; falls back to plaintext if `Encrypter::decrypt` throws (legacy unencrypted data).
 - **Minecraft Java hardcoded**: `createSrvRecord()` uses `_minecraft._tcp`. Extending to other games requires new service/proto constants and probably a port field on the model.
-- **Rate limit per-user, not per-server**: batch operations from a single account share the 5/min write bucket. Status polling gets its own 30/min bucket.
+- **Rate limit per-user, not per-server**: create/replace/delete share the `api.subdomain` 5/min write bucket; status polling gets its own `api.subdomain.status` 30/min bucket.
 - **Propagation check uses panel resolver**: `isPropagated()` calls `dns_get_record` on the panel host, not a public resolver. May disagree with user-side resolution briefly.
 - **Disabling a domain** (`is_enabled = false`) hides from UI but leaves DB rows + DNS records untouched — existing subdomains keep resolving.
 - **DB unique on `['subdomain', 'domain']`**: panel check precedes insert, but concurrent requests can race to `SQLSTATE[23000]`. Consider retry or advisory lock if this surfaces.
-- **No reconciliation job**: if Cloudflare API fails during server deletion, DNS record is orphaned forever. Manual cleanup only.
+- **Reconciliation**: `php artisan subdomains:reconcile` (with `--dry-run` and `--force`) scans every enabled zone for SRV records not tracked in `server_subdomains` and deletes them. It follows Cloudflare pagination. Without `--force` it prompts interactively, so schedule it with `--force --dry-run` first and inspect.
 - **`server.subdomain` relation stale after mutations**: controllers either refresh server or frontend re-fetches via `getServer(uuid)`.
-- **Suggested name can be empty**: `sanitize(server.name)` returns empty string if name starts with invalid chars. Frontend renders empty input with no fallback.
+- **Suggested name falls back to `server`**: `sanitize('')` returns `'server'`, so a fully-invalid server name yields the generic suggestion rather than an empty input.
 - **`cf_record_id` may be null**: historical rows or failed creation retries. `deleteRecord()` is tolerant (skips if null), but `isNameAvailable()` passes it as `ignoreRecordId` to the CF list query.
 
 ## i18n

@@ -122,14 +122,6 @@ class CloudflareSubdomainService
         // record exists. If creation fails, the old record keeps working.
         $recordId = $this->createSrvRecord($domain, $subdomain, $server, $srvService, $srvProto);
 
-        if ($existing?->cf_record_id && $existing->cloudflareDomain) {
-            try {
-                $this->deleteRecord($existing->cloudflareDomain, $existing->cf_record_id);
-            } catch (\Throwable) {
-                // Old record cleanup is best-effort; the new one already works.
-            }
-        }
-
         try {
             $record = ServerSubdomain::query()->updateOrCreate(
                 ['server_id' => $server->id],
@@ -162,6 +154,16 @@ class CloudflareSubdomainService
             throw $e;
         }
 
+        // DB row committed. Now it is safe to delete the previous SRV record;
+        // if that fails (best-effort), the new record is already authoritative
+        // and the reconcile command can clean the leftover later.
+        if ($existing?->cf_record_id && $existing->cloudflareDomain) {
+            try {
+                $this->deleteRecord($existing->cloudflareDomain, $existing->cf_record_id);
+            } catch (\Throwable) {
+            }
+        }
+
         return $record;
     }
 
@@ -177,23 +179,35 @@ class CloudflareSubdomainService
             return;
         }
 
-        // Create the replacement first; delete the old record only on success.
+        // Create the replacement first; delete the old record only after the
+        // new one is committed to the DB. If the DB write fails, the new
+        // record is orphaned in Cloudflare but the old one is still live — we
+        // clean up the orphan and leave the row untouched, exactly like store().
         $newRecordId = $this->createSrvRecord(
             $record->cloudflareDomain,
             $record->subdomain,
             $server,
-            $record->srv_service,
-            $record->srv_proto
+            $record->getSrvService(),
+            $record->getSrvProto()
         );
 
-        if ($record->cf_record_id) {
+        try {
+            $record->forceFill(['cf_record_id' => $newRecordId])->save();
+        } catch (\Throwable $e) {
+            try {
+                $this->deleteRecord($record->cloudflareDomain, $newRecordId);
+            } catch (\Throwable) {
+            }
+
+            throw $e;
+        }
+
+        if ($record->cf_record_id && $record->cf_record_id !== $newRecordId) {
             try {
                 $this->deleteRecord($record->cloudflareDomain, $record->cf_record_id);
             } catch (\Throwable) {
             }
         }
-
-        $record->forceFill(['cf_record_id' => $newRecordId])->save();
     }
 
     /**
@@ -219,11 +233,16 @@ class CloudflareSubdomainService
             return;
         }
 
+        // Delete the DB row first. If the DNS cleanup below fails, the panel
+        // no longer claims the subdomain — the leftover record becomes a
+        // candidate for the reconcile command, and a retry of destroy() finds
+        // no row and safely no-ops. Doing DNS-first risked the inverse: the
+        // subdomain keeps reporting as active in the panel while its DNS is gone.
+        $record->delete();
+
         if ($record->cf_record_id && $record->cloudflareDomain) {
             $this->deleteRecord($record->cloudflareDomain, $record->cf_record_id);
         }
-
-        $record->delete();
     }
 
     /**
@@ -233,7 +252,8 @@ class CloudflareSubdomainService
     {
         try {
             $this->destroy($server);
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            logger()->warning('Failed to delete Cloudflare SRV record for server '.$server->uuid.': '.$e->getMessage());
         }
     }
 
@@ -262,7 +282,7 @@ class CloudflareSubdomainService
      */
     public function isPropagated(ServerSubdomain $record): bool
     {
-        $name = $record->srv_service.'.'.$record->srv_proto.'.'.$record->getFqdn();
+        $name = $record->getSrvService().'.'.$record->getSrvProto().'.'.$record->getFqdn();
 
         try {
             $records = @dns_get_record($name, DNS_SRV) ?: [];
@@ -281,16 +301,25 @@ class CloudflareSubdomainService
      */
     public static function fetchZones(string $apiToken): array
     {
-        $response = Http::withToken($apiToken)
-            ->acceptJson()
-            ->timeout(15)
-            ->get(self::API_BASE.'/zones', ['per_page' => 50]);
+        $zones = [];
+        $page = 1;
 
-        if (! $response->successful()) {
-            throw new DisplayException('Cloudflare API error: '.$response->json('errors.0.message', 'unexpected response'));
-        }
+        do {
+            $response = Http::withToken($apiToken)
+                ->acceptJson()
+                ->timeout(15)
+                ->get(self::API_BASE.'/zones', ['per_page' => 50, 'page' => $page]);
 
-        return collect($response->json('result') ?? [])->pluck('name', 'id')->all();
+            if (! $response->successful()) {
+                throw new DisplayException('Cloudflare API error: '.$response->json('errors.0.message', 'unexpected response'));
+            }
+
+            $result = $response->json('result') ?? [];
+            $zones = array_merge($zones, $result);
+            $page++;
+        } while (count($result) > 0 && $page <= 50); // safety cap
+
+        return collect($zones)->pluck('name', 'id')->all();
     }
 
     public function sanitize(string $value): string
@@ -386,6 +415,47 @@ class CloudflareSubdomainService
         }
 
         return $response->json('result.id');
+    }
+
+    /**
+     * Public facade over private record deletion — used by the reconcile command.
+     */
+    public function deleteDnsRecord(CloudflareDomain $domain, string $recordId): void
+    {
+        $this->deleteRecord($domain, $recordId);
+    }
+
+    /**
+     * List all SRV DNS records in a zone, following Cloudflare pagination.
+     *
+     * Cloudflare's default page size is 20; a zone with more SRV records than
+     * that silently truncates the listing, which can make the reconcile command
+     * mis-classify a live record as orphaned. Page through until every record
+     * is seen.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function listSrvRecords(CloudflareDomain $domain): array
+    {
+        $records = [];
+        $page = 1;
+
+        do {
+            $response = $this->client()->get(
+                self::API_BASE.'/zones/'.$domain->zone_id.'/dns_records',
+                ['type' => 'SRV', 'per_page' => 100, 'page' => $page]
+            );
+
+            if (! $response->successful()) {
+                throw new DisplayException('Cloudflare API error: '.$this->errorMessage($response->json()));
+            }
+
+            $result = $response->json('result') ?? [];
+            $records = array_merge($records, $result);
+            $page++;
+        } while (count($result) > 0 && $page <= 100); // safety cap
+
+        return $records;
     }
 
     private function deleteRecord(CloudflareDomain $domain, string $recordId): void

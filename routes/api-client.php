@@ -149,7 +149,8 @@ Route::group([
             ->post('/', [Client\Servers\SubdomainController::class, 'store']);
         Route::middleware('throttle:api.subdomain.status')
             ->get('/status', [Client\Servers\SubdomainController::class, 'status']);
-        Route::delete('/', [Client\Servers\SubdomainController::class, 'delete']);
+        Route::middleware('throttle:api.subdomain')
+            ->delete('/', [Client\Servers\SubdomainController::class, 'delete']);
     });
 
     Route::group(['prefix' => '/properties'], function () {
