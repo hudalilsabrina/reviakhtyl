@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Application\Servers;
 
+use App\Facades\Activity;
 use App\Http\Controllers\Api\Application\ApplicationApiController;
 use App\Http\Requests\Api\Application\Servers\Databases\GetServerDatabaseRequest;
 use App\Http\Requests\Api\Application\Servers\Databases\GetServerDatabasesRequest;
@@ -33,7 +34,7 @@ class DatabaseController extends ApplicationApiController
      */
     public function index(GetServerDatabasesRequest $request, Server $server): array
     {
-        return $this->fractal->collection($server->databases)
+        return $this->fractal->collection($server->databases()->with('host')->get())
             ->transformWith($this->getTransformer(ServerDatabaseTransformer::class))
             ->toArray();
     }
@@ -56,6 +57,11 @@ class DatabaseController extends ApplicationApiController
     public function resetPassword(ServerDatabaseWriteRequest $request, Server $server, Database $database): JsonResponse
     {
         $this->databasePasswordService->handle($database);
+
+        Activity::event('server:database.rotate-password')
+            ->subject($database)
+            ->property('name', $database->database)
+            ->log();
 
         return new JsonResponse([], JsonResponse::HTTP_NO_CONTENT);
     }

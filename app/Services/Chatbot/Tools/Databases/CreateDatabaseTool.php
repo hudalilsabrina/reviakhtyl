@@ -9,10 +9,14 @@ use App\Models\Permission;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 use App\Services\Databases\DeployServerDatabaseService;
+use Illuminate\Contracts\Encryption\Encrypter;
 
 class CreateDatabaseTool extends ChatbotTool
 {
-    public function __construct(private DeployServerDatabaseService $deployService) {}
+    public function __construct(
+        private DeployServerDatabaseService $deployService,
+        private Encrypter $encrypter,
+    ) {}
 
     public function name(): string
     {
@@ -94,7 +98,7 @@ class CreateDatabaseTool extends ChatbotTool
         ];
 
         if ($context->can(Permission::ACTION_DATABASE_VIEW_PASSWORD)) {
-            $result['password'] = $database->password;
+            $result['password'] = $this->encrypter->decrypt($database->password);
         }
 
         return $result;
