@@ -1,7 +1,15 @@
 import http from '@/api/http';
 
-export default async (uuid: string): Promise<boolean> => {
+export interface SubdomainStatus {
+    hasSubdomain: boolean;
+    propagated: boolean;
+}
+
+export default async (uuid: string): Promise<SubdomainStatus> => {
     const { data } = await http.get(`/api/client/servers/${uuid}/subdomain/status`);
 
-    return data.propagated === true;
+    return {
+        hasSubdomain: data.has_subdomain === true,
+        propagated: data.propagated === true,
+    };
 };

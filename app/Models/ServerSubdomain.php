@@ -43,6 +43,22 @@ class ServerSubdomain extends Model
     }
 
     /**
+     * Resolve the SRV service, falling back to Minecraft Java for legacy rows.
+     */
+    public function getSrvService(): string
+    {
+        return $this->srv_service ?: '_minecraft';
+    }
+
+    /**
+     * Resolve the SRV protocol, falling back to _tcp for legacy rows.
+     */
+    public function getSrvProto(): string
+    {
+        return $this->srv_proto ?: '_tcp';
+    }
+
+    /**
      * @return BelongsTo<Server, $this>
      */
     public function server(): BelongsTo

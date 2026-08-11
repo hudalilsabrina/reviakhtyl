@@ -9,13 +9,14 @@ use Illuminate\Console\Command;
 
 class ReconcileSubdomains extends Command
 {
-    protected $signature = 'subdomains:reconcile {--dry-run : Show what would be cleaned without making changes}';
+    protected $signature = 'subdomains:reconcile {--dry-run : Show what would be cleaned without making changes} {--force : Skip the interactive confirmation}';
 
     protected $description = 'Clean up orphaned Cloudflare DNS records for deleted subdomains';
 
     public function handle(CloudflareSubdomainService $service): int
     {
         $dryRun = $this->option('dry-run');
+        $force = $this->option('force');
 
         $this->info('Scanning for orphaned Cloudflare SRV records...');
 
@@ -31,7 +32,7 @@ class ReconcileSubdomains extends Command
 
         foreach ($domains as $domain) {
             try {
-                $records = $this->listAllRecords($service, $domain);
+                $records = $service->listSrvRecords($domain);
             } catch (\Throwable $e) {
                 $this->error("Failed to fetch records for {$domain->domain}: {$e->getMessage()}");
 
@@ -76,7 +77,7 @@ class ReconcileSubdomains extends Command
             return self::SUCCESS;
         }
 
-        if (! $this->confirm('Delete these orphaned records?', false)) {
+        if (! $force && ! $this->confirm('Delete these orphaned records?', false)) {
             $this->info('Aborted.');
 
             return self::SUCCESS;
@@ -86,7 +87,7 @@ class ReconcileSubdomains extends Command
 
         foreach ($orphaned as $item) {
             try {
-                $this->deleteRecord($service, $item['domain'], $item['record']['id']);
+                $service->deleteDnsRecord($item['domain'], $item['record']['id']);
                 $deleted++;
             } catch (\Throwable $e) {
                 $this->error('Failed to delete '.$item['record']['name'].': '.$e->getMessage());
@@ -96,33 +97,5 @@ class ReconcileSubdomains extends Command
         $this->info("Deleted {$deleted} orphaned record(s).");
 
         return self::SUCCESS;
-    }
-
-    private function listAllRecords(CloudflareSubdomainService $service, CloudflareDomain $domain): array
-    {
-        $reflection = new \ReflectionClass($service);
-
-        $clientMethod = $reflection->getMethod('client');
-        $clientMethod->setAccessible(true);
-        $client = $clientMethod->invoke($service);
-
-        $response = $client->get("https://api.cloudflare.com/client/v4/zones/{$domain->zone_id}/dns_records", [
-            'type' => 'SRV',
-        ]);
-
-        if (! $response->successful()) {
-            throw new \Exception('Cloudflare API error: '.$response->json('errors.0.message', 'unexpected response'));
-        }
-
-        return $response->json('result') ?? [];
-    }
-
-    private function deleteRecord(CloudflareSubdomainService $service, CloudflareDomain $domain, string $recordId): void
-    {
-        $reflection = new \ReflectionClass($service);
-
-        $method = $reflection->getMethod('deleteRecord');
-        $method->setAccessible(true);
-        $method->invoke($service, $domain, $recordId);
     }
 }

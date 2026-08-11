@@ -63,6 +63,11 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->register(SettingsServiceProvider::class);
+
+        // The service memoizes the enabled-domain list and egg allowlist per
+        // instance; a singleton keeps those lookups at one query per request
+        // instead of once per server when transforming a server collection.
+        $this->app->singleton(\App\Services\Servers\CloudflareSubdomainService::class);
     }
 
     /**

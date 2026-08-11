@@ -41,6 +41,10 @@ const DomainChip = styled.button<{ $selected: boolean }>`
         $selected
             ? tw`bg-cyan-500/20 text-cyan-300 border-cyan-500/50`
             : tw`bg-gray-800/60 text-gray-400 border-gray-700 hover:border-gray-500 hover:text-gray-200`};
+
+    &[aria-pressed='true'] {
+        ${tw`ring-2 ring-cyan-500/40`}
+    }
 `;
 
 const slugify = (value: string): string =>
@@ -89,7 +93,7 @@ const SubdomainContainer = () => {
 
         const check = () =>
             getSubdomainStatus(uuid)
-                .then(setPropagated)
+                .then((status) => setPropagated(status.hasSubdomain && status.propagated ? true : false))
                 .catch(() => setPropagated(false));
 
         check();
@@ -178,10 +182,12 @@ const SubdomainContainer = () => {
                                         <>
                                             <FaCheckCircle /> {t('status-active')}
                                         </>
-                                    ) : (
+                                    ) : propagated === false ? (
                                         <>
                                             <FaClock /> {t('status-pending')}
                                         </>
+                                    ) : (
+                                        <span>{t('status-checking')}</span>
                                     )}
                                 </StatusBadge>
                             </div>
@@ -195,13 +201,18 @@ const SubdomainContainer = () => {
                         <SpinnerOverlay visible={submitting} />
                         <p css={tw`text-sm text-gray-300 mb-4`}>{t('description')}</p>
 
-                        <Label>{t('label')}</Label>
-                        <Input
-                            value={value}
-                            onChange={(e) => setValue(e.currentTarget.value)}
-                            placeholder={'my-server'}
-                            maxLength={63}
-                        />
+                        {domains.length === 0 ? (
+                            <p css={tw`text-sm text-amber-400/90`}>{t('no-domains')}</p>
+                        ) : (
+                            <>
+                                <Label htmlFor={'subdomain-name'}>{t('label')}</Label>
+                                <Input
+                                    id={'subdomain-name'}
+                                    value={value}
+                                    onChange={(e) => setValue(e.currentTarget.value)}
+                                    placeholder={'my-server'}
+                                    maxLength={63}
+                                />
 
                         {preview && (
                             <p css={tw`text-xs mt-2 text-gray-400`}>
@@ -217,6 +228,7 @@ const SubdomainContainer = () => {
                                     key={d.id}
                                     type={'button'}
                                     $selected={d.id === domainId}
+                                    aria-pressed={d.id === domainId}
                                     onClick={() => setDomainId(d.id)}
                                 >
                                     .{d.domain}
@@ -243,6 +255,8 @@ const SubdomainContainer = () => {
                                 {current ? t('update') : t('create')}
                             </Button>
                         </div>
+                            </>
+                        )}
                     </Card>
                 </div>
             )}

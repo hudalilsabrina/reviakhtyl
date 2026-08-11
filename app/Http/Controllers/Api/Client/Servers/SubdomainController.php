@@ -71,16 +71,25 @@ class SubdomainController extends ClientApiController
     {
         $subdomain = $server->subdomain;
 
+        if (! $subdomain) {
+            return new JsonResponse([
+                'has_subdomain' => false,
+                'propagated' => false,
+            ]);
+        }
+
         return new JsonResponse([
-            'propagated' => $subdomain ? $this->subdomainService->isPropagated($subdomain) : false,
+            'has_subdomain' => true,
+            'propagated' => $this->subdomainService->isPropagated($subdomain),
         ]);
     }
 
     public function delete(DeleteSubdomainRequest $request, Server $server): JsonResponse
     {
-        if (! $this->subdomainService->isEnabledFor($server)) {
-            throw new DisplayException('Subdomains are not available for this server.');
-        }
+        // No isEnabledFor gate here on purpose: removing a subdomain is a cleanup
+        // operation. If an admin disables the egg/domain, the owner must still be
+        // able to tear the subdomain down — otherwise it is stranded forever.
+        // destroy() no-ops when there is nothing to delete, so this is safe.
 
         $fqdn = $server->subdomain?->getFqdn();
 

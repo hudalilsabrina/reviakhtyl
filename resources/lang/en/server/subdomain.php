@@ -12,6 +12,7 @@ return [
     'hint-invalid' => 'Subdomain must contain at least one letter or number.',
     'status-active' => 'Active',
     'status-pending' => 'Propagating',
+    'status-checking' => 'Checking…',
     'propagation-note' => 'DNS is still propagating. This can take a few minutes — the server stays reachable via its IP and port meanwhile.',
     'create' => 'Create Subdomain',
     'update' => 'Update Subdomain',
@@ -21,4 +22,5 @@ return [
     'delete-title' => 'Remove Subdomain',
     'delete-confirm' => 'Remove',
     'delete-message' => 'This will remove :fqdn and delete its DNS record. Players using this address will no longer connect.',
+    'no-domains' => 'No subdomain domains are configured on this panel. Ask an administrator to enable at least one domain.',
 ];
