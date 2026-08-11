@@ -243,7 +243,7 @@ const PlayersContainer = () => {
                                     onKeyDown={(e) => e.key === 'Enter' && submitAdd()}
                                     placeholder={t('player_name_placeholder')}
                                     disabled={busy}
-                                    css={tw`flex-1 min-w-[160px] px-3 h-9 rounded bg-black/40 border border-white/10 text-sm text-gray-100 placeholder:text-gray-500 focus:border-emerald-400/50 focus:outline-none`}
+                                    css={tw`flex-1 min-w-[160px] px-3 h-9 rounded bg-black/40 border border-white/10 text-sm text-gray-100 placeholder:text-gray-500 focus:border-cyan-400/50 focus:outline-none`}
                                 />
                                 {tab === 'ops' && !isOnline && (
                                     <select
@@ -266,7 +266,7 @@ const PlayersContainer = () => {
                                         onChange={(e) => setAddReason(e.target.value)}
                                         placeholder={t('reason_placeholder')}
                                         disabled={busy}
-                                        css={tw`flex-1 min-w-[160px] px-3 h-9 rounded bg-black/40 border border-white/10 text-sm text-gray-100 placeholder:text-gray-500 focus:border-emerald-400/50 focus:outline-none`}
+                                        css={tw`flex-1 min-w-[160px] px-3 h-9 rounded bg-black/40 border border-white/10 text-sm text-gray-100 placeholder:text-gray-500 focus:border-cyan-400/50 focus:outline-none`}
                                     />
                                 )}
                                 <MinecraftButton
