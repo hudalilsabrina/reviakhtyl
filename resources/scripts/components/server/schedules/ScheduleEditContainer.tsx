@@ -27,15 +27,19 @@ const CronBox = ({ title, value }: { title: string; value: string }) => (
     </div>
 );
 
-const ActivePill = ({ active }: { active: boolean }) => (
-    <span
-        className={`rounded-ui px-2 py-px text-xs ml-4 uppercase ${
-            active ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
-        }`}
-    >
-        {active ? 'Active' : 'Inactive'}
-    </span>
-);
+const ActivePill = ({ active }: { active: boolean }) => {
+    const { t } = useTranslation('server/schedules');
+
+    return (
+        <span
+            className={`rounded-ui px-2 py-px text-xs ml-4 uppercase ${
+                active ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'
+            }`}
+        >
+            {active ? t('active') : t('inactive')}
+        </span>
+    );
+};
 
 const ScheduleEditContainer = () => {
     const { t } = useTranslation('server/schedules');
@@ -93,33 +97,31 @@ const ScheduleEditContainer = () => {
                                             css={tw`flex items-center rounded-full px-2 py-px text-xs ml-4 uppercase bg-gray-700 text-white`}
                                         >
                                             <Spinner css={tw`w-3! h-3! mr-2`} />
-                                            Processing
+                                            {t('processing')}
                                         </span>
                                     ) : (
                                         <ActivePill active={schedule.isActive} />
                                     )}
                                 </h3>
                                 <p css={tw`mt-1 text-sm text-gray-200`}>
-                                    Last run at:&nbsp;
-                                    {schedule.lastRunAt ? (
-                                        format(schedule.lastRunAt, "MMM do 'at' h:mma")
-                                    ) : (
-                                        <span css={tw`text-gray-300`}>n/a</span>
-                                    )}
+                                    {t('last-run-at', {
+                                        time: schedule.lastRunAt
+                                            ? format(schedule.lastRunAt, "MMM do 'at' h:mma")
+                                            : t('never'),
+                                    })}
                                     <span css={tw`ml-4 pl-4 border-l-4 border-gray-800 py-px`}>
-                                        Next run at:&nbsp;
-                                        {schedule.nextRunAt ? (
-                                            format(schedule.nextRunAt, "MMM do 'at' h:mma")
-                                        ) : (
-                                            <span css={tw`text-gray-300`}>n/a</span>
-                                        )}
+                                        {t('next-run-at', {
+                                            time: schedule.nextRunAt
+                                                ? format(schedule.nextRunAt, "MMM do 'at' h:mma")
+                                                : t('never'),
+                                        })}
                                     </span>
                                 </p>
                             </div>
                             <div css={tw`flex sm:block mt-3 sm:mt-0`}>
                                 <Can action={'schedule.update'}>
                                     <Button.Text className={'flex-1 mr-4'} onClick={toggleEditModal}>
-                                        Edit
+                                        {t('edit-schedule')}
                                     </Button.Text>
                                     <NewTaskButton schedule={schedule} />
                                 </Can>

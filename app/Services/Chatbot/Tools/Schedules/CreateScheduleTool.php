@@ -7,6 +7,7 @@ use App\Exceptions\DisplayException;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Models\Permission;
 use App\Models\Schedule;
+use App\Models\Task;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
 use Carbon\Carbon;
@@ -123,16 +124,32 @@ class CreateScheduleTool extends ChatbotTool
 
     public function handle(ToolContext $context, array $arguments): array
     {
+        $limit = config('panel.client_features.schedules.per_schedule_task_limit', 10);
+        if (count($arguments['tasks']) > $limit) {
+            throw new ChatbotException("Schedules may not have more than $limit tasks associated with them.");
+        }
+
+        // The user must hold the permission each task action requires. Mirrors
+        // StoreTaskRequest::authorize(), which checks the same mapping.
+        foreach ($arguments['tasks'] as $task) {
+            $permission = Task::permissionForAction((string) $task['action'], $task['payload'] ?? null);
+
+            if (is_null($permission) || ! $context->can($permission)) {
+                throw new ChatbotException('You do not have permission to perform this action.');
+            }
+        }
+
         $this->validateCron($arguments['cron']);
+        $cron = $this->cronParts($arguments['cron']);
 
         $schedule = Schedule::create([
             'server_id' => $context->server->id,
             'name' => $arguments['name'],
-            'cron_day_of_week' => '*',
-            'cron_month' => '*',
-            'cron_day_of_month' => '*',
-            'cron_hour' => '*',
-            'cron_minute' => '*',
+            'cron_day_of_week' => $cron[CronExpression::WEEKDAY],
+            'cron_month' => $cron[CronExpression::MONTH],
+            'cron_day_of_month' => $cron[CronExpression::DAY],
+            'cron_hour' => $cron[CronExpression::HOUR],
+            'cron_minute' => $cron[CronExpression::MINUTE],
             'is_active' => $arguments['is_active'] ?? true,
             'only_when_online' => $arguments['only_when_online'] ?? false,
             'next_run_at' => $this->nextRun($arguments['cron']),
@@ -140,7 +157,7 @@ class CreateScheduleTool extends ChatbotTool
 
         foreach ($arguments['tasks'] as $index => $task) {
             $schedule->tasks()->create([
-                'sequence_id' => $task['sequence_id'] ?? $index,
+                'sequence_id' => $task['sequence_id'] ?? $index + 1,
                 'action' => $task['action'],
                 'payload' => $task['payload'] ?? '',
                 'time_offset' => 0,
@@ -175,6 +192,17 @@ class CreateScheduleTool extends ChatbotTool
         } catch (\Throwable) {
             throw new ChatbotException("Invalid cron expression: \"{$cron}\". Use a standard 5-field cron like \"0 3 * * *\".");
         }
+    }
+
+    /**
+     * Split a validated cron expression into its five parts, ordered to match
+     * the schedules table columns (minute hour day_of_month month day_of_week).
+     *
+     * @return array<int, string> keyed by CronExpression field constant
+     */
+    private function cronParts(string $cron): array
+    {
+        return CronExpression::factory($cron)->getParts();
     }
 
     private function nextRun(string $cron): Carbon

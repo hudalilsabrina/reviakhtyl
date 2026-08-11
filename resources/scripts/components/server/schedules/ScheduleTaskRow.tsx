@@ -19,16 +19,16 @@ interface Props {
     task: Task;
 }
 
-const getActionDetails = (action: string): [string, IconType] => {
+const getActionDetails = (t: (key: string) => string, action: string): [string, IconType] => {
     switch (action) {
         case 'command':
-            return ['Send Command', FaCode];
+            return [t('action-command'), FaCode];
         case 'power':
-            return ['Send Power Action', FaToggleOn];
+            return [t('action-power'), FaToggleOn];
         case 'backup':
-            return ['Create Backup', FaFileZipper];
+            return [t('action-backup'), FaFileZipper];
         default:
-            return ['Unknown Action', FaCode];
+            return [t('unknown-action'), FaCode];
     }
 };
 
@@ -58,7 +58,7 @@ export default ({ schedule, task }: Props) => {
             });
     };
 
-    const [title, icon] = getActionDetails(task.action);
+    const [title, icon] = getActionDetails(t, task.action);
     const ActionIcon = icon;
 
     return (

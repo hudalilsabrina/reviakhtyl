@@ -6,6 +6,7 @@ use App\Enum\ChatbotToolGroup;
 use App\Exceptions\Service\Chatbot\ChatbotException;
 use App\Models\Permission;
 use App\Models\Schedule;
+use App\Models\Task;
 use App\Repositories\Eloquent\ScheduleRepository;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
@@ -73,6 +74,17 @@ class ExecuteScheduleTool extends ChatbotTool
     public function handle(ToolContext $context, array $arguments): array
     {
         $schedule = $this->findSchedule($context, $arguments['schedule_id']);
+
+        // Executing a schedule runs every task in sequence, so the user needs
+        // the permission each task's action requires, not just schedule.update.
+        // Mirrors ScheduleController::authorizeTasks().
+        foreach ($schedule->tasks as $task) {
+            $permission = Task::permissionForAction($task->action, $task->payload);
+
+            if (is_null($permission) || ! $context->can($permission)) {
+                throw new ChatbotException('You do not have permission to perform this action.');
+            }
+        }
 
         $this->processService->handle($schedule, true);
 
