@@ -135,6 +135,14 @@ return [
             'update' => 'Updated the server subdomain to :subdomain',
             'delete' => 'Removed the :subdomain subdomain',
         ],
+        'player' => [
+            'whitelist-add' => 'Added :name to the whitelist',
+            'whitelist-remove' => 'Removed :name from the whitelist',
+            'op' => 'Granted operator status to :name (level :level)',
+            'deop' => 'Revoked operator status from :name',
+            'ban' => 'Banned :name',
+            'unban' => 'Unbanned :name',
+        ],
         'properties' => [
             'update' => 'Updated server.properties (:properties)',
             'update-raw' => 'Replaced the contents of server.properties',

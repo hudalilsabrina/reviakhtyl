@@ -9,6 +9,7 @@ import PluginsContainer from '@/components/server/plugins/PluginsContainer';
 import ModsContainer from '@/components/server/mods/ModsContainer';
 import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import DatapacksContainer from '@/components/server/datapacks/DatapacksContainer';
+import PlayersContainer from '@/components/server/players/PlayersContainer';
 import SplitterContainer from '@/components/server/splitter/SplitterContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
 import StartupContainer from '@/components/server/startup/StartupContainer';
@@ -45,6 +46,7 @@ import {
     FaTelegram,
     FaTerminal,
     FaUser,
+    FaUserPlus,
     FaUsers,
     FaWandMagicSparkles,
 } from 'react-icons/fa6';
@@ -264,6 +266,14 @@ export default {
                 name: 'server.datapacks',
                 component: DatapacksContainer,
                 icon: FaBoxOpen,
+            },
+            {
+                route: 'players/*',
+                permission: 'player.*',
+                eggFeature: 'players',
+                name: 'server.players',
+                component: PlayersContainer,
+                icon: FaUserPlus,
             },
             {
                 route: 'splitter/*',

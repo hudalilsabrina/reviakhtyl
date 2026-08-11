@@ -32,6 +32,7 @@ return [
         'mods' => 'Mods',
         'modpacks' => 'Modpacks',
         'datapacks' => 'Datapacks',
+        'players' => 'Players',
         'splitter' => 'Splitter',
         'users' => 'Users',
         'settings' => 'Settings',

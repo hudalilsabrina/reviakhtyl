@@ -237,6 +237,26 @@ Route::group([
         Route::delete('/{datapack}', [Client\Servers\DatapackController::class, 'destroy']);
     });
 
+    Route::group(['prefix' => '/players'], function () {
+        Route::get('/', [Client\Servers\PlayerController::class, 'index']);
+        Route::get('/online', [Client\Servers\PlayerController::class, 'online']);
+        Route::middleware('throttle:api.players')
+            ->post('/whitelist', [Client\Servers\PlayerController::class, 'whitelistAdd']);
+        Route::middleware('throttle:api.players')
+            ->delete('/whitelist/{name}', [Client\Servers\PlayerController::class, 'whitelistRemove'])
+            ->where('name', '[A-Za-z0-9_]{1,16}');
+        Route::middleware('throttle:api.players')
+            ->post('/ops', [Client\Servers\PlayerController::class, 'op']);
+        Route::middleware('throttle:api.players')
+            ->delete('/ops/{name}', [Client\Servers\PlayerController::class, 'deop'])
+            ->where('name', '[A-Za-z0-9_]{1,16}');
+        Route::middleware('throttle:api.players')
+            ->post('/bans', [Client\Servers\PlayerController::class, 'ban']);
+        Route::middleware('throttle:api.players')
+            ->delete('/bans/{name}', [Client\Servers\PlayerController::class, 'unban'])
+            ->where('name', '[A-Za-z0-9_]{1,16}');
+    });
+
     Route::group(['prefix' => '/users'], function () {
         Route::get('/', [Client\Servers\SubuserController::class, 'index']);
         Route::middleware([ResourceLimit::Subuser->middleware()])

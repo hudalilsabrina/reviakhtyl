@@ -113,6 +113,13 @@ class RouteConfigServiceProvider extends ServiceProvider
             return Limit::perMinute(10)->by($key);
         });
 
+        // Player management writes talk to Wings (command or file write).
+        RateLimiter::for('api.players', function (Request $request) {
+            $key = optional($request->user())->uuid ?: $request->ip();
+
+            return Limit::perMinute(20)->by($key);
+        });
+
         // Every properties write is a read plus a write against Wings, and the
         // save button is easy to lean on.
         RateLimiter::for('api.properties', function (Request $request) {

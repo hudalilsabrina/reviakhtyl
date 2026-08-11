@@ -103,6 +103,8 @@ class Permission extends Model
 
     public const ACTION_DATAPACK_MANAGE = 'datapack.manage';
 
+    public const ACTION_PLAYER_MANAGE = 'player.manage';
+
     public const ACTION_PROPERTIES_MANAGE = 'properties.manage';
 
     /**
@@ -272,6 +274,13 @@ class Permission extends Model
             'description' => 'Permissions that control a user\'s access to the datapack installer for this server.',
             'keys' => [
                 'manage' => 'Allows a user to search, install, update, and remove Minecraft datapacks on this server.',
+            ],
+        ],
+
+        'player' => [
+            'description' => 'Permissions that control a user\'s access to the player manager for this server.',
+            'keys' => [
+                'manage' => 'Allows a user to manage the whitelist, operators, and bans for this server.',
             ],
         ],
 
