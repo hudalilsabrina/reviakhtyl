@@ -312,7 +312,7 @@ class ModManagerService
             return null;
         }
 
-        $value = $variable->server_value ?? $variable->default_value;
+        $value = $variable->server_value ?? ($variable->default_value ?? null);
 
         return is_string($value) && $value !== '' ? $value : null;
     }

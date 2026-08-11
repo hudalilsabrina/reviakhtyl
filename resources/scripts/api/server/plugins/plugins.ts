@@ -139,21 +139,37 @@ export const installPlugin = async (
     slug?: string,
     replace = false
 ): Promise<ServerPlugin> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/plugins`, {
-        provider,
-        project_id: projectId,
-        title,
-        icon_url: iconUrl,
-        version_id: versionId,
-        slug,
-        replace,
-    });
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/plugins`,
+        {
+            provider,
+            project_id: projectId,
+            title,
+            icon_url: iconUrl,
+            version_id: versionId,
+            slug,
+            replace,
+        },
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like this plugin is taking a long time to download. Once completed the plugin will appear in your installed plugins.',
+        }
+    );
 
     return rawDataToServerPlugin(data);
 };
 
 export const updatePlugin = async (uuid: string, pluginId: number): Promise<ServerPlugin> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/plugins/${pluginId}/update`);
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/plugins/${pluginId}/update`,
+        {},
+        {
+            timeout: 300000,
+            timeoutErrorMessage:
+                'It looks like this plugin is taking a long time to download. Once completed the plugin will be updated.',
+        }
+    );
 
     return rawDataToServerPlugin(data);
 };

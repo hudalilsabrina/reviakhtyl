@@ -62,6 +62,14 @@ export interface ModpackInstallResult {
 }
 
 export const installModpack = async (uuid: string, url: string): Promise<ModpackInstallResult> => {
-    const { data } = await http.post(`/api/client/servers/${uuid}/modpacks`, { url });
+    const { data } = await http.post(
+        `/api/client/servers/${uuid}/modpacks`,
+        { url },
+        {
+            timeout: 600000,
+            timeoutErrorMessage:
+                'It looks like this modpack is taking a long time to download. Once completed the mods will appear in your installed mods.',
+        }
+    );
     return data;
 };

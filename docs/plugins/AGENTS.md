@@ -105,16 +105,18 @@ Settings → Plugins → Select eggs allowed to use installer (`panel:plugins:eg
 `plugin.manage` — User needs this subuser permission to access feature
 
 ### Rate Limiting
-Dedicated limiter in `RouteConfigServiceProvider.php:96`
+Dedicated limiter in `RouteConfigServiceProvider.php` (`api.plugins`, 10/min/user)
+Applied to: install, update, link, register, untracked. Search/versions are unrestricted.
 
 ## Edge Cases
 
 ### JAR Parsing
 - Supports: `plugin.yml`, `paper-plugin.yml`, `bungee.yml`, `velocity-plugin.json`
-- Streams to temp file vs loading into memory (PluginJarService.php:101-137)
+- Streams to temp file vs loading into memory (PluginJarService.php)
 - ponytail: Wings files API has no Range header → still transfers full JAR over wire
-- Max size: 64 MB (PluginJarService.php:12)
+- Max size: 64 MB (PluginJarService.php)
 - Fallback: filename-based slug/title if parse fails
+- **Zip-slip hardening**: `entriesSafe()` runs before any descriptor is read and rejects archives with `..` segments, absolute paths, backslashes, symlink entries, or any entry over 16 MB decompressed (same pattern as `DatapackZipService`). A rejected jar yields the filename fallback — never partial descriptor data.
 
 ### Version Resolution
 Install without version ID → picks first compatible version matching loaders + game version (PluginManagerService.php:157-164).
@@ -131,13 +133,24 @@ User installs "Vault" from Modrinth → tries to install from SpigotMC → 409 r
 
 1. **No real download progress** — Wings pull endpoint is fire-and-forget; fake progress bar eases to 90% then jumps to 100%
 2. **No automatic updates** — User must manually click Update button
-3. **No bulk operations** — Must update/delete one plugin at a time
+3. **No bulk operations** — Must update/delete one plugin at a time (mods have bulk, plugins do not)
 4. **No version pinning** — Update always pulls latest compatible version
 5. **JAR parsing overhead** — Full JAR downloaded even when only reading metadata
 
+## Gotchas
+
+- Frontend install/update requests override the 20s axios default with a 300s timeout + friendly `timeoutErrorMessage` (matches datapacks). A 64 MB jar pull through Wings can easily exceed 20s.
+- The `{plugin}` routes in `routes/api-client.php` are registered after the literal `/register` route; keep literal paths ahead of parameterised ones when adding new endpoints (see the mods `/bulk/update` ordering fix).
+
 ## Testing
 
-No `tests/` directory exists. Manual test coverage:
+Pest coverage in `tests/Feature/Services/Plugins/` (mocked providers + `Cache::flush()`, no DB):
+- `PluginManagerServiceTest.php` — egg allowlist gating, BUILD_TYPE/MINECRAFT_VERSION resolution, cross-provider duplicate detection, unknown-provider and up-to-date exceptions
+- `PluginJarServiceTest.php` — metadata parsing (plugin.yml), oversize fallback, zip-slip/absolute-path rejection via real in-memory zips
+
+Run: `vendor/bin/pest tests/Feature/Services/Plugins/`.
+
+Manual test coverage:
 - Install plugin with/without dependencies
 - Update plugin (up-to-date case, new version case)
 - Toggle enable/disable (verify `.disabled` extension)
