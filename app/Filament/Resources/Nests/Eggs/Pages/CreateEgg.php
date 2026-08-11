@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Nests\Eggs\Pages;
 
 use App\Filament\Resources\Nests\EggResource;
 use Filament\Resources\Pages\CreateRecord;
+use Ramsey\Uuid\Uuid;
 
 class CreateEgg extends CreateRecord
 {
@@ -16,6 +17,11 @@ class CreateEgg extends CreateRecord
         if ($nestId) {
             $data['nest_id'] = $nestId;
         }
+
+        // uuid and author are disabled/non-dehydrated in the form but are required
+        // by the egg model. Default them here so model validation passes.
+        $data['uuid'] = Uuid::uuid4()->toString();
+        $data['author'] ??= config('panel.service.author');
 
         return $data;
     }

@@ -48,6 +48,8 @@ return [
         'created' => 'A new nest, :name, has been successfully created.',
         'deleted' => 'Successfully deleted the requested nest from the Panel.',
         'updated' => 'Successfully updated the nest configuration options.',
+        'cannot_delete' => 'Cannot delete nest',
+        'cannot_delete_body' => 'This nest has :count server(s) associated. Please delete or reassign them first.',
     ],
     'eggs' => [
         'notices' => [

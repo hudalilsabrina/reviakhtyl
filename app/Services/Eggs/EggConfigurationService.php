@@ -19,6 +19,10 @@ class EggConfigurationService
      */
     public function handle(Server $server): array
     {
+        // Child eggs inherit config from a parent egg; load it up-front so the
+        // inherit_* accessors below don't issue a lazy query per server.
+        $server->egg->loadMissing('configFrom');
+
         $configs = $this->replacePlaceholders(
             $server,
             json_decode($server->egg->inherit_config_files)
