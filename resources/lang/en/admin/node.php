@@ -191,6 +191,7 @@ return [
         'updated' => 'Node has been successfully updated.',
         'deleted' => 'Node has been successfully deleted.',
         'cannot_delete_with_servers' => 'Cannot delete a node with active servers.',
+        'cannot_delete_with_transfers' => 'Cannot delete a node referenced by a server transfer.',
     ],
 
     'allocations' => [

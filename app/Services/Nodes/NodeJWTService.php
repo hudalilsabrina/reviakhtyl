@@ -18,7 +18,7 @@ class NodeJWTService
 {
     private array $claims = [];
 
-    private array $scopes;
+    private array $scopes = [];
 
     private ?User $user = null;
 

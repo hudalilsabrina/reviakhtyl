@@ -40,8 +40,13 @@ class FindAssignableAllocationService
         // Attempt to find a given available allocation for a server. If one cannot be found
         // we will fall back to attempting to create a new allocation that can be used for the
         // server.
+        //
+        // The row lock (requires an enclosing DB transaction, see NetworkAllocationController)
+        // makes the find-then-assign step atomic so two concurrent requests cannot claim the
+        // same allocation for two different servers.
         /** @var Allocation|null $allocation */
         $allocation = $server->node->allocations()
+            ->lockForUpdate()
             ->where('ip', $server->allocation->ip)
             ->whereNull('server_id')
             ->inRandomOrder()
@@ -49,7 +54,7 @@ class FindAssignableAllocationService
 
         $allocation = $allocation ?? $this->createNewAllocation($server);
 
-        $allocation->update(['server_id' => $server->id]);
+        $allocation->forceFill(['server_id' => $server->id])->save();
 
         return $allocation->refresh();
     }
@@ -77,10 +82,23 @@ class FindAssignableAllocationService
         Assert::integerish($start);
         Assert::integerish($end);
 
+        // Lock the node's allocation rows so two concurrent auto-allocation requests cannot
+        // both compute the same free port and try to assign it to two different servers.
+        // Without this a pair of servers can end up sharing one allocation, and the "random"
+        // port picked below may be silently lost to an insertIgnore collision.
+        //
+        // The primary allocation is locked as part of the set so the whole fast-path/create
+        // sequence contends on a stable, single row group; see NetworkAllocationController
+        // for the enclosing transaction.
+        $lockedIp = $server->node->allocations()
+            ->lockForUpdate()
+            ->whereKey($server->allocation_id)
+            ->value('ip') ?? $server->allocation->ip;
+
         // Get all of the currently allocated ports for the node so that we can figure out
         // which port might be available.
         $ports = $server->node->allocations()
-            ->where('ip', $server->allocation->ip)
+            ->where('ip', $lockedIp)
             ->whereBetween('port', [$start, $end])
             ->pluck('port');
 
@@ -99,13 +117,13 @@ class FindAssignableAllocationService
         $port = $available[array_rand($available)];
 
         $this->service->handle($server->node, [
-            'allocation_ip' => $server->allocation->ip,
+            'allocation_ip' => $lockedIp,
             'allocation_ports' => [$port],
         ]);
 
         /** @var Allocation $allocation */
         $allocation = $server->node->allocations()
-            ->where('ip', $server->allocation->ip)
+            ->where('ip', $lockedIp)
             ->where('port', $port)
             ->firstOrFail();
 
