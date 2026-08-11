@@ -1094,6 +1094,35 @@ const ModsContainer = () => {
                                                     <span css={tw`font-mono`}>{hit.installedVersion}</span>
                                                 </Badge>
                                             )}
+                                            <div css={tw`ml-auto flex items-center gap-1`}>
+                                                {!hit.installedVersion && (
+                                                    <Button.Success
+                                                        size={Button.Sizes.Small}
+                                                        shape={Button.Shapes.IconSquare}
+                                                        disabled={!!busy}
+                                                        onClick={() => install(hit)}
+                                                        aria-label={t('install')}
+                                                        title={t('install')}
+                                                    >
+                                                        {busy === `install:${hit.id}` ? (
+                                                            <Spinner size={'small'} />
+                                                        ) : (
+                                                            <FaDownload style={{ fontSize: '12px' }} />
+                                                        )}
+                                                    </Button.Success>
+                                                )}
+                                                <Button
+                                                    size={Button.Sizes.Small}
+                                                    shape={Button.Shapes.IconSquare}
+                                                    variant={Button.Variants.Secondary}
+                                                    disabled={!!busy}
+                                                    onClick={() => openVersions(hit)}
+                                                    aria-label={t('versions')}
+                                                    title={t('versions')}
+                                                >
+                                                    <FaListUl style={{ fontSize: '12px' }} />
+                                                </Button>
+                                            </div>
                                         </div>
                                         <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
                                             {hit.author && <span>{t('by', { author: hit.author })}</span>}
@@ -1112,33 +1141,6 @@ const ModsContainer = () => {
                                         >
                                             {hit.description}
                                         </p>
-                                        <div css={tw`mt-3 flex gap-2`}>
-                                            {!hit.installedVersion && (
-                                                <Button.Success
-                                                    size={Button.Sizes.Small}
-                                                    disabled={!!busy}
-                                                    onClick={() => install(hit)}
-                                                >
-                                                    {busy === `install:${hit.id}` ? (
-                                                        <Spinner size={'small'} />
-                                                    ) : (
-                                                        <>
-                                                            <FaDownload css={tw`inline mr-1 -mt-0.5`} />
-                                                            {t('install')}
-                                                        </>
-                                                    )}
-                                                </Button.Success>
-                                            )}
-                                            <Button
-                                                size={Button.Sizes.Small}
-                                                variant={Button.Variants.Secondary}
-                                                disabled={!!busy}
-                                                onClick={() => openVersions(hit)}
-                                            >
-                                                <FaListUl css={tw`inline mr-1 -mt-0.5`} />
-                                                {t('versions')}
-                                            </Button>
-                                        </div>
                                     </div>
                                 </Card>
                             ))}
