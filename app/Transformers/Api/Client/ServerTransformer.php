@@ -167,7 +167,15 @@ class ServerTransformer extends BaseClientTransformer
             return $this->collection([$primary], $transformer, Allocation::RESOURCE_NAME);
         }
 
-        return $this->collection($server->allocations, $transformer, Allocation::RESOURCE_NAME);
+        // The primary allocation may not have a server_id set (legacy data or an
+        // allocation referenced by allocation_id but never assigned via server_id),
+        // so $server->allocations alone can omit it. Always include the primary.
+        $allocations = $server->allocations->keyBy('id');
+        if ($server->allocation !== null) {
+            $allocations->put($server->allocation->id, $server->allocation);
+        }
+
+        return $this->collection($allocations, $transformer, Allocation::RESOURCE_NAME);
     }
 
     /**
