@@ -12,6 +12,7 @@ use App\Models\Subuser;
 use App\Repositories\Eloquent\SubuserRepository;
 use App\Services\Users\UserCreationService;
 use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Str;
 
 class SubuserCreationService
@@ -64,11 +65,18 @@ class SubuserCreationService
                 ]);
             }
 
-            return $this->subuserRepository->create([
-                'user_id' => $user->id,
-                'server_id' => $server->id,
-                'permissions' => array_unique($permissions),
-            ]);
+            try {
+                return $this->subuserRepository->create([
+                    'user_id' => $user->id,
+                    'server_id' => $server->id,
+                    'permissions' => array_unique($permissions),
+                ]);
+            } catch (UniqueConstraintViolationException) {
+                // Race: another request created this subuser between our count
+                // check and the insert (enforced by the (user_id, server_id)
+                // unique index). Report it as if the check had caught it.
+                throw new ServerSubuserExistsException(trans('exceptions.subusers.subuser_exists'));
+            }
         });
     }
 }

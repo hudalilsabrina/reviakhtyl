@@ -69,15 +69,17 @@ class SubuserController extends ClientApiController
      */
     public function store(StoreSubuserRequest $request, Server $server): array
     {
+        $permissions = $this->getDefaultPermissions($request);
+
         $response = $this->creationService->handle(
             $server,
             $request->input('email'),
-            $this->getDefaultPermissions($request)
+            $permissions
         );
 
         Activity::event('server:subuser.create')
             ->subject($response->user)
-            ->property(['email' => $request->input('email'), 'permissions' => $this->getDefaultPermissions($request)])
+            ->property(['email' => $request->input('email'), 'permissions' => $permissions])
             ->log();
 
         return $this->fractal->item($response)
