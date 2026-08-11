@@ -4,11 +4,21 @@ namespace App\Services\Mods;
 
 use App\Exceptions\DisplayException;
 use App\Models\Server;
+use App\Support\PublicHttpGuard;
+use GuzzleHttp\Psr7\Response as GuzzleResponse;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use ZipArchive;
 
 class ModpackManagerService
 {
+    /** Largest modpack archive we are willing to download, in bytes. */
+    private const MAX_DOWNLOAD_BYTES = 512 * 1024 * 1024;
+
+    /** How many redirect hops are followed before giving up. */
+    private const MAX_REDIRECTS = 5;
+
     public function __construct(
         private ModManagerService $modManager,
     ) {}
@@ -43,66 +53,154 @@ class ModpackManagerService
      */
     public function parseManifest(string $url): array
     {
-        $response = Http::timeout(60)->get($url);
+        // Cache the parsed manifest by the normalized URL. A modpack zip can be
+        // hundreds of MB; re-downloading it on every preview/install is wasteful.
+        // TTL matches the JAR-metadata cache in ModJarService (1 hour).
+        return Cache::remember(
+            'panel:modpacks:manifest:'.md5(trim($url)),
+            now()->addHour(),
+            function () use ($url) {
+                $target = PublicHttpGuard::resolvePublicUrl(trim($url));
 
-        if ($response->failed()) {
-            throw new DisplayException('Failed to download modpack from URL.');
+                if ($target === null) {
+                    throw new DisplayException('Only public http(s) URLs can be used to install a modpack.');
+                }
+
+                $response = $this->followRedirects($target);
+
+                if ($response === null) {
+                    throw new DisplayException('Failed to download modpack from URL.');
+                }
+
+                $body = $response->body();
+                $tempFile = tempnam(sys_get_temp_dir(), 'modpack_');
+
+                try {
+                    file_put_contents($tempFile, $body);
+
+                    $zip = new ZipArchive();
+                    if ($zip->open($tempFile) !== true) {
+                        throw new DisplayException('The downloaded file is not a valid zip archive.');
+                    }
+
+                    $manifest = null;
+                    $format = null;
+
+                    if (($content = $zip->getFromName('modrinth.index.json')) !== false) {
+                        $manifest = json_decode($content, true);
+                        if (! is_array($manifest)) {
+                            throw new DisplayException('Invalid modrinth.index.json in modpack.');
+                        }
+                        $format = 'modrinth';
+                    } elseif (($content = $zip->getFromName('manifest.json')) !== false) {
+                        $manifest = json_decode($content, true);
+                        if (! is_array($manifest)) {
+                            throw new DisplayException('Invalid manifest.json in modpack.');
+                        }
+
+                        $type = $manifest['manifestType'] ?? '';
+                        if ($type !== 'minecraftModpack') {
+                            throw new DisplayException('Unsupported manifest type: "'.$type.'". Only Minecraft modpacks are supported.');
+                        }
+
+                        $format = 'curseforge';
+                    } else {
+                        throw new DisplayException('No modpack manifest found in the archive. Expected modrinth.index.json or manifest.json at the zip root.');
+                    }
+
+                    $zip->close();
+
+                    $parsedMods = $format === 'modrinth'
+                        ? $this->parseModrinthManifest($manifest)
+                        : $this->parseCurseForgeManifest($manifest);
+
+                    $name = $manifest['name'] ?? basename(parse_url($target, PHP_URL_PATH));
+
+                    return [
+                        'format' => $format,
+                        'name' => $name,
+                        'mods' => $parsedMods,
+                    ];
+                } finally {
+                    if (file_exists($tempFile)) {
+                        @unlink($tempFile);
+                    }
+                }
+            }
+        );
+    }
+
+    /**
+     * Fetch a public URL, following redirects one hop at a time with the
+     * public-address check applied to each destination, and enforcing a hard
+     * download-size cap so a single fetch cannot exhaust panel memory/disk.
+     *
+     * Returns the response, or null when the fetch failed or redirected to a
+     * non-public address.
+     */
+    private function followRedirects(string $url): ?Response
+    {
+        $target = $url;
+
+        for ($hops = 0; $hops <= self::MAX_REDIRECTS; $hops++) {
+            $response = Http::timeout(60)
+                ->connectTimeout(15)
+                ->withoutRedirecting()
+                ->withOptions(['stream' => true])
+                ->get($target);
+
+            if ($response->failed()) {
+                return null;
+            }
+
+            // Enforce the size cap before reading the body: stream the response
+            // and stop as soon as it exceeds the limit.
+            $body = '';
+            $stream = $response->toPsrResponse()->getBody();
+
+            while (! $stream->eof()) {
+                $chunk = $stream->read(65536);
+
+                if ($chunk === '') {
+                    break;
+                }
+
+                $body .= $chunk;
+
+                if (strlen($body) > self::MAX_DOWNLOAD_BYTES) {
+                    return null;
+                }
+            }
+
+            if ($response->redirect()) {
+                $next = PublicHttpGuard::resolvePublicUrl(
+                    (string) $response->header('Location'),
+                    $target,
+                );
+
+                if ($next === null) {
+                    return null;
+                }
+
+                $target = $next;
+
+                continue;
+            }
+
+            // Re-wrap with the capped body so callers read the streamed bytes
+            // we already downloaded rather than re-reading the response.
+            $psr = $response->toPsrResponse();
+
+            return new Response(new GuzzleResponse(
+                $psr->getStatusCode(),
+                $psr->getHeaders(),
+                $body,
+                $psr->getProtocolVersion(),
+                $psr->getReasonPhrase(),
+            ));
         }
 
-        $body = $response->body();
-        $tempFile = tempnam(sys_get_temp_dir(), 'modpack_');
-
-        try {
-            file_put_contents($tempFile, $body);
-
-            $zip = new ZipArchive();
-            if ($zip->open($tempFile) !== true) {
-                throw new DisplayException('The downloaded file is not a valid zip archive.');
-            }
-
-            $manifest = null;
-            $format = null;
-
-            if (($content = $zip->getFromName('modrinth.index.json')) !== false) {
-                $manifest = json_decode($content, true);
-                if (! is_array($manifest)) {
-                    throw new DisplayException('Invalid modrinth.index.json in modpack.');
-                }
-                $format = 'modrinth';
-            } elseif (($content = $zip->getFromName('manifest.json')) !== false) {
-                $manifest = json_decode($content, true);
-                if (! is_array($manifest)) {
-                    throw new DisplayException('Invalid manifest.json in modpack.');
-                }
-
-                $type = $manifest['manifestType'] ?? '';
-                if ($type !== 'minecraftModpack') {
-                    throw new DisplayException('Unsupported manifest type: "'.$type.'". Only Minecraft modpacks are supported.');
-                }
-
-                $format = 'curseforge';
-            } else {
-                throw new DisplayException('No modpack manifest found in the archive. Expected modrinth.index.json or manifest.json at the zip root.');
-            }
-
-            $zip->close();
-
-            $parsedMods = $format === 'modrinth'
-                ? $this->parseModrinthManifest($manifest)
-                : $this->parseCurseForgeManifest($manifest);
-
-            $name = $manifest['name'] ?? basename(parse_url($url, PHP_URL_PATH));
-
-            return [
-                'format' => $format,
-                'name' => $name,
-                'mods' => $parsedMods,
-            ];
-        } finally {
-            if (file_exists($tempFile)) {
-                @unlink($tempFile);
-            }
-        }
+        return null;
     }
 
     /**

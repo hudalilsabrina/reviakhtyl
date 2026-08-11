@@ -2,9 +2,11 @@
 
 namespace App\Repositories\Agent;
 
+use App\Exceptions\DisplayException;
 use App\Exceptions\Http\Connection\DaemonConnectionException;
 use App\Exceptions\Http\Server\FileSizeTooLargeException;
 use App\Models\Server;
+use App\Support\PublicHttpGuard;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\ServerException;
 use GuzzleHttp\Exception\TransferException;
@@ -313,6 +315,12 @@ class DaemonFileRepository extends DaemonRepository
     public function pull(string $url, ?string $directory, array $params = []): ResponseInterface
     {
         Assert::isInstanceOf($this->server, Server::class);
+
+        // SSRF guard: only public http(s) URLs are forwarded to Wings for
+        // download. Prevents pointing the node at private/internal hosts.
+        if (PublicHttpGuard::resolvePublicUrl($url) === null) {
+            throw new DisplayException('Only public http(s) URLs can be downloaded.');
+        }
 
         $attributes = [
             'url' => $url,

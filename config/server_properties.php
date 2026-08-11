@@ -108,15 +108,17 @@ return [
         'server-port' => ['group' => 'network', 'type' => 'int', 'default' => 25565, 'locked' => true],
         'query.port' => ['group' => 'network', 'type' => 'int', 'default' => 25565, 'locked' => true],
         'rcon.port' => ['group' => 'network', 'type' => 'int', 'default' => 25575, 'locked' => true],
-        'enable-query' => ['group' => 'network', 'type' => 'bool', 'default' => false],
-        'enable-rcon' => ['group' => 'network', 'type' => 'bool', 'default' => false],
-        'rcon.password' => ['group' => 'network', 'type' => 'string', 'default' => '', 'sensitive' => true],
-        'enable-status' => ['group' => 'network', 'type' => 'bool', 'default' => true],
+        'enable-query' => ['group' => 'network', 'type' => 'bool', 'default' => false, 'locked' => true],
+        'enable-rcon' => ['group' => 'network', 'type' => 'bool', 'default' => false, 'locked' => true],
+        'rcon.password' => ['group' => 'network', 'type' => 'string', 'default' => '', 'sensitive' => true, 'locked' => true],
+        'enable-status' => ['group' => 'network', 'type' => 'bool', 'default' => true, 'locked' => true],
         'accepts-transfers' => ['group' => 'network', 'type' => 'bool', 'default' => false],
         'rate-limit' => ['group' => 'network', 'type' => 'int', 'default' => 0, 'min' => 0],
 
         // Security
-        'online-mode' => ['group' => 'security', 'type' => 'bool', 'default' => true, 'warn' => true],
+        // online-mode is panel-managed: forcing it off lets an offline-mode
+        // server be impersonated by anyone holding its port.
+        'online-mode' => ['group' => 'security', 'type' => 'bool', 'default' => true, 'warn' => true, 'locked' => true],
         'enforce-secure-profile' => ['group' => 'security', 'type' => 'bool', 'default' => true],
         'prevent-proxy-connections' => ['group' => 'security', 'type' => 'bool', 'default' => false],
         'spawn-protection' => ['group' => 'security', 'type' => 'int', 'default' => 16, 'min' => 0],

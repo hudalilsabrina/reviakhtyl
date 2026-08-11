@@ -343,6 +343,33 @@ describe('updateRaw', function () {
         expect(fn () => $service->updateRaw(server(1), "bad\0content\n"))
             ->toThrow(DisplayException::class);
     });
+
+    it('strips locked properties so a raw overwrite cannot enable RCON', function () {
+        $definitions = [
+            'enable-rcon' => ['type' => 'bool', 'locked' => true],
+            'rcon.password' => ['type' => 'string', 'locked' => true],
+            'motd' => ['type' => 'string'],
+        ];
+        $service = propertiesService(['egg_ids' => [1]], [], $definitions);
+
+        $result = $service->updateRaw(
+            server(1),
+            "enable-rcon=true\nrcon.password=hunter2\nmotd=hello\n"
+        );
+
+        expect($result['raw'])->toBe("motd=hello\n");
+        expect($result['values'])->not->toHaveKey('enable-rcon')
+            ->not->toHaveKey('rcon.password');
+    });
+
+    it('preserves unknown keys through a raw overwrite', function () {
+        $service = propertiesService(['egg_ids' => [1]]);
+
+        $result = $service->updateRaw(server(1), "custom-key=value\n");
+
+        expect($result['raw'])->toBe("custom-key=value\n");
+        expect($result['values']['custom-key'])->toBe('value');
+    });
 });
 
 describe('eulaAccepted', function () {

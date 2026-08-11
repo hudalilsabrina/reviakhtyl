@@ -54,7 +54,9 @@ class InstallModpackTool extends ModTool
 
     public function summarize(array $arguments): string
     {
-        return sprintf('Install modpack from "%s" onto this server', $arguments['url']);
+        $url = (string) ($arguments['url'] ?? '');
+
+        return sprintf('Install modpack from "%s" onto this server', $url);
     }
 
     public function handle(ToolContext $context, array $arguments): array

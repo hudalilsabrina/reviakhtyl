@@ -6,13 +6,20 @@ use App\Models\User;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\Files\EditFileTool;
+use App\Services\Security\FileScanResult;
+use App\Services\Security\FileScanService;
+use App\Services\Security\ScanVerdict;
 
 function editFileToolFixture(): array
 {
     $repository = Mockery::mock(DaemonFileRepository::class);
     $repository->shouldReceive('setServer')->andReturnSelf();
 
-    return [new EditFileTool($repository), $repository];
+    $scanService = Mockery::mock(FileScanService::class);
+    $scanService->shouldReceive('scanContent')->andReturn(new FileScanResult(ScanVerdict::Clean));
+    $scanService->shouldReceive('isStrict')->andReturn(false);
+
+    return [new EditFileTool($repository, $scanService), $repository];
 }
 
 function editFileContext(): ToolContext

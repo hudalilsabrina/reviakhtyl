@@ -7,6 +7,9 @@
         'approve' => __('admin/chatbot.ui.approve'),
         'deny' => __('admin/chatbot.ui.deny'),
         'waiting' => __('admin/chatbot.ui.waiting'),
+        'destructive' => __('admin/chatbot.ui.destructive'),
+        'destructiveInvalid' => __('admin/chatbot.ui.destructive_invalid'),
+        'destructivePlaceholder' => __('admin/chatbot.ui.destructive_placeholder'),
         'thinkingToggle' => __('admin/chatbot.ui.thinking_toggle'),
         'thinkingHide' => __('admin/chatbot.ui.thinking_hide'),
         'disabled' => __('admin/chatbot.ui.disabled'),
@@ -313,12 +316,29 @@
                                         class="flex items-center gap-2"
                                         :class="message.role === 'user' ? 'flex-row-reverse' : ''"
                                     >
+                                        {{-- Typed confirmation for destructive admin actions --}}
+                                        <div
+                                            x-show="pendingDestructiveVerb(message) !== null"
+                                            class="flex flex-col gap-1.5"
+                                            :class="message.role === 'user' ? 'items-end' : 'items-start'"
+                                        >
+                                            <span class="text-xs text-danger-600 dark:text-danger-400"
+                                                x-text="labels.destructive.replace(':verb', pendingDestructiveVerb(message))"
+                                            ></span>
+                                            <input
+                                                type="text"
+                                                x-model="confirmInputs[message.uuid]"
+                                                x-bind:placeholder="labels.destructivePlaceholder"
+                                                class="rounded-lg border border-danger-300 bg-white px-2.5 py-1 text-xs text-danger-700 focus:border-danger-500 focus:outline-none dark:border-danger-700 dark:bg-gray-800 dark:text-danger-300"
+                                            />
+                                        </div>
+
                                         <x-filament::button
                                             color="success"
                                             size="sm"
                                             icon="tabler-check"
                                             x-on:click="decide(message, allPendingIds(message), true)"
-                                            x-bind:disabled="busy"
+                                            x-bind:disabled="busy || !confirmOk(message)"
                                         >
                                             <span x-text="labels.approve"></span>
                                         </x-filament::button>
@@ -597,14 +617,45 @@
                         .map((call) => call.id);
                 },
 
+                // Administrative tools that permanently change the panel. Their
+                // Approve button additionally requires typing a confirmation verb.
+                destructiveVerbs: {
+                    'delete_server': 'delete server',
+                    'delete_user': 'delete user',
+                    'create_server': 'create server',
+                    'create_user': 'create user',
+                },
+
+                confirmInputs: {},
+
+                isDestructiveCall(call) {
+                    return this.destructiveVerbs[call?.name] !== undefined;
+                },
+
+                pendingDestructiveVerb(message) {
+                    const call = (message.tool_calls || []).find((c) => c.status === 'pending' && this.isDestructiveCall(c));
+                    return call ? this.destructiveVerbs[call.name] : null;
+                },
+
+                confirmOk(message) {
+                    const verb = this.pendingDestructiveVerb(message);
+                    if (verb === null) return true;
+                    return (this.confirmInputs[message.uuid] || '').trim().toLowerCase() === verb;
+                },
+
                 async decide(message, callIds, approved) {
                     if (this.busy || callIds.length === 0) return;
+                    if (approved && !this.confirmOk(message)) {
+                        this.alert(this.labels.destructiveInvalid);
+                        return;
+                    }
                     this.busy = true;
 
                     try {
                         await this.stream(`/admin/chat/conversations/${this.activeUuid}/confirm/stream`, {
                             message_uuid: message.uuid,
                             decisions: callIds.map((id) => ({ id, approved })),
+                            confirmation: approved ? (this.confirmInputs[message.uuid] || '') : '',
                         });
                     } catch (error) {
                         this.alert(error.message || this.labels.error);

@@ -24,6 +24,7 @@ class FileScanService
         private ?ProcessRunner $processRunner = null,
         private ?string $binary = null,
         private ?int $maxSize = null,
+        private ?bool $strict = null,
         private bool $enabled = true,
     ) {
         if ($this->binary !== null && $this->processRunner === null) {
@@ -60,8 +61,13 @@ class FileScanService
             return new FileScanResult(ScanVerdict::Clean);
         }
 
-        if (preg_match('/(?:(\S+)\s+FOUND|FOUND\s+(\S+))/', $output, $m)) {
-            $signature = $m[1] !== '' ? $m[1] : $m[2];
+        // ClamAV emits either "file: SignatureName FOUND" or "file: FOUND
+        // SignatureName". Capture the signature on either side of FOUND,
+        // preferring the token after FOUND so a leading "file:" path is never
+        // mistaken for a signature.
+        if (preg_match('/FOUND\s+(\S+)/', $output, $m)
+            || preg_match('/(\S+)\s+FOUND(?:$|\s)/', $output, $m)) {
+            $signature = $m[1];
             $this->logInfected($filePath, $signature);
 
             return new FileScanResult(ScanVerdict::Infected, $signature, $output);
@@ -94,25 +100,33 @@ class FileScanService
             return false;
         }
 
-        if ((bool) config('panel.file_scan.enabled', false)) {
-            return true;
+        $configured = $this->settings->get('settings::panel:file_scan:enabled', null);
+
+        if ($configured !== null) {
+            return $this->truthy($configured);
         }
 
-        return $this->truthy($this->settings->get('settings::panel:file_scan:enabled', false));
+        return (bool) config('panel.file_scan.enabled', false);
     }
 
     /**
      * Whether scanner errors should fail closed (block the file) instead of
-     * passing the file through. Reads the strict flag from the env/config or
-     * the panel settings.
+     * passing the file through. An explicitly constructed strict value wins;
+     * otherwise the panel setting is read, falling back to the env config.
      */
     public function isStrict(): bool
     {
-        if ((bool) config('panel.file_scan.strict', false)) {
-            return true;
+        if ($this->strict !== null) {
+            return $this->strict;
         }
 
-        return $this->truthy($this->settings->get('settings::panel:file_scan:strict', false));
+        $configured = $this->settings->get('settings::panel:file_scan:strict', null);
+
+        if ($configured !== null) {
+            return $this->truthy($configured);
+        }
+
+        return (bool) config('panel.file_scan.strict', false);
     }
 
     /**

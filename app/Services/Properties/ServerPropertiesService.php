@@ -162,6 +162,27 @@ class ServerPropertiesService
             throw new DisplayException('The properties file may not contain null bytes.');
         }
 
+        // Locked properties are panel-managed (see the locked flag in
+        // config/server_properties.php). Strip them from the raw content so a
+        // full-file overwrite cannot set RCON, disable online-mode, etc.
+        $nodes = $this->parse($content);
+        $definitions = $this->definitions();
+        $filtered = [];
+
+        foreach ($nodes as $node) {
+            if ($node['type'] === 'entry') {
+                $definition = $definitions[$node['key']] ?? null;
+
+                if ($definition && ($definition['locked'] ?? false)) {
+                    continue;
+                }
+            }
+
+            $filtered[] = $node;
+        }
+
+        $content = $this->renderRaw($filtered);
+
         $this->fileRepository->setServer($server)->putContent(self::FILE, $content);
 
         return [
@@ -169,6 +190,26 @@ class ServerPropertiesService
             'raw' => $content,
             'values' => $this->values($this->parse($content)),
         ];
+    }
+
+    /**
+     * Rebuild a properties file from parsed nodes with no value changes,
+     * preserving comments and ordering. Used by updateRaw after filtering out
+     * locked entries.
+     *
+     * @param  array<int, array<string, mixed>>  $nodes
+     */
+    private function renderRaw(array $nodes): string
+    {
+        $out = [];
+
+        foreach ($nodes as $node) {
+            foreach ($node['source'] as $line) {
+                $out[] = $line;
+            }
+        }
+
+        return implode("\n", $out)."\n";
     }
 
     /**

@@ -3,14 +3,19 @@
 namespace App\Services\Chatbot\Tools\Files;
 
 use App\Enum\ChatbotToolGroup;
+use App\Exceptions\DisplayException;
 use App\Models\Permission;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
+use App\Services\Security\FileScanService;
 
 class WriteFileTool extends ChatbotTool
 {
-    public function __construct(private DaemonFileRepository $repository) {}
+    public function __construct(
+        private DaemonFileRepository $repository,
+        private FileScanService $fileScanService,
+    ) {}
 
     public function name(): string
     {
@@ -87,13 +92,28 @@ class WriteFileTool extends ChatbotTool
 
     public function handle(ToolContext $context, array $arguments): array
     {
+        $path = $arguments['path'];
+        $content = $arguments['content'];
+
+        if (str_ends_with(strtolower($path), '.jar')) {
+            $scan = $this->fileScanService->scanContent($content, $path);
+
+            if ($scan->isInfected()) {
+                throw new DisplayException("File failed virus scan: {$scan->getSignature()}");
+            }
+
+            if ($scan->isError() && $this->fileScanService->isStrict()) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        }
+
         $this->repository
             ->setServer($context->server)
-            ->putContent($arguments['path'], $arguments['content']);
+            ->putContent($path, $content);
 
         return [
-            'path' => $arguments['path'],
-            'bytes_written' => strlen($arguments['content']),
+            'path' => $path,
+            'bytes_written' => strlen($content),
             'message' => 'The file was written. Restart the server if it needs to reload this file.',
         ];
     }

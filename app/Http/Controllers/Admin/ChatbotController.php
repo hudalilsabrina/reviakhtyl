@@ -199,6 +199,7 @@ class ChatbotController extends Controller
             'decisions' => 'required|array|min:1',
             'decisions.*.id' => 'required|string',
             'decisions.*.approved' => 'required|boolean',
+            'confirmation' => 'nullable|string|max:64',
         ]);
 
         $message = $conversation->messages()->where('uuid', $validated['message_uuid'])->first();
@@ -207,17 +208,66 @@ class ChatbotController extends Controller
             throw new NotFoundHttpException('The requested message was not found in this conversation.');
         }
 
+        $confirmation = trim(strtolower((string) ($validated['confirmation'] ?? '')));
+
         $decisions = [];
 
         foreach ($validated['decisions'] as $decision) {
             $id = (string) ($decision['id'] ?? '');
 
-            if ($id !== '') {
-                $decisions[$id] = (bool) ($decision['approved'] ?? false);
+            if ($id === '') {
+                continue;
+            }
+
+            $approved = (bool) ($decision['approved'] ?? false);
+            $decisions[$id] = $approved;
+
+            // Destructive admin tools must be confirmed by typing the tool's
+            // verb. This is enforced server-side so a direct API call cannot
+            // bypass the UI's typed-confirmation gate.
+            if ($approved && $this->isDestructiveCall($request, $message, $id)) {
+                $verb = $this->destructiveVerb($request, $message, $id);
+
+                if ($verb === null || $confirmation !== $verb) {
+                    throw new DisplayException('Destructive actions require typing the confirmation verb to approve.');
+                }
             }
         }
 
         return [$message, $decisions];
+    }
+
+    /**
+     * Whether the named pending call on the message is a destructive admin tool.
+     */
+    private function isDestructiveCall(Request $request, ChatbotMessage $message, string $callId): bool
+    {
+        return $this->destructiveVerb($request, $message, $callId) !== null;
+    }
+
+    /**
+     * The confirmation verb an admin must type to approve the given pending
+     * destructive call, or null when the call is not a destructive admin tool.
+     */
+    private function destructiveVerb(Request $request, ChatbotMessage $message, string $callId): ?string
+    {
+        foreach ($message->tool_calls ?? [] as $call) {
+            if ((string) ($call['id'] ?? '') !== $callId) {
+                continue;
+            }
+
+            $name = (string) ($call['name'] ?? '');
+
+            foreach ($this->service->adminToolsFor($request->user()) as $tool) {
+                if ($tool->name() === $name && $tool->isDestructive()) {
+                    return str_replace('_', ' ', $tool->name());
+                }
+            }
+
+            return null;
+        }
+
+        return null;
     }
 
     /**

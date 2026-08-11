@@ -8,6 +8,7 @@ use App\Models\Permission;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Chatbot\ToolContext;
 use App\Services\Chatbot\Tools\ChatbotTool;
+use App\Services\Security\FileScanService;
 
 class EditFileTool extends ChatbotTool
 {
@@ -17,7 +18,10 @@ class EditFileTool extends ChatbotTool
      */
     private const MAX_BYTES = 200000;
 
-    public function __construct(private DaemonFileRepository $repository) {}
+    public function __construct(
+        private DaemonFileRepository $repository,
+        private FileScanService $fileScanService,
+    ) {}
 
     public function name(): string
     {
@@ -116,7 +120,21 @@ class EditFileTool extends ChatbotTool
         // ponytail: the read-modify-write here is not atomic — Wings has no
         // compare-and-swap, so a concurrent editor could be clobbered. Same
         // ceiling as write_file; upgrade only if Wings gains conditional writes.
-        $repository->putContent($path, substr_replace($content, $new, strpos($content, $old), strlen($old)));
+        $updated = substr_replace($content, $new, strpos($content, $old), strlen($old));
+
+        if (str_ends_with(strtolower($path), '.jar')) {
+            $scan = $this->fileScanService->scanContent($updated, $path);
+
+            if ($scan->isInfected()) {
+                throw new DisplayException("File failed virus scan: {$scan->getSignature()}");
+            }
+
+            if ($scan->isError() && $this->fileScanService->isStrict()) {
+                throw new DisplayException('File scanner error: '.$scan->getMessage());
+            }
+        }
+
+        $repository->putContent($path, $updated);
 
         return [
             'path' => $path,
