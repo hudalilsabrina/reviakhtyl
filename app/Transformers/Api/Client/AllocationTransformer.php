@@ -16,13 +16,17 @@ class AllocationTransformer extends BaseClientTransformer
 
     public function transform(Allocation $model): array
     {
+        // The server relation can be null (allocation with server_id = null, e.g. an
+        // unassigned port or legacy data), so guard the primary check.
+        $isDefault = $model->server !== null && $model->server->allocation_id === $model->id;
+
         return [
             'id' => $model->id,
             'ip' => $model->ip,
             'ip_alias' => $model->ip_alias,
             'port' => $model->port,
             'notes' => $model->notes,
-            'is_default' => $model->server->allocation_id === $model->id,
+            'is_default' => $isDefault,
         ];
     }
 }

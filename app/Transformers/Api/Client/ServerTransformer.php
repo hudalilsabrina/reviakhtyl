@@ -172,7 +172,11 @@ class ServerTransformer extends BaseClientTransformer
         // so $server->allocations alone can omit it. Always include the primary.
         $allocations = $server->allocations->keyBy('id');
         if ($server->allocation !== null) {
-            $allocations->put($server->allocation->id, $server->allocation);
+            $primary = $server->allocation;
+            // Bind the server relation so AllocationTransformer can compute
+            // is_default even when the row's server_id is null.
+            $primary->setRelation('server', $server);
+            $allocations->put($primary->id, $primary);
         }
 
         return $this->collection($allocations, $transformer, Allocation::RESOURCE_NAME);
