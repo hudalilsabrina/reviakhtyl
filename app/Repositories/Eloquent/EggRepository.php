@@ -67,7 +67,7 @@ class EggRepository extends EloquentRepository implements EggRepositoryInterface
     public function getWithExportAttributes(int $id): Egg
     {
         try {
-            return $this->getBuilder()->with('scriptFrom', 'configFrom', 'variables')->findOrFail($id, $this->getColumns());
+            return $this->getBuilder()->with('scriptFrom', 'configFrom', 'variables', 'startupParts')->findOrFail($id, $this->getColumns());
         } catch (ModelNotFoundException) {
             throw new RecordNotFoundException();
         }

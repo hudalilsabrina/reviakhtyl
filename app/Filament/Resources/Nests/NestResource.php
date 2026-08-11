@@ -10,6 +10,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -121,11 +122,36 @@ class NestResource extends Resource
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->before(function ($record, $action) {
+                        if ($record->servers()->count() > 0) {
+                            Notification::make()
+                                ->title(trans('admin/nests.notices.cannot_delete'))
+                                ->body(trans('admin/nests.notices.cannot_delete_body', ['count' => $record->servers()->count()]))
+                                ->danger()
+                                ->send();
+
+                            $action->cancel();
+                        }
+                    }),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->before(function ($records) {
+                            $protectedCount = $records->filter(fn ($record) => $record->servers()->count() > 0)->count();
+                            if ($protectedCount > 0) {
+                                Notification::make()
+                                    ->title(trans('admin/nests.notices.cannot_delete'))
+                                    ->body(trans('admin/nests.notices.cannot_delete_body', ['count' => $protectedCount]))
+                                    ->warning()
+                                    ->send();
+                            }
+                        })
+                        ->action(function ($records) {
+                            $deletable = $records->filter(fn ($record) => $record->servers()->count() === 0);
+                            $deletable->each->delete();
+                        }),
                 ]),
             ]);
     }
