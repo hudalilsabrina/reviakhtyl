@@ -25,16 +25,20 @@ class ExpireServersCommand extends Command
         $now = now();
         $gracePeriodEnd = $now->copy()->subDays(3);
 
-        // Suspend servers that expired recently (within grace period)
-        // Only suspend servers that are not already suspended
+        // Suspend servers that expired recently (within grace period). Servers
+        // still installing or being transferred are skipped — deleting or
+        // suspending them mid-flight would corrupt the daemon operation.
         $expiredServers = Server::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', $now)
             ->where('expires_at', '>', $gracePeriodEnd)
-            ->where(function ($query) {
-                $query->whereNull('status')
-                    ->orWhere('status', '!=', Server::STATUS_SUSPENDED);
-            })
+            ->where(fn ($query) => $query->whereNull('status')->orWhere('status', '!=', Server::STATUS_SUSPENDED))
+            ->where(fn ($query) => $query->whereNotIn('status', [
+                Server::STATUS_INSTALLING,
+                Server::STATUS_INSTALL_FAILED,
+                Server::STATUS_RESTORING_BACKUP,
+            ]))
+            ->whereDoesntHave('transfer')
             ->get();
 
         foreach ($expiredServers as $server) {
@@ -46,10 +50,19 @@ class ExpireServersCommand extends Command
             }
         }
 
-        // Delete servers past grace period (regardless of status)
+        // Delete servers past grace period. Only delete servers that were already
+        // suspended — a server whose grace period lapsed while the cron was down
+        // (or was set far in the past) is suspended on this run and deleted on the
+        // next, instead of being destroyed without ever entering the suspended
+        // state. Still skip installing/transferring servers.
         $serversToDelete = Server::query()
             ->whereNotNull('expires_at')
             ->where('expires_at', '<=', $gracePeriodEnd)
+            // Only already-suspended servers are deleted, so a server that was
+            // never suspended (cron down, expiry set in the past) is suspended on
+            // this run and deleted on the next — never destroyed without warning.
+            ->where('status', Server::STATUS_SUSPENDED)
+            ->whereDoesntHave('transfer')
             ->get();
 
         foreach ($serversToDelete as $server) {
