@@ -30,6 +30,7 @@ return [
         'backups' => 'Backups',
         'plugins' => 'Plugins',
         'mods' => 'Mods',
+        'modpacks' => 'Modpacks',
         'datapacks' => 'Datapacks',
         'splitter' => 'Splitter',
         'users' => 'Users',

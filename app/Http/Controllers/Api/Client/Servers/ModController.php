@@ -8,7 +8,6 @@ use App\Http\Controllers\Api\Client\ClientApiController;
 use App\Http\Requests\Api\Client\Servers\Mods\BulkDeleteModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\BulkUpdateModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\DeleteModRequest;
-use App\Http\Requests\Api\Client\Servers\Mods\InstallModpackRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\InstallModRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\SearchModsRequest;
 use App\Http\Requests\Api\Client\Servers\Mods\ToggleModRequest;
@@ -19,7 +18,6 @@ use App\Models\ServerMod;
 use App\Repositories\Agent\DaemonFileRepository;
 use App\Services\Mods\ModJarService;
 use App\Services\Mods\ModManagerService;
-use App\Services\Mods\ModpackManagerService;
 use App\Transformers\Api\Client\ServerModTransformer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -28,7 +26,7 @@ class ModController extends ClientApiController
 {
     use ScansRemoteJars;
 
-    public function __construct(private ModManagerService $manager, private ModJarService $jars, private ModpackManagerService $modpackManager)
+    public function __construct(private ModManagerService $manager, private ModJarService $jars)
     {
         parent::__construct();
     }
@@ -340,75 +338,6 @@ class ModController extends ClientApiController
         }
 
         return new JsonResponse($results);
-    }
-
-    public function modpack(InstallModpackRequest $request, Server $server): JsonResponse
-    {
-        $this->assertEnabled($server);
-
-        try {
-            $results = $this->modpackManager->installFromUrl($server, $request->input('url'));
-        } catch (DisplayException $e) {
-            throw $e;
-        } catch (\Exception $e) {
-            throw new DisplayException('Failed to install modpack: '.$e->getMessage());
-        }
-
-        $count = count($results['success']);
-
-        if ($count > 0) {
-            Activity::event('server:mod.modpack-install')
-                ->property('count', $count)
-                ->property('name', $results['name'])
-                ->log();
-        }
-
-        return new JsonResponse($results);
-    }
-
-    public function searchModpacks(SearchModsRequest $request, Server $server): array
-    {
-        $this->assertEnabled($server);
-
-        return $this->manager->searchModpacks(
-            $request->input('provider'),
-            $request->input('query', '') ?? '',
-            $this->manager->gameVersion($server),
-            $request->integer('limit', 20),
-            $request->integer('offset', 0),
-            $request->input('sort', 'relevance') ?? 'relevance',
-        );
-    }
-
-    public function modpackPreview(SearchModsRequest $request, Server $server): JsonResponse
-    {
-        $this->assertEnabled($server);
-        $request->validate(['project_id' => ['required', 'string', 'max:128']]);
-
-        $provider = $request->input('provider');
-        $downloadUrl = $this->manager->resolveModpackDownloadUrl(
-            $provider,
-            $request->input('project_id'),
-            $this->manager->loaders($server),
-            $this->manager->gameVersion($server),
-        );
-
-        if (! $downloadUrl) {
-            throw new DisplayException('No compatible modpack file found for this server.');
-        }
-
-        try {
-            $manifest = $this->modpackManager->parseManifest($downloadUrl);
-        } catch (\Exception $e) {
-            throw new DisplayException('Failed to parse modpack: '.$e->getMessage());
-        }
-
-        return new JsonResponse([
-            'name' => $manifest['name'],
-            'format' => $manifest['format'],
-            'mods' => $manifest['mods'],
-            'download_url' => $downloadUrl,
-        ]);
     }
 
     public function bulkDestroy(BulkDeleteModsRequest $request, Server $server): JsonResponse

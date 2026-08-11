@@ -19,17 +19,12 @@ import {
     getModVersions,
     getServerMods,
     installMod,
-    installModpack,
     linkMod,
     ModDependency,
     ModHit,
-    ModpackHit,
-    ModpackInstallResult,
     ModProvider,
     ModSort,
     ModVersion,
-    previewModpack,
-    searchModpacks,
     searchMods,
     ServerMod,
     toggleMod,
@@ -130,7 +125,7 @@ const ModsContainer = () => {
         (actions: Actions<ApplicationStore>) => actions.flashes
     );
 
-    const [tab, setTab] = useState<'installed' | 'browse' | 'modpacks'>('browse');
+    const [tab, setTab] = useState<'installed' | 'browse'>('browse');
     const [loading, setLoading] = useState(true);
     const [mods, setMods] = useState<ServerMod[]>([]);
     const [gameVersion, setGameVersion] = useState<string | null>(null);
@@ -159,13 +154,6 @@ const ModsContainer = () => {
         progress: number;
         total: number;
     } | null>(null);
-    const [modpackUrl, setModpackUrl] = useState('');
-    const [modpackInstalling, setModpackInstalling] = useState(false);
-    const [modpackResult, setModpackResult] = useState<ModpackInstallResult | null>(null);
-    const [showModpackModal, setShowModpackModal] = useState(false);
-    const [modpackHits, setModpackHits] = useState<ModpackHit[]>([]);
-    const [modpackTotal, setModpackTotal] = useState(0);
-    const [modpackSearching, setModpackSearching] = useState(false);
     const searchId = useRef(0);
     const progressWidth = useProgress(!!installing && installing.step < 3);
 
@@ -215,34 +203,6 @@ const ModsContainer = () => {
             .then(setUntracked)
             .catch(() => setUntracked([]));
     }, [tab]);
-
-    useEffect(() => {
-        if (tab !== 'modpacks') return;
-        setModpackSearching(true);
-        const timer = setTimeout(() => {
-            setModpackSearching(true);
-            searchModpacks(uuid, provider, query, 0, sort)
-                .then((data) => {
-                    setModpackHits(data.hits);
-                    setModpackTotal(data.total);
-                })
-                .catch(() => setModpackHits([]))
-                .finally(() => setModpackSearching(false));
-        }, 350);
-
-        return () => clearTimeout(timer);
-    }, [tab, provider, sort, query]);
-
-    const doModpackSearch = (offset = 0) => {
-        setModpackSearching(true);
-        searchModpacks(uuid, provider, query, offset, sort)
-            .then((data) => {
-                setModpackHits(offset === 0 ? data.hits : (prev) => [...prev, ...data.hits]);
-                setModpackTotal(data.total);
-            })
-            .catch(() => {})
-            .finally(() => setModpackSearching(false));
-    };
 
     const track = (jar: UntrackedJar) => {
         setBusy(`track:${jar.file_name}`);
@@ -643,36 +603,6 @@ const ModsContainer = () => {
             .finally(() => setBulkOperation(null));
     };
 
-    const doModpackInstall = () => {
-        if (!modpackUrl.trim()) return;
-        setModpackInstalling(true);
-        setModpackResult(null);
-        clearFlashes('server:mods');
-        installModpack(uuid, modpackUrl.trim())
-            .then((result) => {
-                setModpackResult(result);
-                getServerMods(uuid)
-                    .then((data) => setMods(data.mods))
-                    .catch(() => {});
-                if (result.success.length > 0) {
-                    addFlash({
-                        type: 'success',
-                        key: 'server:mods',
-                        message: t('modpack_success', { name: result.name, count: result.success.length }) ?? '',
-                    });
-                }
-                if (result.failed.length > 0) {
-                    addFlash({
-                        type: 'error',
-                        key: 'server:mods',
-                        message: t('modpack_failed', { count: result.failed.length }) ?? '',
-                    });
-                }
-            })
-            .catch((error) => addError({ key: 'server:mods', message: httpErrorToHuman(error) }))
-            .finally(() => setModpackInstalling(false));
-    };
-
     const tabButtonCss = (active: boolean) => css`
         ${tw`px-4 py-2 text-sm font-semibold rounded-ui transition-colors duration-150 border-b-2 -mb-px rounded-b-none`}
         ${active
@@ -877,79 +807,6 @@ const ModsContainer = () => {
                 )}
             </Modal>
 
-            <Modal visible={showModpackModal} onDismissed={() => setShowModpackModal(false)} size={'md'}>
-                <h2 css={tw`text-xl sm:text-2xl mb-1`}>Install Modpack</h2>
-                <p css={tw`text-sm text-gray-400 mb-4 sm:mb-6`}>
-                    Paste a URL to a Modrinth (.mrpack) or CurseForge modpack zip. All compatible mods in the pack will
-                    be installed.
-                </p>
-                {modpackResult ? (
-                    <div css={tw`space-y-3`}>
-                        <div css={tw`flex items-center gap-2`}>
-                            <Badge $variant={'provider'}>{modpackResult.format}</Badge>
-                            <span css={tw`text-sm text-gray-200`}>{modpackResult.name}</span>
-                        </div>
-                        {modpackResult.success.length > 0 && (
-                            <div>
-                                <p css={tw`text-xs font-semibold text-green-400 mb-1.5`}>
-                                    Installed ({modpackResult.success.length})
-                                </p>
-                                <div css={tw`max-h-40 overflow-y-auto space-y-1`}>
-                                    {modpackResult.success.map((m) => (
-                                        <div
-                                            key={m.project_id}
-                                            css={tw`flex items-center gap-1.5 text-xs text-gray-300`}
-                                        >
-                                            <FaCheck style={{ color: '#4ade80', fontSize: '10px', flexShrink: 0 }} />
-                                            <span css={tw`truncate`}>{m.title}</span>
-                                            <span css={tw`text-gray-500 font-mono flex-shrink-0`}>{m.version}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        {modpackResult.failed.length > 0 && (
-                            <div>
-                                <p css={tw`text-xs font-semibold text-red-400 mb-1.5`}>
-                                    Failed ({modpackResult.failed.length})
-                                </p>
-                                <div css={tw`max-h-40 overflow-y-auto space-y-1`}>
-                                    {modpackResult.failed.map((m, i) => (
-                                        <div key={i} css={tw`text-xs text-red-300/80`}>
-                                            {m.project_id ?? 'unknown'}: {m.error}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                        <Button
-                            variant={Button.Variants.Secondary}
-                            onClick={() => setShowModpackModal(false)}
-                            css={tw`w-full mt-2`}
-                        >
-                            Close
-                        </Button>
-                    </div>
-                ) : (
-                    <>
-                        <input
-                            value={modpackUrl}
-                            onChange={(e) => setModpackUrl(e.target.value)}
-                            placeholder={'https://example.com/modpack.mrpack'}
-                            css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors mb-4`}
-                            onKeyDown={(e) => e.key === 'Enter' && doModpackInstall()}
-                        />
-                        <Button
-                            onClick={doModpackInstall}
-                            disabled={modpackInstalling || !modpackUrl.trim()}
-                            css={tw`w-full`}
-                        >
-                            {modpackInstalling ? <Spinner size={'small'} /> : 'Install Modpack'}
-                        </Button>
-                    </>
-                )}
-            </Modal>
-
             <div css={tw`flex items-end justify-between border-b border-gray-700 mb-4 flex-wrap gap-2`}>
                 <div css={tw`flex items-end gap-2`}>
                     <button css={tabButtonCss(tab === 'browse')} onClick={() => setTab('browse')}>
@@ -957,22 +814,6 @@ const ModsContainer = () => {
                     </button>
                     <button css={tabButtonCss(tab === 'installed')} onClick={() => setTab('installed')}>
                         {t('installed')} ({mods.length})
-                    </button>
-                    <Button
-                        size={Button.Sizes.Small}
-                        variant={Button.Variants.Secondary}
-                        onClick={() => {
-                            setShowModpackModal(true);
-                            setModpackResult(null);
-                            setModpackUrl('');
-                        }}
-                        css={tw`mb-px`}
-                    >
-                        <FaDownload css={tw`inline mr-1 -mt-0.5`} />
-                        Modpack URL
-                    </Button>
-                    <button css={tabButtonCss(tab === 'modpacks')} onClick={() => setTab('modpacks')}>
-                        Browse Modpacks
                     </button>
                 </div>
                 {gameVersion && (
@@ -1164,129 +1005,6 @@ const ModsContainer = () => {
                                 ))}
                             </div>
                         </>
-                    )}
-                </>
-            ) : tab === 'modpacks' ? (
-                <>
-                    <form
-                        css={tw`flex flex-wrap gap-2 mb-4`}
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            doModpackSearch(0);
-                        }}
-                    >
-                        <div css={tw`relative flex-1 flex items-center`} style={{ minWidth: '200px' }}>
-                            <FaMagnifyingGlass
-                                css={tw`absolute left-3 text-gray-500 text-sm pointer-events-none`}
-                                style={{ top: '50%', transform: 'translateY(-50%)' }}
-                            />
-                            <input
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                placeholder={'Search modpacks...'}
-                                css={tw`w-full bg-gray-900 border border-gray-700 rounded-ui pl-9 pr-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-reviactyl focus:outline-none transition-colors`}
-                            />
-                        </div>
-                        <div css={tw`flex gap-2 w-full sm:w-auto`}>
-                            <Select
-                                value={provider}
-                                onChange={(e) => setProvider(e.target.value as ModProvider)}
-                                css={tw`flex-1 sm:flex-none sm:w-40`}
-                            >
-                                <option value={'modrinth'}>Modrinth</option>
-                                <option value={'curseforge'}>CurseForge</option>
-                            </Select>
-                            <Select
-                                value={sort}
-                                onChange={(e) => setSort(e.target.value as ModSort)}
-                                css={tw`flex-1 sm:flex-none sm:w-32`}
-                            >
-                                <option value={'relevance'}>{t('sort_relevance')}</option>
-                                <option value={'downloads'}>{t('sort_downloads')}</option>
-                                <option value={'updated'}>{t('sort_updated')}</option>
-                            </Select>
-                            <Button type={'submit'} disabled={modpackSearching}>
-                                {modpackSearching ? <Spinner size={'small'} /> : t('search')}
-                            </Button>
-                        </div>
-                    </form>
-
-                    {modpackSearching && modpackHits.length === 0 ? (
-                        <div css={tw`py-16`}>
-                            <Spinner centered />
-                        </div>
-                    ) : modpackHits.length === 0 ? (
-                        <div css={tw`text-center py-16 text-gray-500`}>
-                            <FaMagnifyingGlass css={tw`mx-auto text-3xl mb-3 text-gray-600`} />
-                            <p css={tw`text-sm`}>{t('no_results')}</p>
-                        </div>
-                    ) : (
-                        <div css={tw`grid grid-cols-1 lg:grid-cols-2 gap-3`}>
-                            {modpackHits.map((hit) => (
-                                <Card key={hit.id}>
-                                    <ModIcon url={hit.iconUrl} />
-                                    <div css={tw`flex-1 min-w-0`}>
-                                        <div css={tw`flex items-center gap-2 flex-wrap`}>
-                                            <h3 css={tw`text-sm font-semibold text-gray-100 truncate`}>{hit.title}</h3>
-                                        </div>
-                                        <p css={tw`text-xs text-gray-500 mt-0.5 flex items-center gap-2`}>
-                                            {hit.author && <span>{t('by', { author: hit.author })}</span>}
-                                            <span css={tw`inline-flex items-center gap-1`}>
-                                                <FaDownload css={tw`text-[10px]`} />
-                                                {hit.downloads.toLocaleString()}
-                                            </span>
-                                        </p>
-                                        <p
-                                            css={tw`text-xs text-gray-400 mt-1 overflow-hidden`}
-                                            style={{
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: 2,
-                                                WebkitBoxOrient: 'vertical',
-                                            }}
-                                        >
-                                            {hit.description}
-                                        </p>
-                                        <div css={tw`mt-3 flex gap-2`}>
-                                            <Button.Success
-                                                size={Button.Sizes.Small}
-                                                disabled={!!busy || modpackSearching}
-                                                onClick={() => {
-                                                    previewModpack(uuid, provider, hit.id)
-                                                        .then((data) => {
-                                                            if (data.download_url) {
-                                                                setModpackUrl(data.download_url);
-                                                                setShowModpackModal(true);
-                                                                setModpackResult(null);
-                                                            }
-                                                        })
-                                                        .catch((error) =>
-                                                            addError({
-                                                                key: 'server:mods',
-                                                                message: httpErrorToHuman(error),
-                                                            })
-                                                        );
-                                                }}
-                                            >
-                                                <FaDownload css={tw`inline mr-1 -mt-0.5`} />
-                                                Install
-                                            </Button.Success>
-                                        </div>
-                                    </div>
-                                </Card>
-                            ))}
-                        </div>
-                    )}
-
-                    {modpackHits.length < modpackTotal && (
-                        <div css={tw`mt-6 text-center`}>
-                            <Button
-                                variant={Button.Variants.Secondary}
-                                disabled={modpackSearching}
-                                onClick={() => doModpackSearch(modpackHits.length)}
-                            >
-                                {modpackSearching ? <Spinner size={'small'} /> : t('load_more')}
-                            </Button>
-                        </div>
                     )}
                 </>
             ) : (

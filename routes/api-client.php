@@ -204,12 +204,15 @@ Route::group([
             ->post('/bulk/update', [Client\Servers\ModController::class, 'bulkUpdate']);
         Route::middleware('throttle:api.mods')
             ->delete('/bulk', [Client\Servers\ModController::class, 'bulkDestroy']);
-        Route::middleware('throttle:api.mods')
-            ->post('/modpack', [Client\Servers\ModController::class, 'modpack']);
-        Route::get('/modpacks/search', [Client\Servers\ModController::class, 'searchModpacks']);
-        Route::get('/modpacks/preview', [Client\Servers\ModController::class, 'modpackPreview']);
         Route::post('/{mod}/toggle', [Client\Servers\ModController::class, 'toggle']);
         Route::delete('/{mod}', [Client\Servers\ModController::class, 'destroy']);
+    });
+
+    Route::group(['prefix' => '/modpacks'], function () {
+        Route::get('/search', [Client\Servers\ModpackController::class, 'search']);
+        Route::get('/preview', [Client\Servers\ModpackController::class, 'preview']);
+        Route::middleware('throttle:api.mods')
+            ->post('/', [Client\Servers\ModpackController::class, 'install']);
     });
 
     Route::group(['prefix' => '/datapacks'], function () {

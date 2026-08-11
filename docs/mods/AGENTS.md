@@ -26,6 +26,8 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 - `POST /mods/bulk/update` — Update multiple mods (max 50), returns success/failed arrays
 - `DELETE /mods/bulk` — Delete multiple mods (max 50), returns success/failed arrays
 
+Modpack install is a **separate feature page** — see `docs/mods/AGENTS.md` below (Modpack Installer section) and `app/Http/Controllers/Api/Client/Servers/ModpackController.php`.
+
 **Model** (`app/Models/ServerMod`)
 - Table: `server_mods`
 - Unique: `(server_id, provider, project_id)`
@@ -35,7 +37,7 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 ### Frontend (React)
 
 **Component** (`resources/scripts/components/server/mods/ModsContainer.tsx`)
-- Single-file orchestrator (1100+ lines): search, install, update, toggle, delete, bulk operations
+- Single-file orchestrator: search, install, update, toggle, delete, bulk operations
 - Two-tab layout: Installed / Browse
 - Multi-provider search with sort/filters (relevance, downloads, updated)
 - Version picker modal with dependency resolution
@@ -48,6 +50,25 @@ Minecraft client-side mod manager with Modrinth integration. Browse, install, up
 **API Client** (`resources/scripts/api/server/mods/mods.ts`)
 - Typed interfaces: `ServerMod`, `ModHit`, `ModVersion`, `ModDependency`, `UntrackedJar`, `BulkOperationResult`
 - Functions: `getServerMods`, `searchMods`, `getModVersions`, `installMod`, `updateMod`, `deleteMod`, `toggleMod`, `linkMod`, `getUntrackedJars`, `registerJar`, `bulkUpdateMods`, `bulkDeleteMods`
+
+## Modpack Installer
+
+Modpack installation is a **separate feature page** (`/server/:id/modpacks`), not a tab inside Mods. It installs every compatible mod in a Modrinth `.mrpack` or CurseForge `manifest.json` zip as individual `server_mods` rows via `ModManagerService::install` (no modpack tracking table — a pack install is N mod installs).
+
+### Backend
+
+- `app/Services/Mods/ModpackManagerService.php` — download zip, parse manifest (`modrinth.index.json` / `manifest.json`), install mods with per-mod success/failure capture
+- `ModManagerService::searchModpacks()` / `::resolveModpackDownloadUrl()` — registry search + latest compatible pack file URL
+- `app/Http/Controllers/Api/Client/Servers/ModpackController.php` — `search`, `preview`, `install`; each asserts the `mods` egg feature
+- Routes: `/modpacks/search`, `/modpacks/preview`, `POST /modpacks` (throttled `api.mods`) in `routes/api-client.php`
+- Requests reuse `SearchModsRequest` / `InstallModpackRequest` (both `Permission::ACTION_MOD_MANAGE`)
+
+### Frontend
+
+- `resources/scripts/components/server/modpacks/ModpacksContainer.tsx` — search bar (query/provider/sort), result card grid, "Install from URL" button, install result modal (success/failed lists)
+- `resources/scripts/api/server/modpacks/modpacks.ts` — `searchModpacks`, `previewModpack`, `installModpack` + types
+- Route: `modpacks/*` in `resources/scripts/routers/routes.ts` (`permission: 'mod.*'`, `eggFeature: 'mods'`, icon `FaLayerGroup`)
+- Translations: `resources/lang/en/server/modpacks.php`; sidebar label `server.modpacks` in `routes.php`
 
 ## Features
 
@@ -274,7 +295,7 @@ No `tests/` directory exists. Manual test coverage:
 - **CurseForge support** — Second provider (API key required)
 - **Automatic update checks** — Background job scans for outdated mods
 - **Bulk operations** — Update/delete multiple mods at once
-- **Modpack import** — Install entire modpack from CurseForge/Modrinth manifest
+- **Modpack version tracking** — Track which mods belong to which installed pack (needs a new table; currently a pack install is N flat `server_mods` rows)
 - **Version history** — Rollback to previous versions
 - **Conflict detection** — Warn about incompatible mods before install
 - **Resource pack/shader pack support** — Extend to other Minecraft content types

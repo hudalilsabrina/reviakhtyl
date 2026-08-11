@@ -7,6 +7,7 @@ import UsersContainer from '@/components/server/users/UsersContainer';
 import BackupContainer from '@/components/server/backups/BackupContainer';
 import PluginsContainer from '@/components/server/plugins/PluginsContainer';
 import ModsContainer from '@/components/server/mods/ModsContainer';
+import ModpacksContainer from '@/components/server/modpacks/ModpacksContainer';
 import DatapacksContainer from '@/components/server/datapacks/DatapacksContainer';
 import SplitterContainer from '@/components/server/splitter/SplitterContainer';
 import NetworkContainer from '@/components/server/network/NetworkContainer';
@@ -40,6 +41,7 @@ import {
     FaCube,
     FaBoxOpen,
     FaPuzzlePiece,
+    FaLayerGroup,
     FaTelegram,
     FaTerminal,
     FaUser,
@@ -246,6 +248,14 @@ export default {
                 name: 'server.mods',
                 component: ModsContainer,
                 icon: FaCube,
+            },
+            {
+                route: 'modpacks/*',
+                permission: 'mod.*',
+                eggFeature: 'mods',
+                name: 'server.modpacks',
+                component: ModpacksContainer,
+                icon: FaLayerGroup,
             },
             {
                 route: 'datapacks/*',
